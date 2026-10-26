@@ -213,6 +213,7 @@ Everything a design tool's interaction needs is geometry and state in Rust:
 | Reorder a layer in its frame (model), 100k nodes   | < 2 µs                   | 0.61 µs       |
 | Insert 10k nodes in one transaction                | < 20 ms                  | 7.1 ms        |
 | Export / load 10k nodes as JSON                    | < 50 ms / < 50 ms        | 29 ms / 17 ms |
+| Load a flat 10k-node parent chain from JSON        | < 50 ms                  | —             |
 | Build the scene index from scratch, 100k nodes     | < 100 ms                 | 75 ms         |
 | Marquee select over 10k nodes                      | < 2 ms                   | 0.57 ms       |
 | Browser frame on WebGPU, 2k-node demo, p95         | < 8 ms                   | 1.0 ms        |

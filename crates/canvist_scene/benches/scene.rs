@@ -10,6 +10,7 @@ mod support;
 use canvist_scene::NodeId;
 use canvist_scene::Prop;
 use canvist_scene::Scene;
+use canvist_scene::SceneError;
 use divan::Bencher;
 use divan::black_box;
 use kurbo::Affine;
@@ -113,4 +114,33 @@ fn from_json(bencher: Bencher<'_, '_>, nodes: usize) {
 	let schema = support::schema();
 
 	bencher.bench_local(|| black_box(Scene::from_json(schema.clone(), 2, &json).expect("loads")));
+}
+
+/// Load a flat list whose parent links form a deep chain.
+#[divan::bench(args = [1_000, 5_000, 10_000])]
+fn from_json_parent_chain(bencher: Bencher<'_, '_>, nodes: u32) {
+	let json = support::parent_chain(nodes);
+	let schema = support::schema();
+
+	bencher.bench_local(|| {
+		let scene = Scene::from_json(schema.clone(), 2, &json).expect("loads");
+		assert_eq!(scene.len(), nodes as usize);
+		black_box(scene);
+	});
+}
+
+/// Reject a flat parent cycle with deterministic cycle attribution.
+#[divan::bench(args = [1_000, 5_000, 10_000])]
+fn from_json_parent_cycle(bencher: Bencher<'_, '_>, nodes: u32) {
+	let mut json = support::parent_chain(nodes);
+	let first = NodeId::new(1, nodes);
+	json["nodes"][nodes as usize - 1]["parent"] = serde_json::json!(first.to_string());
+	let schema = support::schema();
+
+	bencher.bench_local(|| {
+		assert_eq!(
+			black_box(Scene::from_json(schema.clone(), 2, &json)).err(),
+			Some(SceneError::Cycle(first))
+		);
+	});
 }

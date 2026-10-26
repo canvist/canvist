@@ -149,3 +149,21 @@ fn json_round_trip_10k_nodes() {
 		Duration::from_millis(50),
 	);
 }
+
+#[test]
+#[ignore = "release-mode performance budget; run with `test:perf`"]
+fn json_parent_chain_10k_nodes() {
+	let json = support::parent_chain(10_000);
+	let schema = support::schema();
+	let measured = median_per_call(1, || {
+		let scene = Scene::from_json(schema.clone(), 2, &json).expect("loads");
+		assert_eq!(scene.len(), 10_000);
+		std::hint::black_box(scene);
+	});
+
+	assert_within(
+		"load a 10k-node parent chain from JSON",
+		measured,
+		Duration::from_millis(50),
+	);
+}
