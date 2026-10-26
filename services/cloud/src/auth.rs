@@ -31,7 +31,7 @@ pub const MAX_TOKEN_SECONDS: u64 = 24 * 60 * 60;
 /// Random characters in an API key: 200 bits.
 const API_KEY_LENGTH: usize = 40;
 /// Clock skew tolerated when checking `exp`, in seconds.
-const LEEWAY_SECONDS: u64 = 5;
+pub(crate) const LEEWAY_SECONDS: u64 = 5;
 
 /// What a session may do with a document.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -63,6 +63,11 @@ pub struct Claims {
 }
 
 impl Claims {
+	/// The Unix second at which access ends, including clock skew tolerance.
+	fn expires_at(&self) -> u64 {
+		self.exp.saturating_add(LEEWAY_SECONDS)
+	}
+
 	/// Whether these claims cover the document `name`.
 	pub fn covers(&self, name: &DocumentName) -> bool {
 		match self.doc.strip_suffix('*') {
@@ -93,6 +98,15 @@ pub enum Access {
 }
 
 impl Principal {
+	/// When this principal's access ends, including clock skew tolerance.
+	/// API keys have no token expiry.
+	pub fn expires_at(&self) -> Option<u64> {
+		match &self.access {
+			Access::Key => None,
+			Access::Token(claims) => Some(claims.expires_at()),
+		}
+	}
+
 	/// The scope this principal has on document `name`, if any.
 	pub fn scope_for(&self, name: &DocumentName) -> Option<Scope> {
 		match &self.access {
@@ -214,7 +228,7 @@ impl TokenSigner {
 			.map_err(|_| AuthError::Invalid)?;
 		let claims: Claims = serde_json::from_slice(&payload).map_err(|_| AuthError::Invalid)?;
 
-		if claims.exp + LEEWAY_SECONDS <= now {
+		if claims.expires_at() <= now {
 			return Err(AuthError::Expired);
 		}
 
@@ -306,6 +320,30 @@ mod tests {
 		let signer = TokenSigner::new("0123456789abcdef0123456789abcdef");
 		let token = signer.sign(&claims("notes", 200));
 		assert_eq!(signer.verify(&token, 300), Err(AuthError::Expired));
+	}
+
+	#[test]
+	fn token_deadline_matches_verification_leeway() {
+		let signer = TokenSigner::new("0123456789abcdef0123456789abcdef");
+		let claims = claims("notes", 200);
+		let principal = Principal {
+			project: claims.prj.clone(),
+			environment: claims.env.clone(),
+			access: Access::Token(claims.clone()),
+		};
+		let deadline = principal.expires_at().expect("token expires");
+		let token = signer.sign(&claims);
+		assert_eq!(deadline, 205);
+		assert!(signer.verify(&token, deadline - 1).is_ok());
+		assert_eq!(signer.verify(&token, deadline), Err(AuthError::Expired));
+		assert_eq!(
+			Principal {
+				access: Access::Key,
+				..principal
+			}
+			.expires_at(),
+			None
+		);
 	}
 
 	#[test]

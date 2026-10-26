@@ -12,7 +12,6 @@
 //! ignored.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Instant;
 
 use axum::extract::State;
@@ -33,6 +32,7 @@ use yrs::updates::encoder::EncoderV1;
 
 use super::protocol;
 use super::room::Fanout;
+use super::session::Grant;
 use super::session::Reply;
 use super::session::Session;
 use super::socket;
@@ -44,7 +44,6 @@ use crate::auth::AuthError;
 use crate::auth::Scope;
 use crate::error::ApiError;
 use crate::metering::Admission;
-use crate::names::DocumentKey;
 use crate::names::DocumentName;
 
 /// Hocuspocus message types.
@@ -84,13 +83,6 @@ pub async fn connect(
 struct Open {
 	session: Session,
 	forward: JoinHandle<()>,
-}
-
-/// What a token grants for one document.
-struct Grant {
-	key: DocumentKey,
-	scope: Scope,
-	editor: Arc<str>,
 }
 
 /// A document authenticated but paused because its free plan is full.
@@ -136,7 +128,10 @@ async fn run(app: SharedApp, socket: WebSocket) {
 	let mut keepalive = tokio::time::interval(socket::KEEPALIVE_INTERVAL);
 
 	let end = loop {
+		let deadline = connection.deadline();
 		let step = tokio::select! {
+			biased;
+			() = socket::expired(deadline) => Err(Some(expired())),
 			frame = stream.next() => connection.incoming(frame).await,
 			Some(out) = inbox.recv() => connection.outgoing(out).await,
 			_ = ping.tick() => connection.ping().await,
@@ -149,20 +144,51 @@ async fn run(app: SharedApp, socket: WebSocket) {
 		}
 	};
 
-	if let Some((code, reason)) = end {
-		socket::close(&mut connection.sink, code, reason).await;
-	}
-
 	for (_, open) in connection.documents.drain() {
 		open.forward.abort();
 		open.session.leave();
+	}
+
+	if let Some((code, reason)) = end {
+		socket::close(&mut connection.sink, code, reason).await;
 	}
 }
 
 /// `Err(None)` ends the connection silently, `Err(Some(..))` closes it.
 type Step = Result<(), Option<(u16, &'static str)>>;
 
+fn expired() -> (u16, &'static str) {
+	(
+		codes::EXPIRED,
+		"token expired; reconnect with a fresh token",
+	)
+}
+
 impl Connection {
+	/// Closing the whole socket also discards queued frames for expired documents.
+	fn deadline(&self) -> Option<tokio::time::Instant> {
+		self.documents
+			.values()
+			.filter_map(|open| open.session.grant().expires_at)
+			.chain(
+				self.paused
+					.values()
+					.filter_map(|paused| paused.grant.expires_at),
+			)
+			.min()
+	}
+
+	fn check_expiry(&self) -> Step {
+		if self
+			.deadline()
+			.is_some_and(|deadline| deadline <= tokio::time::Instant::now())
+		{
+			return Err(Some(expired()));
+		}
+
+		Ok(())
+	}
+
 	async fn ping(&mut self) -> Step {
 		// Unauthenticated sockets get one ping interval to authenticate.
 		if self.documents.is_empty() && self.paused.is_empty() {
@@ -183,6 +209,7 @@ impl Connection {
 	}
 
 	async fn send(&mut self, frame: Vec<u8>) -> Step {
+		self.check_expiry()?;
 		self.liveness.sent();
 		socket::send(&mut self.sink, frame)
 			.await
@@ -191,6 +218,7 @@ impl Connection {
 	}
 
 	async fn incoming(&mut self, frame: Option<Result<Message, axum::Error>>) -> Step {
+		self.check_expiry()?;
 		self.liveness.seen();
 
 		let bytes = match frame {
@@ -228,6 +256,8 @@ impl Connection {
 	}
 
 	fn close_document(&mut self, address: &str) {
+		self.paused.remove(address);
+
 		if let Some(open) = self.documents.remove(address) {
 			open.forward.abort();
 			open.session.leave();
@@ -380,24 +410,41 @@ impl Connection {
 
 	/// Authenticate `token` for `address` and join its room.
 	async fn open(&mut self, address: &str, token: &str) -> Result<Scope, String> {
-		if let Some(open) = self.documents.get(address) {
-			return Ok(open.session.scope());
+		let grant = self.authorize(address, token).await?;
+		let scope = grant.scope;
+
+		if grant.is_expired() {
+			return Err(AuthError::Expired.to_string());
 		}
 
-		if let Some(paused) = self.paused.get(address) {
-			return Ok(paused.grant.scope);
+		if let Some(open) = self.documents.get_mut(address) {
+			open.session
+				.reauthorize(grant)
+				.map_err(|error| error.to_string())?;
+			return Ok(scope);
+		}
+
+		if let Some(paused) = self.paused.get_mut(address) {
+			if paused.grant.key != grant.key {
+				return Err(AuthError::Forbidden.to_string());
+			}
+
+			paused.grant = grant;
+			return Ok(scope);
 		}
 
 		if self.documents.len() + self.paused.len() >= MAX_DOCUMENTS {
 			return Err("too many documents on one connection".to_owned());
 		}
 
-		let grant = self.authorize(address, token).await?;
-		let scope = grant.scope;
 		let admission = self.app.admit(&grant.key).await.map_err(|error| {
 			tracing::error!(document = %grant.key, %error, "could not check usage");
 			"could not check usage".to_owned()
 		})?;
+
+		if grant.is_expired() {
+			return Err(AuthError::Expired.to_string());
+		}
 
 		if admission == Admission::Paused {
 			let paused = Paused {
@@ -419,13 +466,13 @@ impl Connection {
 			tracing::error!(document = %grant.key, %error, "could not load document");
 			"could not load the document".to_owned()
 		})?;
-		let session = Session::new(
-			room,
-			membership.peer,
-			grant.scope,
-			grant.editor,
-			socket::limits(&self.app),
-		);
+
+		if grant.is_expired() {
+			room.leave(membership.peer);
+			return Err(AuthError::Expired.to_string());
+		}
+
+		let session = Session::new(room, membership.peer, grant, socket::limits(&self.app));
 		let forward = tokio::spawn(forward(
 			address.to_owned(),
 			membership.peer,
@@ -446,17 +493,7 @@ impl Connection {
 			.await
 			.map_err(|_| AuthError::Invalid.to_string())?;
 		let name = DocumentName::parse(address).map_err(|error| error.to_string())?;
-		let scope = principal
-			.scope_for(&name)
-			.ok_or_else(|| AuthError::Forbidden.to_string())?;
-		let editor = Arc::from(principal.subject());
-		let key = DocumentKey {
-			project: principal.project,
-			environment: principal.environment,
-			name,
-		};
-
-		Ok(Grant { key, scope, editor })
+		Grant::new(&principal, name).map_err(|error| error.to_string())
 	}
 }
 

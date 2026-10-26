@@ -5,7 +5,11 @@
 //! frame the bytes.
 
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
+use tokio::time::Instant;
 use yrs::encoding::read::Cursor;
 use yrs::sync::Message;
 use yrs::sync::MessageReader;
@@ -17,7 +21,61 @@ use super::room::Limits;
 use super::room::PeerId;
 use super::room::Room;
 use super::validate::Rejected;
+use crate::auth::AuthError;
+use crate::auth::LEEWAY_SECONDS;
+use crate::auth::MAX_TOKEN_SECONDS;
+use crate::auth::Principal;
 use crate::auth::Scope;
+use crate::names::DocumentKey;
+use crate::names::DocumentName;
+
+/// Verified access to one document, shared by both transports.
+#[derive(Debug)]
+pub struct Grant {
+	/// The document this grant covers.
+	pub key: DocumentKey,
+	/// What the peer may do.
+	pub scope: Scope,
+	/// The token subject for logs and webhooks.
+	pub editor: Arc<str>,
+	/// The monotonic deadline, including token verification's clock skew tolerance.
+	pub expires_at: Option<Instant>,
+}
+
+impl Grant {
+	/// Bind a verified principal to a document and its remaining token lifetime.
+	pub fn new(principal: &Principal, name: DocumentName) -> Result<Self, AuthError> {
+		let scope = principal.scope_for(&name).ok_or(AuthError::Forbidden)?;
+		let now = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.unwrap_or_default();
+		let expires_at = principal.expires_at().map(|expiry| {
+			// Minted tokens live at most a day. Bound the timer even for a
+			// signed claim with an out-of-range Unix timestamp.
+			let remaining = Duration::from_secs(expiry)
+				.saturating_sub(now)
+				.min(Duration::from_secs(MAX_TOKEN_SECONDS + LEEWAY_SECONDS));
+			Instant::now() + remaining
+		});
+
+		Ok(Self {
+			key: DocumentKey {
+				project: principal.project.clone(),
+				environment: principal.environment.clone(),
+				name,
+			},
+			scope,
+			editor: Arc::from(principal.subject()),
+			expires_at,
+		})
+	}
+
+	/// Whether the token's lifetime has ended.
+	pub fn is_expired(&self) -> bool {
+		self.expires_at
+			.is_some_and(|deadline| deadline <= Instant::now())
+	}
+}
 
 /// What to send back to the peer that sent a message.
 #[derive(Debug, PartialEq, Eq)]
@@ -42,25 +100,17 @@ pub struct Malformed;
 pub struct Session {
 	room: Arc<Room>,
 	peer: PeerId,
-	scope: Scope,
-	editor: Arc<str>,
+	grant: Grant,
 	limits: Limits,
 }
 
 impl Session {
 	/// A session for `peer` in `room`.
-	pub fn new(
-		room: Arc<Room>,
-		peer: PeerId,
-		scope: Scope,
-		editor: Arc<str>,
-		limits: Limits,
-	) -> Self {
+	pub fn new(room: Arc<Room>, peer: PeerId, grant: Grant, limits: Limits) -> Self {
 		Self {
 			room,
 			peer,
-			scope,
-			editor,
+			grant,
 			limits,
 		}
 	}
@@ -75,9 +125,19 @@ impl Session {
 		self.peer
 	}
 
-	/// The scope the peer was granted.
-	pub fn scope(&self) -> Scope {
-		self.scope
+	/// The peer's current authorization.
+	pub fn grant(&self) -> &Grant {
+		&self.grant
+	}
+
+	/// Replace authorization without changing the room bound to this address.
+	pub fn reauthorize(&mut self, grant: Grant) -> Result<(), AuthError> {
+		if grant.key != self.grant.key {
+			return Err(AuthError::Forbidden);
+		}
+
+		self.grant = grant;
+		Ok(())
 	}
 
 	/// What the server sends when a y-websocket peer connects: its state
@@ -123,19 +183,19 @@ impl Session {
 	fn apply(&self, update: &[u8]) -> bool {
 		// Viewers answer sync step 1 like everyone else, so an answer with
 		// nothing new is accepted rather than refused as an edit.
-		let result = match self.scope {
+		let result = match self.grant.scope {
 			Scope::Read if is_empty_update(update) => return true,
 			Scope::Read => Err(Rejected::ReadOnly),
 			Scope::Write => {
 				self.room
-					.apply(Some(self.peer), &self.editor, update, self.limits)
+					.apply(Some(self.peer), &self.grant.editor, update, self.limits)
 			}
 		};
 
 		match result {
 			Ok(_) => true,
 			Err(rejected) => {
-				tracing::info!(document = %self.room.key(), editor = %self.editor, %rejected, "update refused");
+				tracing::info!(document = %self.room.key(), editor = %self.grant.editor, %rejected, "update refused");
 				false
 			}
 		}

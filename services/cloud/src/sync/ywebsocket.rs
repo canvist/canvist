@@ -6,8 +6,6 @@
 //! speaks first with its state vector and the room's presence, exactly as
 //! the reference y-websocket server does.
 
-use std::sync::Arc;
-
 use axum::extract::Path;
 use axum::extract::Query;
 use axum::extract::State;
@@ -25,6 +23,7 @@ use tokio::sync::watch;
 
 use super::protocol;
 use super::room::Fanout;
+use super::session::Grant;
 use super::session::Reply;
 use super::session::Session;
 use super::socket;
@@ -34,8 +33,6 @@ use super::socket::codes;
 use crate::app::SharedApp;
 use crate::auth;
 use crate::auth::AuthError;
-use crate::auth::Principal;
-use crate::auth::Scope;
 use crate::error::ApiError;
 use crate::metering::Admission;
 use crate::names::DocumentKey;
@@ -71,14 +68,8 @@ pub async fn connect(
 		.ok_or(AuthError::Missing)?;
 	let principal = app.authenticate(&credential).await?;
 	let name = DocumentName::parse(&document)?;
-	let scope = principal.scope_for(&name).ok_or(AuthError::Forbidden)?;
-	let key = DocumentKey {
-		project: principal.project.clone(),
-		environment: principal.environment.clone(),
-		name,
-	};
-	Ok(socket::configure(upgrade, &app)
-		.on_upgrade(move |socket| run(app, socket, key, principal, scope)))
+	let grant = Grant::new(&principal, name)?;
+	Ok(socket::configure(upgrade, &app).on_upgrade(move |socket| run(app, socket, grant)))
 }
 
 pub(super) fn shutting_down() -> ApiError {
@@ -89,37 +80,30 @@ pub(super) fn shutting_down() -> ApiError {
 	)
 }
 
-async fn run(
-	app: SharedApp,
-	socket: WebSocket,
-	key: DocumentKey,
-	principal: Principal,
-	scope: Scope,
-) {
+async fn run(app: SharedApp, socket: WebSocket, grant: Grant) {
 	let _alive = app.alive();
 	let (mut sink, mut stream) = socket.split();
 	let mut shutdown = app.shutdown();
-	let paused = match wait_for_admission(&app, &key, &mut sink, &mut stream, &mut shutdown).await {
+	let admitted = tokio::select! {
+		biased;
+		() = socket::expired(grant.expires_at) => Err(End::expired()),
+		result = wait_for_admission(&app, &grant.key, &mut sink, &mut stream, &mut shutdown) => result,
+	};
+	let paused = match admitted {
 		Ok(paused) => paused,
 		Err(end) => {
 			end.close(&mut sink).await;
 			return;
 		}
 	};
-	let joined = app.rooms.join(&key).await;
+	let joined = app.rooms.join(&grant.key).await;
 	let Ok((room, membership)) = joined.inspect_err(|error| {
-		tracing::error!(document = %key, %error, "could not load document");
+		tracing::error!(document = %grant.key, %error, "could not load document");
 	}) else {
 		socket::close(&mut sink, codes::INTERNAL, "could not load the document").await;
 		return;
 	};
-	let session = Session::new(
-		room,
-		membership.peer,
-		scope,
-		Arc::from(principal.subject()),
-		socket::limits(&app),
-	);
+	let session = Session::new(room, membership.peer, grant, socket::limits(&app));
 	let connection = Connection {
 		session,
 		sink,
@@ -212,6 +196,13 @@ enum End {
 }
 
 impl End {
+	fn expired() -> Self {
+		Self::Close(
+			codes::EXPIRED,
+			"token expired; reconnect with a fresh token",
+		)
+	}
+
 	async fn close(self, sink: &mut Sink) {
 		if let Self::Close(code, reason) = self {
 			socket::close(sink, code, reason).await;
@@ -229,13 +220,19 @@ impl Connection {
 		shutdown: watch::Receiver<bool>,
 		paused: bool,
 	) {
-		let end = match self.greet(paused).await {
-			Ok(()) => self.relay(stream, fanout, shutdown).await,
-			Err(end) => end,
+		let end = tokio::select! {
+			biased;
+			() = socket::expired(self.session.grant().expires_at) => End::expired(),
+			end = async {
+				match self.greet(paused).await {
+					Ok(()) => self.relay(stream, fanout, shutdown).await,
+					Err(end) => end,
+				}
+			} => end,
 		};
 
-		end.close(&mut self.sink).await;
 		self.session.leave();
+		end.close(&mut self.sink).await;
 	}
 
 	/// Send the room's state vector and presence. A session that was paused
