@@ -342,6 +342,7 @@ async fn set_webhook(
 ) -> Result<Json<JsonValue>, ApiError> {
 	let principal = app.server_principal(&headers).await?;
 	webhooks::validate_url(&request.url, app.config.sync.webhook_allow_private)
+		.await
 		.map_err(|error| ApiError::bad_request(error.to_string()))?;
 	let webhook = Webhook {
 		url: request.url,
