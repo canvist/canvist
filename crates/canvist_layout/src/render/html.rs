@@ -19,6 +19,7 @@ use canvist_model::InlineText;
 use canvist_model::Mark;
 use canvist_model::RunRef;
 use canvist_model::Value;
+use canvist_model::is_safe_link_url;
 
 use super::attribute;
 use super::escape_into;
@@ -50,10 +51,6 @@ use crate::theme::TableRole;
 use crate::theme::TextPatch;
 use crate::theme::TextStyle;
 use crate::theme::Theme;
-
-/// The link schemes [`is_safe_url`] lets through; anything else, such as
-/// `javascript:`, could run code when clicked.
-const SAFE_URL_SCHEMES: [&str; 3] = ["http:", "https:", "mailto:"];
 
 /// The `textAlign` values layout understands, which are also CSS
 /// `text-align` keywords.
@@ -629,7 +626,7 @@ impl Writer<'_> {
 
 		let href = mark.attrs.get("href").and_then(Value::as_str);
 
-		if let Some(href) = href.filter(|href| tag == "a" && is_safe_url(href)) {
+		if let Some(href) = href.filter(|href| tag == "a" && is_safe_link_url(href)) {
 			attribute(&mut self.out, "href", href);
 		}
 
@@ -1097,19 +1094,6 @@ fn css_string(value: &str) -> String {
 	value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
-/// Whether a link target is safe to emit: relative, or http(s) or mailto.
-fn is_safe_url(href: &str) -> bool {
-	let lower = href.trim_start().to_ascii_lowercase();
-	let path_start = lower.find(['/', '?', '#']).unwrap_or(lower.len());
-	// A colon after the path starts is part of the path, not a scheme.
-	let has_scheme = lower.find(':').is_some_and(|end| end < path_start);
-
-	!has_scheme
-		|| SAFE_URL_SCHEMES
-			.iter()
-			.any(|scheme| lower.starts_with(scheme))
-}
-
 /// Whether a font family from document content is safe inside a style
 /// attribute.
 fn is_safe_family(family: &str) -> bool {
@@ -1124,12 +1108,12 @@ mod tests {
 
 	#[test]
 	fn rejects_script_urls() {
-		assert!(is_safe_url("https://example.com"));
-		assert!(is_safe_url("/docs#top"));
-		assert!(is_safe_url("mailto:a@b.c"));
-		assert!(!is_safe_url("javascript:alert(1)"));
-		assert!(!is_safe_url(" JavaScript:alert(1)"));
-		assert!(!is_safe_url("data:text/html,x"));
+		assert!(is_safe_link_url("https://example.com"));
+		assert!(is_safe_link_url("/docs#top"));
+		assert!(is_safe_link_url("mailto:a@b.c"));
+		assert!(!is_safe_link_url("javascript:alert(1)"));
+		assert!(!is_safe_link_url(" JavaScript:alert(1)"));
+		assert!(!is_safe_link_url("data:text/html,x"));
 	}
 
 	#[test]

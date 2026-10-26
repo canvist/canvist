@@ -135,6 +135,73 @@ fn formats_parse_from_their_names() {
 }
 
 #[test]
+fn html_export_applies_link_policy_to_json_attributes() -> Result<(), HeadlessError> {
+	let engine = Engine::starter_kit();
+
+	for (href, active) in [
+		("javascript:alert(1)", false),
+		(" \tJaVaScRiPt:alert(1)", false),
+		("java\tscript:alert(1)", false),
+		("java\nscript:alert(1)", false),
+		("java\rscript:alert(1)", false),
+		("\0javascript:alert(1)", false),
+		("data:text/html,script", false),
+		("vbscript:msgbox(1)", false),
+		("ftp://example.com/file", false),
+		("https://example.com", true),
+		("HTTP://example.com", true),
+		("mailto:reader@example.com", true),
+		("//example.com/path", true),
+		("/docs#top", true),
+		("../docs", true),
+		("docs/page", true),
+		("#section", true),
+		("?page=2", true),
+		("/docs/example:part", true),
+		("?next=javascript:example", true),
+	] {
+		let doc = engine.from_json(&json!({ "type": "doc", "content": [
+			{ "type": "paragraph", "content": [
+				{ "type": "text", "text": "link", "marks": [
+					{ "type": "link", "attrs": { "href": href } }
+				] }
+			] }
+		] }))?;
+		let expected = if active {
+			format!("<p><a href=\"{href}\">link</a></p>")
+		} else {
+			"<p><a>link</a></p>".to_owned()
+		};
+
+		assert_eq!(doc.export(Format::Html), expected, "{href:?}");
+		assert_eq!(
+			doc.to_json()["content"][0]["content"][0]["marks"][0]["attrs"]["href"],
+			href,
+			"export preserves the document"
+		);
+	}
+
+	Ok(())
+}
+
+#[test]
+fn html_export_escapes_allowed_link_attributes() -> Result<(), HeadlessError> {
+	let doc = Engine::starter_kit().from_json(&json!({ "type": "doc", "content": [
+		{ "type": "paragraph", "content": [
+			{ "type": "text", "text": "<link>", "marks": [
+				{ "type": "link", "attrs": { "href": "https://example.com/?a=1&b=\"two\"" } }
+			] }
+		] }
+	] }))?;
+
+	assert_eq!(
+		doc.export(Format::Html),
+		"<p><a href=\"https://example.com/?a=1&amp;b=&quot;two&quot;\">&lt;link&gt;</a></p>"
+	);
+	Ok(())
+}
+
+#[test]
 fn queries_and_arguments_cross_as_json() -> Result<(), HeadlessError> {
 	let mut doc = Engine::starter_kit().parse(Format::Markdown, "Title")?;
 
