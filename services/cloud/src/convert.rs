@@ -238,18 +238,18 @@ mod tests {
 			.build()
 			.expect("runtime");
 
-		runtime.block_on(async {
+		let converter = runtime.block_on(async {
 			let converter = Converter::new(ConvertConfig {
 				concurrency: 1,
 				timeout: Duration::ZERO,
 				..ConvertConfig::default()
 			});
 			let (entered, started) = tokio::sync::oneshot::channel();
-			let (release, blocked) = std::sync::mpsc::channel();
+			let (release, resumed) = std::sync::mpsc::channel();
 			// Keep conversion work queued so the timeout cannot race completion.
 			let blocker = tokio::task::spawn_blocking(move || {
 				entered.send(()).expect("waiting for blocker");
-				blocked.recv().expect("release blocker");
+				resumed.recv().expect("release blocker");
 			});
 			started.await.expect("blocking pool occupied");
 			let error = converter
@@ -273,15 +273,15 @@ mod tests {
 
 			release.send(()).expect("unblock pool");
 			blocker.await.expect("blocker finishes");
-			// The single blocking worker completes the conversion before this task.
-			tokio::task::spawn_blocking(|| ())
-				.await
-				.expect("queue drained");
-			assert!(
-				converter.try_admit().is_ok(),
-				"completed work frees capacity"
-			);
+
+			converter
 		});
+		// Runtime shutdown waits for outstanding blocking conversions to finish.
+		drop(runtime);
+		assert!(
+			converter.try_admit().is_ok(),
+			"completed work frees capacity"
+		);
 	}
 
 	fn text(from: Format, input: &str, to: Format) -> Json {
