@@ -147,6 +147,7 @@
 
 mod binding;
 mod claims;
+mod depth;
 mod error;
 mod history;
 pub mod keys;
@@ -168,6 +169,7 @@ mod values;
 pub use binding::Binding;
 pub use binding::Encoding;
 pub use binding::Track;
+pub use depth::MAX_BLOCK_DEPTH;
 pub use error::CollabError;
 pub use history::History;
 pub use presence::Collaborator;

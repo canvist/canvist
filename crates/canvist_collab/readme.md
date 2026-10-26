@@ -37,3 +37,5 @@ Most apps add it through [`canvist`](../canvist), the crate to install, as `canv
 Mirroring a keystroke into a Yjs update takes about 2 µs, and applying a remote keystroke about 2.5 µs, whether the document has 100 blocks or 10,000. Run `cargo bench -p canvist_collab` to reproduce.
 
 The compatibility tests run a real JavaScript Yjs peer under [Deno](https://deno.com), which the devenv shell provides.
+
+Shared block trees are limited to 64 levels, counting root blocks as level 1. An update that exceeds this limit returns `CollabError::BlockDepthLimit` before changing the model. The CRDT retains the update; once a peer corrects its nesting, the binding rebuilds the model from the bounded shared state.

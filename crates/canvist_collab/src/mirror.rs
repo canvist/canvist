@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use std::sync::PoisonError;
 
 use canvist_model::BlockId;
+use canvist_model::BlockTree;
 use canvist_model::Commit;
 use canvist_model::Document;
 use canvist_model::Schema;
@@ -26,6 +27,7 @@ use yrs::TransactionMut;
 
 use crate::CollabError;
 use crate::claims::Owners;
+use crate::depth;
 use crate::local::Local;
 use crate::local::position_of;
 use crate::registry::Registration;
@@ -52,6 +54,8 @@ pub(crate) struct Mirror {
 	schema: Arc<Schema>,
 	registry: Registry,
 	inbox: Arc<Mutex<Vec<Record>>>,
+	/// After a depth rejection, queued deltas no longer address the model.
+	rebuild: bool,
 }
 
 impl std::fmt::Debug for Mirror {
@@ -70,6 +74,7 @@ impl Mirror {
 			schema,
 			registry: Registry::default(),
 			inbox: Arc::new(Mutex::new(Vec::new())),
+			rebuild: false,
 		}
 	}
 
@@ -138,8 +143,25 @@ impl Mirror {
 		root: &ArrayRef,
 		client: u32,
 	) -> Result<(Document, Vec<Repair>), CollabError> {
-		lock(&self.inbox).clear();
+		let (blocks, registration) = self.read(txn, root)?;
 		let mut doc = Document::empty(self.schema.clone(), client);
+		doc.apply_steps([Step::InsertBlocks {
+			parent: None,
+			index: 0,
+			blocks,
+		}])?;
+		let repairs = repairs_of(&registration);
+		self.reset(registration);
+		Ok((doc, repairs))
+	}
+
+	/// Read a bounded tree before changing the model or registry.
+	fn read<T: ReadTxn>(
+		&self,
+		txn: &T,
+		root: &ArrayRef,
+	) -> Result<(Vec<BlockTree>, Registration), CollabError> {
+		depth::Check::new(txn).array(root, 0)?;
 		let mut owners = Owners::default();
 		owners.scan_array(root, None, txn, &self.schema);
 		let mut registration = Registration::default();
@@ -149,16 +171,15 @@ impl Mirror {
 			claims: &mut owners,
 		};
 		let blocks = reader.children(root, Parent::ROOT, &mut registration);
+		Ok((blocks, registration))
+	}
 
-		doc.apply_steps([Step::InsertBlocks {
-			parent: None,
-			index: 0,
-			blocks,
-		}])?;
-		let repairs = repairs_of(&registration);
+	/// Commit the registry of a full read only after the model accepts it.
+	fn reset(&mut self, registration: Registration) {
+		lock(&self.inbox).clear();
 		self.registry = Registry::default();
 		self.registry.register(registration);
-		Ok((doc, repairs))
+		self.rebuild = false;
 	}
 
 	/// Translate a local commit of the mirrored document, which `doc` must be
@@ -202,6 +223,19 @@ impl Mirror {
 		doc: &mut Document,
 		retyped: &[BlockId],
 	) -> Result<(Commit, Vec<Repair>), CollabError> {
+		let mut check = depth::Check::new(txn);
+
+		for &container in retyped {
+			let block = self
+				.registry
+				.block(container)
+				.ok_or(CollabError::NotShared(container))?;
+
+			if let Some(map) = crate::local::map_ref(txn, &block.map) {
+				check.subtree(&map, depth::parent_depth(&self.registry, block.parent)? + 1)?;
+			}
+		}
+
 		let remote = Remote::new(
 			doc.transaction(),
 			txn,
@@ -218,7 +252,35 @@ impl Mirror {
 		root: &ArrayRef,
 		doc: &mut Document,
 	) -> Result<(Commit, Vec<Repair>), CollabError> {
-		let records = std::mem::take(&mut *lock(&self.inbox));
+		if self.rebuild {
+			let (blocks, registration) = self.read(txn, root)?;
+			let repairs = repairs_of(&registration);
+			let commit = doc.apply_steps([
+				Step::RemoveBlocks {
+					parent: None,
+					index: 0,
+					count: doc.children(None).len(),
+				},
+				Step::InsertBlocks {
+					parent: None,
+					index: 0,
+					blocks,
+				},
+			])?;
+			self.reset(registration);
+			return Ok((commit, repairs));
+		}
+
+		let mut inbox = lock(&self.inbox);
+		// Security: Validate before consuming events or mutating the registry
+		// and model. Rebuild after a rejection because deltas from separate
+		// CRDT transactions cannot be applied to the unchanged model together.
+		if let Err(error) = depth::Check::new(txn).changes(&inbox, &self.registry) {
+			self.rebuild = true;
+			return Err(error);
+		}
+		let records = std::mem::take(&mut *inbox);
+		drop(inbox);
 		let remote = Remote::new(
 			doc.transaction(),
 			txn,
