@@ -31,7 +31,7 @@ fn excessive_markup_nesting_is_a_parse_error_without_editing() -> Result<(), Hea
 		(Format::Markdown, format!("{}text", "> ".repeat(10_000))),
 		(Format::Html, "<blockquote>".repeat(10_000)),
 	] {
-		let error = engine.parse(format, &input).err().expect("reject import");
+		let error = engine.parse(format, &input).expect_err("reject import");
 		assert_eq!(error.code(), ErrorCode::Parse);
 		let error = doc.paste(format, &input).expect_err("reject paste");
 		assert_eq!(error.code(), ErrorCode::Parse);
