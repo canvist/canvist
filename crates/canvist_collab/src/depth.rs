@@ -23,7 +23,8 @@ use crate::tree;
 pub const MAX_BLOCK_DEPTH: usize = 64;
 
 /// Checks shared subtrees iteratively, including hidden blocks that could
-/// become visible after a type change. A batch visits each map only once.
+/// become visible after a type change. A batch descends into each container
+/// only once.
 pub(crate) struct Check<'a, T> {
 	txn: &'a T,
 	seen: FxHashSet<yrs::ID>,
@@ -68,12 +69,13 @@ impl<'a, T: ReadTxn> Check<'a, T> {
 		&mut self,
 		records: &[Record],
 		registry: &Registry,
+		root: &ArrayRef,
 	) -> Result<(), CollabError> {
 		for record in records {
 			match record {
 				Record::Array {
 					array, inserted, ..
-				} => self.inserted(*array, inserted, registry)?,
+				} => self.inserted(*array, inserted, registry, root)?,
 				Record::Map { map, keys } => self.changed(map, keys, registry)?,
 				Record::Text { .. } => {}
 			}
@@ -88,7 +90,15 @@ impl<'a, T: ReadTxn> Check<'a, T> {
 		array: Option<yrs::ID>,
 		inserted: &FxHashSet<yrs::ID>,
 		registry: &Registry,
+		root: &ArrayRef,
 	) -> Result<(), CollabError> {
+		// Initial state and whole-root replacements already contain as many
+		// changed maps as root items. Walking the array avoids one store-index
+		// lookup per map while checking the same complete subtrees.
+		if array.is_none() && inserted.len() == root.len(self.txn) as usize {
+			return self.array(root, 0);
+		}
+
 		let parent = match array.map(|id| registry.owner(&id)) {
 			None => None,
 			Some(Some(Owner::Children(parent))) => Some(parent),
@@ -141,12 +151,17 @@ impl<'a, T: ReadTxn> Check<'a, T> {
 		}
 
 		check_depth(depth)?;
+		let Some(children) = tree::children_of(map, self.txn) else {
+			return Ok(None);
+		};
 
+		// Leaf blocks cannot repeat a subtree, so only containers need a
+		// visited-set entry when checking a large, flat document.
 		if !branch_id(map).is_some_and(|id| self.seen.insert(id)) {
 			return Ok(None);
 		}
 
-		Ok(tree::children_of(map, self.txn))
+		Ok(Some(children))
 	}
 }
 

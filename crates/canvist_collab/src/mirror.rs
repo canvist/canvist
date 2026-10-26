@@ -275,7 +275,7 @@ impl Mirror {
 		// Security: Validate before consuming events or mutating the registry
 		// and model. Rebuild after a rejection because deltas from separate
 		// CRDT transactions cannot be applied to the unchanged model together.
-		if let Err(error) = depth::Check::new(txn).changes(&inbox, &self.registry) {
+		if let Err(error) = depth::Check::new(txn).changes(&inbox, &self.registry, root) {
 			self.rebuild = true;
 			return Err(error);
 		}

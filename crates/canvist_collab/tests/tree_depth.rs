@@ -16,6 +16,7 @@ use yrs::Map;
 use yrs::MapPrelim;
 use yrs::MapRef;
 use yrs::ReadTxn;
+use yrs::TextPrelim;
 use yrs::Transact;
 use yrs::TransactionMut;
 
@@ -50,6 +51,34 @@ fn over_depth_state_is_rejected_without_changing_the_model() {
 	assert_eq!(doc.to_json(), before);
 	assert_eq!(doc.version(), version);
 	assert!(binding.take_updates().is_empty());
+}
+
+#[test]
+fn leaf_blocks_count_toward_the_depth_limit() {
+	for containers in [63, 64] {
+		let source = yrs::Doc::with_client_id(1);
+		let root = source.get_or_insert_array(keys::ROOT);
+		let mut txn = source.transact_mut();
+		let bottom = nest(&mut txn, root, containers, 0);
+		let leaf: MapRef = bottom.push_back(&mut txn, MapPrelim::default());
+		leaf.insert(&mut txn, keys::ID, BlockId::new(1, containers).to_string());
+		leaf.insert(&mut txn, keys::TYPE, "paragraph");
+		leaf.insert(&mut txn, keys::TEXT, TextPrelim::new("leaf"));
+		let update = txn.encode_update_v1();
+		drop(txn);
+		let schema = support::schema();
+		let mut binding = Binding::with_client_id(schema.clone(), 2).expect("binding");
+		let mut doc = Document::empty(schema, 2);
+		let result = binding.apply_update(&mut doc, &update, Encoding::V1);
+
+		if containers == 63 {
+			result.expect("leaf at level 64");
+			assert_eq!(doc.text_blocks().count(), 1);
+		} else {
+			assert!(matches!(result, Err(CollabError::BlockDepthLimit)));
+			assert!(doc.children(None).is_empty());
+		}
+	}
 }
 
 #[test]
