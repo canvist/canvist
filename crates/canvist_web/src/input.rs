@@ -317,8 +317,7 @@ impl WebEditor {
 
 		// Reject invalid HTML before moving the selection or deleting a drag's source.
 		let slice = html
-			.as_deref()
-			.map(|html| clipboard::try_from_html(self.doc.document().schema(), html))
+			.map(|html| clipboard::try_from_html(self.doc.document().schema(), &html))
 			.transpose()
 			.map_err(|error| crate::error::parse("html", &error))?;
 
