@@ -34,6 +34,8 @@ async function clientToken(userId: string): Promise<string> {
 - `scope` is `write` or `read`. Updates from read-only sessions are dropped, and the client stays connected.
 - Tokens last from 1 second to 24 hours. Mint a new one before it expires, and reconnect.
 
+The relay closes a token-backed connection with WebSocket code `1008` when its token expires, including a five-second clock-skew allowance. This also applies to connections paused by the free-plan document limit. A Hocuspocus socket carrying several documents closes when the earliest document token expires; reconnect all its documents with fresh tokens. Hocuspocus can also refresh an open or paused document by sending a new auth message before expiry. Each refresh validates the token and replaces its scope, user, and expiry; the project and environment must still match that document's existing grant. API-key connections have no token expiry.
+
 ## 2. Connect with y-websocket or Hocuspocus
 
 ```ts no_run

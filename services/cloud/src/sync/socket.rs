@@ -23,6 +23,8 @@ pub const DEAD_AFTER: Duration = Duration::from_secs(70);
 
 /// Close codes the relay uses.
 pub mod codes {
+	/// The client token expired; authenticate with a fresh token.
+	pub const EXPIRED: u16 = 1008;
 	/// The document was deleted.
 	pub const NORMAL: u16 = 1000;
 	/// The peer sent something unreadable.
@@ -33,6 +35,14 @@ pub mod codes {
 	pub const RESTART: u16 = 1012;
 	/// The peer fell too far behind; reconnect to resync.
 	pub const TRY_AGAIN: u16 = 1013;
+}
+
+/// Wait for a token deadline; API-key grants never expire.
+pub async fn expired(deadline: Option<tokio::time::Instant>) {
+	match deadline {
+		Some(deadline) => tokio::time::sleep_until(deadline).await,
+		None => std::future::pending().await,
+	}
 }
 
 /// The sending half of a socket.

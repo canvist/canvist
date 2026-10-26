@@ -43,6 +43,7 @@ yrs = { workspace = true, features = ["sync"] }
 [dev-dependencies]
 hmac = { workspace = true }
 sha2 = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 
 [lints]

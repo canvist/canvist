@@ -24,6 +24,7 @@ pub use room::PeerId;
 pub use room::Room;
 pub use rooms::RoomStats;
 pub use rooms::Rooms;
+pub use session::Grant;
 pub use session::Reply;
 pub use session::Session;
 pub use webhooks::WebhookWorker;
