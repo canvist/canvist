@@ -62,8 +62,8 @@ jobs:
           fi
         shell: devenv shell -- bash -e {0}
 
-      - name: website changelog receives only user-facing notes
-        run: deno test --allow-read --allow-write --allow-run=git,monochange tools/release/
+      - name: verify release provenance and user-facing changelogs
+        run: deno test --allow-read --allow-write --allow-run=git,bash,monochange tools/release/
         shell: devenv shell -- bash -e {0}
 
       - name: placeholder publish dry run
