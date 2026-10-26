@@ -22,6 +22,11 @@ use super::tree::HARD_BREAK;
 /// TipTap's `data-type` and `data-checked` attributes. Unknown blocks are
 /// written as `<div data-type>` around their content.
 /// Links with unsupported URL schemes retain their text but omit `href`.
+///
+/// Styles accept simple alignment keywords, colours, font family lists, and
+/// nonnegative sizes. Unsupported values (including CSS expressions, escapes,
+/// and comments) are omitted so JSON and collaborative attributes cannot add
+/// declarations or resource references. Text and other valid styles are kept.
 #[must_use]
 pub fn to_html(schema: &Schema, slice: &Slice) -> String {
 	let mut html = String::new();
@@ -404,6 +409,7 @@ fn align_style(attrs: &Attrs) -> String {
 	attrs
 		.get("textAlign")
 		.and_then(Value::as_str)
+		.and_then(|value| super::css::value("text-align", value))
 		.map(|align| format!(" style=\"text-align: {}\"", escape(align)))
 		.unwrap_or_default()
 }
@@ -476,7 +482,11 @@ fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
 /// `<mark>`, with TipTap's `data-color` and inline background when the
 /// highlight has a colour.
 fn highlight_tag(attrs: &Attrs) -> String {
-	match attrs.get("color").and_then(Value::as_str) {
+	match attrs
+		.get("color")
+		.and_then(Value::as_str)
+		.and_then(|value| super::css::value("background-color", value))
+	{
 		Some(color) => {
 			let color = escape(color);
 			format!(
@@ -502,7 +512,7 @@ fn text_style_tag(attrs: &Attrs) -> String {
 	let declarations: Vec<String> = TEXT_STYLE_PROPERTIES
 		.iter()
 		.filter_map(|(attr, property)| {
-			let value = attrs.get(attr)?.as_str()?;
+			let value = super::css::value(property, attrs.get(attr)?.as_str()?)?;
 			Some(format!("{property}: {value}"))
 		})
 		.collect();
