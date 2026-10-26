@@ -356,6 +356,46 @@ fn reads_the_nested_agent_form() -> Result<(), SceneError> {
 }
 
 #[test]
+fn json_reads_long_flat_parent_chains_in_either_order() -> Result<(), SceneError> {
+	for count in [1, 1_000, 10_000] {
+		let mut json = support::parent_chain(count);
+
+		for _ in 0..2 {
+			let scene = Scene::from_json(support::schema(), 2, &json)?;
+			assert_eq!(scene.len(), count as usize);
+			assert_eq!(scene.pages(), [NodeId::new(1, 1)]);
+
+			for seq in 2..=count {
+				let id = NodeId::new(1, seq);
+				let parent = NodeId::new(1, seq - 1);
+				assert_eq!(scene.node(id).expect("loaded node").parent(), parent);
+				assert_eq!(scene.children(parent), [id]);
+			}
+
+			json["nodes"].as_array_mut().expect("nodes").reverse();
+		}
+	}
+
+	Ok(())
+}
+
+#[test]
+fn json_reports_the_first_record_whose_ancestry_contains_a_cycle() {
+	for count in [1, 1_000, 10_000] {
+		let mut json = support::parent_chain(count);
+		json["nodes"][count as usize - 1]["parent"] = json!(NodeId::new(1, count).to_string());
+
+		for seq in [count, 1] {
+			assert_eq!(
+				Scene::from_json(support::schema(), 2, &json).err(),
+				Some(SceneError::Cycle(NodeId::new(1, seq)))
+			);
+			json["nodes"].as_array_mut().expect("nodes").reverse();
+		}
+	}
+}
+
+#[test]
 fn json_errors_name_the_path() {
 	let cases = [
 		(json!({ "type": "nope" }), "type"),

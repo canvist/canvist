@@ -325,34 +325,104 @@ fn props_from_json(props: Option<&Json>, kind: NodeKind, path: &str) -> Result<P
 }
 
 /// Sort records so each comes after its parent, keeping list order among
-/// independent records.
+/// records at the same depth.
 fn order_parents_first(records: Vec<NodeRecord>) -> Result<Vec<NodeRecord>, SceneError> {
+	#[derive(Clone, Copy)]
+	enum Depth {
+		Unvisited,
+		Visiting,
+		Complete(usize),
+	}
+
 	let index: FxHashMap<NodeId, usize> = records
 		.iter()
 		.enumerate()
 		.map(|(at, record)| (record.id, at))
 		.collect();
-	let depth = |start: usize| -> Result<usize, SceneError> {
-		let mut depth = 0;
-		let mut current = records[start].parent;
+	let mut depths = vec![Depth::Unvisited; records.len()];
+	let mut path = Vec::new();
 
-		while let Some(&at) = index.get(&current) {
-			depth += 1;
-
-			if depth > records.len() {
-				return Err(SceneError::Cycle(records[start].id));
+	// Resolve each parent link once, without recursing on attacker-chosen chains.
+	for start in 0..records.len() {
+		let mut at = start;
+		let mut depth = loop {
+			match depths[at] {
+				Depth::Complete(depth) => break depth + 1,
+				Depth::Visiting => return Err(SceneError::Cycle(records[start].id)),
+				Depth::Unvisited => {}
 			}
 
-			current = records[at].parent;
-		}
+			depths[at] = Depth::Visiting;
+			path.push(at);
+			let Some(&parent) = index.get(&records[at].parent) else {
+				break 0;
+			};
+			at = parent;
+		};
 
-		Ok(depth)
-	};
-	let depths = (0..records.len())
-		.map(depth)
-		.collect::<Result<Vec<_>, _>>()?;
-	let mut keyed: Vec<(usize, NodeRecord)> = depths.into_iter().zip(records).collect();
+		for at in path.drain(..).rev() {
+			depths[at] = Depth::Complete(depth);
+			depth += 1;
+		}
+	}
+
+	let mut keyed: Vec<_> = depths
+		.into_iter()
+		.zip(records)
+		.map(|(depth, record)| {
+			let Depth::Complete(depth) = depth else {
+				unreachable!("all parent depths have been resolved");
+			};
+
+			(depth, record)
+		})
+		.collect();
 	keyed.sort_by_key(|(depth, _)| *depth);
 
 	Ok(keyed.into_iter().map(|(_, record)| record).collect())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Records for testing ordering independently of schema validation.
+	fn records(parents: &[(u32, u32)]) -> Vec<NodeRecord> {
+		let schema = SceneSchema::builder().build().expect("schema");
+		let kind = schema.node_type("page").expect("page type");
+		let key = FracKey::between(None, None).expect("key");
+
+		parents
+			.iter()
+			.map(|&(id, parent)| {
+				let parent = match parent {
+					0 => NodeId::ROOT,
+					_ => NodeId::new(1, parent),
+				};
+
+				NodeRecord::new(NodeId::new(1, id), kind, parent, key.clone())
+			})
+			.collect()
+	}
+
+	#[test]
+	fn parent_ordering_preserves_input_order_at_each_depth() {
+		let input = records(&[(7, 5), (6, 4), (5, 2), (4, 1), (2, 0), (1, 0), (9, 88)]);
+		let ordered = order_parents_first(input).expect("acyclic");
+		let ids: Vec<_> = ordered.iter().map(|record| record.id.seq()).collect();
+
+		assert_eq!(ids, [2, 1, 9, 5, 4, 7, 6]);
+		assert_eq!(ordered[2].parent, NodeId::new(1, 88));
+		assert!(order_parents_first(Vec::new()).expect("empty").is_empty());
+	}
+
+	#[test]
+	fn parent_ordering_reports_cycles_reached_through_a_tail() {
+		let input = records(&[(9, 0), (1, 2), (2, 3), (3, 2)]);
+
+		assert_eq!(
+			order_parents_first(input),
+			Err(SceneError::Cycle(NodeId::new(1, 1)))
+		);
+	}
 }

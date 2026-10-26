@@ -37,6 +37,22 @@ pub fn schema() -> Arc<SceneSchema> {
 	Arc::new(SceneSchema::standard(text_schema()).expect("valid scene schema"))
 }
 
+/// A flat JSON list naming a deep parent chain, with children before parents.
+pub fn parent_chain(count: u32) -> serde_json::Value {
+	let nodes: Vec<_> = (1..=count)
+		.rev()
+		.map(|seq| {
+			serde_json::json!({
+				"id": NodeId::new(1, seq).to_string(),
+				"type": if seq == 1 { "page" } else { "frame" },
+				"parent": if seq == 1 { NodeId::ROOT } else { NodeId::new(1, seq - 1) }.to_string(),
+			})
+		})
+		.collect();
+
+	serde_json::json!({ "type": "canvist-scene", "nodes": nodes })
+}
+
 /// A scene with one page holding `count` rectangles in a grid, returning
 /// the page.
 pub fn rectangles(count: usize) -> (Scene, NodeId) {
