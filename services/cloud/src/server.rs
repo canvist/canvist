@@ -88,7 +88,7 @@ impl Server {
 		let addr = listener.local_addr()?;
 		let (stop, stopped) = watch::channel(false);
 
-		let (webhooks, worker) = Webhooks::start(store.clone());
+		let (webhooks, worker) = Webhooks::start(store.clone(), config.sync.webhook_allow_private);
 		let meter = Meter::new(store.clone());
 		let rooms = Rooms::new(store.clone(), config.sync.clone(), webhooks);
 		let sockets = TaskTracker::new();
