@@ -7,7 +7,7 @@
  * Run from the repository root:
  *
  * ```sh
- * deno test --allow-read --allow-write --allow-run=git,monochange tools/release/
+ * deno test --allow-read --allow-write --allow-run=git,bash,monochange tools/release/
  * ```
  */
 import { assert, assertEquals } from "jsr:@std/assert@^1";

@@ -72,17 +72,54 @@ jobs:
       sdk: ${{ steps.plan.outputs.sdk }}
       app: ${{ steps.plan.outputs.app }}
       dry_run: ${{ env.DRY_RUN }}
+      sha: ${{ steps.source.outputs.sha }}
     steps:
       - name: choose jobs for the tag
         id: plan
+        env:
+          CHECKOUT_REF: ${{ inputs.checkout_ref }}
         run: |
           set -euo pipefail
+          if [ "$DRY_RUN" != "true" ]; then
+            if [ -n "$CHECKOUT_REF" ]; then
+              echo "::error::checkout_ref is only allowed for dry runs." >&2
+              exit 1
+            fi
+            git check-ref-format "refs/tags/$RELEASE_TAG"
+            if [ "$RELEASE_TAG" = "pull-request" ]; then
+              echo "::error::Real publication requires a release tag." >&2
+              exit 1
+            fi
+          fi
           case "$RELEASE_TAG" in
             pull-request) echo "sdk=true" >> "$GITHUB_OUTPUT"; echo "app=true" >> "$GITHUB_OUTPUT" ;;
             app/v*) echo "sdk=false" >> "$GITHUB_OUTPUT"; echo "app=true" >> "$GITHUB_OUTPUT" ;;
             v*) echo "sdk=true" >> "$GITHUB_OUTPUT"; echo "app=false" >> "$GITHUB_OUTPUT" ;;
             *) echo "::error::Unknown release tag '$RELEASE_TAG'." >&2; exit 1 ;;
           esac
+
+      # Resolve the source once in a read-only job, before any repository code
+      # runs or any job obtains publication credentials.
+      - name: checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DRY_RUN == 'true' && (inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha) || format('refs/tags/{0}', inputs.tag) }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: resolve and verify the release commit
+        id: source
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          if [ "$DRY_RUN" != "true" ]; then
+            git fetch --force --no-tags origin \
+              '+refs/heads/main:refs/remotes/origin/main' \
+              "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            test "$sha" = "$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+            git merge-base --is-ancestor "$sha" refs/remotes/origin/main
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   # crates.io and npm through monochange, then JSR, all with OIDC trusted
   # publishing: no registry token is stored anywhere.
@@ -100,17 +137,9 @@ jobs:
       - name: checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha }}
+          ref: ${{ needs.plan.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: verify the tag is on main
-        if: needs.plan.outputs.dry_run != 'true'
-        run: |
-          set -euo pipefail
-          git fetch --force --tags origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-list -n1 "refs/tags/$RELEASE_TAG")"
-          git merge-base --is-ancestor HEAD origin/main
 
       - name: setup
         uses: ./.github/actions/devenv
@@ -319,12 +348,13 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha }}
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
       - name: cache rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -345,8 +375,32 @@ jobs:
           ls -l "$out"
           cat "$out/CanvistFFI.xcframework.zip.checksum"
 
-      - name: attach to the release
+      - name: stage release assets
         if: needs.plan.outputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-release-assets
+          path: ${{ runner.temp }}/apple/*
+          if-no-files-found: error
+
+  # Grant release write access only after the verified source has been built.
+  apple-release:
+    name: attach Swift package to the release
+    needs: [plan, apple]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: publisher
+    permissions:
+      contents: write
+    steps:
+      - name: download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: apple-release-assets
+          path: ${{ runner.temp }}/apple
+
+      - name: attach to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/apple/* --clobber --repo "$GITHUB_REPOSITORY"
@@ -366,7 +420,8 @@ jobs:
       - name: checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha }}
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
       - name: setup java
         uses: actions/setup-java@v4
@@ -425,7 +480,8 @@ jobs:
       - name: checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha }}
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
       - name: setup flutter
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
@@ -467,7 +523,8 @@ jobs:
       - name: checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref || inputs.tag || github.event.pull_request.head.sha }}
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
       - name: build the image
         run: docker build --file "${{ matrix.dockerfile }}" --tag "canvist-${{ matrix.service }}:dry-run" .
@@ -475,14 +532,16 @@ jobs:
   # Publish the drafted GitHub release once everything for its tag shipped.
   release:
     name: publish the GitHub release
-    needs: [plan, packages, apple, android, pub, deploy]
+    needs: [plan, packages, apple, apple-release, android, pub, deploy]
     if: >-
       always() &&
+      needs.plan.result == 'success' &&
       needs.plan.outputs.dry_run != 'true' &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    environment: publisher
     permissions:
       contents: write
     steps:
