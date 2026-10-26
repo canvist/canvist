@@ -13,6 +13,7 @@
 //! clients still hold them and send them again when they reconnect, because
 //! y-sync starts every connection by exchanging what each side is missing.
 
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -23,6 +24,8 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use canvist_collab::Reorder;
+use sha2::Digest;
+use sha2::Sha256;
 use tokio::sync::OnceCell;
 use tokio::sync::broadcast;
 use yrs::Doc;
@@ -53,6 +56,8 @@ const FANOUT_CAPACITY: usize = 128;
 const MERGE_CHUNK: usize = 64;
 /// Editors named in one webhook, at most.
 const MAX_EDITORS: usize = 32;
+/// Bound readiness scans even when each retained update is tiny.
+const MAX_RETAINED_UPDATES: usize = 128;
 
 /// What a room sends its peers.
 #[derive(Clone, Debug)]
@@ -85,7 +90,7 @@ pub struct Changes {
 pub struct Limits {
 	/// The largest update, in bytes.
 	pub max_update_bytes: usize,
-	/// The largest document, in bytes of encoded state, approximately.
+	/// The largest document plus retained updates, in encoded bytes, approximately.
 	pub max_document_bytes: usize,
 }
 
@@ -113,6 +118,10 @@ impl std::fmt::Debug for Room {
 struct RoomState {
 	doc: Doc,
 	reorder: Reorder,
+	/// Input charges since the last time both Reorder and yrs drained. Keep
+	/// these even after Reorder hands an update to yrs, which may retain it.
+	/// Charging the whole batch conservatively also covers partial integration.
+	retained: BTreeMap<[u8; 32], usize>,
 	awareness: AwarenessTable,
 	/// Deltas not yet in the store, oldest first.
 	pending: Vec<Vec<u8>>,
@@ -148,6 +157,7 @@ impl Room {
 			state: Mutex::new(RoomState {
 				doc: Doc::new(),
 				reorder: Reorder::default(),
+				retained: BTreeMap::new(),
 				awareness: AwarenessTable::default(),
 				pending: Vec::new(),
 				stored_rows: 0,
@@ -275,13 +285,29 @@ impl Room {
 		limits: Limits,
 	) -> Result<bool, Rejected> {
 		validate::check(update, limits.max_update_bytes)?;
+		let fingerprint: [u8; 32] = Sha256::digest(update).into();
 		let mut state = self.lock();
 
-		if state.size + update.len() > limits.max_document_bytes {
+		// Replays must not allocate another decoded update or rescan waiters.
+		if state.retained.contains_key(&fingerprint) {
+			return Ok(false);
+		}
+
+		let retained_bytes = state.retained.values().copied().sum::<usize>();
+		let admitted_bytes = state
+			.size
+			.checked_add(retained_bytes)
+			.and_then(|bytes| bytes.checked_add(update.len()));
+
+		if state.retained.len() >= MAX_RETAINED_UPDATES
+			|| admitted_bytes.is_none_or(|bytes| bytes > limits.max_document_bytes)
+		{
 			return Err(Rejected::DocumentFull);
 		}
 
-		let delta = state.integrate(update).map_err(|_| Rejected::Malformed)?;
+		let delta = state
+			.integrate(update, fingerprint)
+			.map_err(|_| Rejected::Malformed)?;
 
 		if delta.as_slice() == Update::EMPTY_V1 {
 			return Ok(false);
@@ -461,8 +487,13 @@ impl Room {
 impl RoomState {
 	/// Apply `update` through the reorder buffer and return the delta that
 	/// actually integrated.
-	fn integrate(&mut self, update: &[u8]) -> Result<Vec<u8>, yrs::encoding::read::Error> {
-		let update = Update::decode_v1(update)?;
+	fn integrate(
+		&mut self,
+		bytes: &[u8],
+		fingerprint: [u8; 32],
+	) -> Result<Vec<u8>, yrs::encoding::read::Error> {
+		let update = Update::decode_v1(bytes)?;
+		self.retained.insert(fingerprint, bytes.len());
 		self.reorder.hold(update);
 		let mut txn = self.doc.transact_mut();
 
@@ -475,13 +506,20 @@ impl RoomState {
 			}
 		}
 
+		if !self.reorder.is_waiting()
+			&& txn.store().pending_update().is_none()
+			&& txn.store().pending_ds().is_none()
+		{
+			self.retained.clear();
+		}
+
 		Ok(txn.encode_update_v1())
 	}
 
 	/// Apply a stored update while loading, skipping one that does not
 	/// decode rather than refusing the whole document.
 	fn integrate_stored(&mut self, key: &DocumentKey, bytes: &[u8]) {
-		if let Err(error) = self.integrate(bytes) {
+		if let Err(error) = self.integrate(bytes, Sha256::digest(bytes).into()) {
 			tracing::error!(document = %key, %error, "skipping a stored update that does not decode");
 		}
 	}
@@ -500,5 +538,230 @@ impl RoomState {
 		if changes.editors.len() < MAX_EDITORS {
 			changes.editors.insert(editor.clone());
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use canvist_collab::keys;
+	use yrs::Array;
+	use yrs::MapPrelim;
+
+	use super::*;
+	use crate::names::DocumentName;
+	use crate::names::Environment;
+	use crate::names::ProjectId;
+
+	const LIMITS: Limits = Limits {
+		max_update_bytes: 1 << 20,
+		max_document_bytes: 16 << 20,
+	};
+
+	fn room() -> Room {
+		Room::new(DocumentKey {
+			project: ProjectId::new("prj_test"),
+			environment: Environment::parse("test").expect("environment"),
+			name: DocumentName::parse("test").expect("name"),
+		})
+	}
+
+	/// A valid block insertion; later calls depend on earlier ones.
+	fn append(doc: &Doc) -> Vec<u8> {
+		let blocks = doc.get_or_insert_array(keys::ROOT);
+		let mut txn = doc.transact_mut();
+		blocks.push_back(&mut txn, MapPrelim::default());
+		txn.encode_update_v1()
+	}
+
+	fn apply(room: &Room, update: &[u8], limits: Limits) -> Result<bool, Rejected> {
+		room.apply(None, &Arc::from("writer"), update, limits)
+	}
+
+	#[test]
+	fn held_updates_count_toward_the_document_limit() {
+		let source = Doc::with_client_id(1);
+		let _first = append(&source);
+		let second = append(&source);
+		let third = append(&source);
+		let room = room();
+		let limits = Limits {
+			max_document_bytes: second.len() + third.len() - 1,
+			..LIMITS
+		};
+
+		assert_eq!(apply(&room, &second, limits), Ok(false));
+		assert_eq!(apply(&room, &third, limits), Err(Rejected::DocumentFull));
+		assert!(!room.is_dirty());
+		assert_eq!(room.encode_state(), Update::EMPTY_V1);
+	}
+
+	#[test]
+	fn repeated_held_updates_leave_room_for_their_prerequisite() {
+		let source = Doc::with_client_id(1);
+		let first = append(&source);
+		let second = append(&source);
+		let room = room();
+		let limits = Limits {
+			max_document_bytes: first.len() + second.len(),
+			..LIMITS
+		};
+
+		for _ in 0..512 {
+			assert_eq!(apply(&room, &second, limits), Ok(false));
+		}
+
+		assert_eq!(room.lock().retained.len(), 1);
+		assert_eq!(apply(&room, &first, limits), Ok(true));
+		assert_eq!(
+			room.encode_state(),
+			source
+				.transact()
+				.encode_state_as_update_v1(&StateVector::default())
+		);
+		assert!(!room.lock().reorder.is_waiting());
+		assert!(room.lock().retained.is_empty());
+
+		let third = append(&source);
+		let limits = Limits {
+			max_document_bytes: room.lock().size + third.len(),
+			..LIMITS
+		};
+		assert_eq!(apply(&room, &third, limits), Ok(true));
+	}
+
+	#[test]
+	fn updates_pending_inside_yrs_count_toward_the_document_limit() {
+		let alice = Doc::with_client_id(1);
+		let first = append(&alice);
+		let bob = Doc::with_client_id(2);
+		bob.transact_mut()
+			.apply_update(Update::decode_v1(&first).expect("decodes"))
+			.expect("applies");
+		let second = append(&bob);
+		let third = append(&bob);
+		let room = room();
+		let limits = Limits {
+			max_document_bytes: second.len() + third.len() - 1,
+			..LIMITS
+		};
+
+		assert_eq!(apply(&room, &second, limits), Ok(false));
+		assert!(!room.lock().reorder.is_waiting());
+		assert!(
+			room.lock()
+				.doc
+				.transact()
+				.store()
+				.pending_update()
+				.is_some()
+		);
+		assert_eq!(apply(&room, &third, limits), Err(Rejected::DocumentFull));
+
+		assert_eq!(apply(&room, &first, LIMITS), Ok(true));
+		assert!(room.lock().retained.is_empty());
+		assert!(
+			room.lock()
+				.doc
+				.transact()
+				.store()
+				.pending_update()
+				.is_none()
+		);
+		assert_eq!(apply(&room, &third, LIMITS), Ok(true));
+		assert_eq!(
+			room.encode_state(),
+			bob.transact()
+				.encode_state_as_update_v1(&StateVector::default())
+		);
+	}
+
+	#[test]
+	fn tiny_updates_hit_the_room_count_limit_even_across_peers() {
+		let source = Doc::with_client_id(1);
+		let _first = append(&source);
+		let room = room();
+		let editor = Arc::from("writer");
+		let mut replay = Vec::new();
+
+		for index in 0..MAX_RETAINED_UPDATES + 10 {
+			let update = append(&source);
+			let expected = if index < MAX_RETAINED_UPDATES {
+				Ok(false)
+			} else {
+				Err(Rejected::DocumentFull)
+			};
+			assert_eq!(
+				room.apply(Some(index as u64), &editor, &update, LIMITS),
+				expected
+			);
+
+			if index == 0 {
+				replay = update;
+			}
+		}
+
+		assert_eq!(apply(&room, &replay, LIMITS), Ok(false));
+		assert_eq!(room.lock().retained.len(), MAX_RETAINED_UPDATES);
+		assert!(!room.is_dirty());
+	}
+
+	#[test]
+	fn delete_only_updates_wait_with_a_charge_and_release_it() {
+		let source = Doc::with_client_id(1);
+		let first = append(&source);
+		let blocks = source.get_or_insert_array(keys::ROOT);
+		let deletion = {
+			let mut txn = source.transact_mut();
+			blocks.remove_range(&mut txn, 0, 1);
+			txn.encode_update_v1()
+		};
+		let room = room();
+
+		for _ in 0..512 {
+			assert_eq!(apply(&room, &deletion, LIMITS), Ok(false));
+		}
+
+		assert_eq!(room.lock().retained.len(), 1);
+		assert_eq!(apply(&room, &first, LIMITS), Ok(true));
+		assert!(room.lock().retained.is_empty());
+		assert!(!room.lock().reorder.is_waiting());
+		assert_eq!(
+			room.encode_state(),
+			source
+				.transact()
+				.encode_state_as_update_v1(&StateVector::default())
+		);
+	}
+
+	#[test]
+	fn a_partially_integrated_update_keeps_its_charge() {
+		let alice = Doc::with_client_id(1);
+		let first = append(&alice);
+		let bob = Doc::with_client_id(2);
+		bob.transact_mut()
+			.apply_update(Update::decode_v1(&first).expect("decodes"))
+			.expect("applies");
+		let orphan = append(&bob);
+		let carol = Doc::with_client_id(3);
+		let ready = append(&carol);
+		let mixed = yrs::merge_updates_v1([orphan, ready]).expect("merges");
+		let room = room();
+
+		assert_eq!(apply(&room, &mixed, LIMITS), Ok(true));
+		assert_eq!(
+			room.lock().retained.values().copied().sum::<usize>(),
+			mixed.len()
+		);
+		assert!(
+			room.lock()
+				.doc
+				.transact()
+				.store()
+				.pending_update()
+				.is_some()
+		);
+		assert_eq!(apply(&room, &mixed, LIMITS), Ok(false));
+		assert_eq!(apply(&room, &first, LIMITS), Ok(true));
+		assert!(room.lock().retained.is_empty());
 	}
 }

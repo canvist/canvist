@@ -46,7 +46,7 @@ pub enum Rejected {
 	/// The client may only read this document.
 	#[error("read-only session")]
 	ReadOnly,
-	/// The document would grow past its size limit.
+	/// The document and retained updates would exceed the room's byte or count limit.
 	#[error("document size limit reached")]
 	DocumentFull,
 }
