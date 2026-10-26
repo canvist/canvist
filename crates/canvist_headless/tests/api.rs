@@ -20,6 +20,33 @@ const fn assert_send_sync<T: Send + Sync>() {}
 const fn assert_send<T: Send>() {}
 
 #[test]
+fn excessive_markup_nesting_is_a_parse_error_without_editing() -> Result<(), HeadlessError> {
+	let engine = Engine::starter_kit();
+	let mut doc = engine.parse(Format::Text, "unchanged")?;
+	doc.select_all()?;
+	let before = doc.to_json();
+	let selection = doc.selected_range();
+
+	for (format, input) in [
+		(Format::Markdown, format!("{}text", "> ".repeat(10_000))),
+		(Format::Html, "<blockquote>".repeat(10_000)),
+	] {
+		let error = engine.parse(format, &input).err().expect("reject import");
+		assert_eq!(error.code(), ErrorCode::Parse);
+		let error = doc.paste(format, &input).expect_err("reject paste");
+		assert_eq!(error.code(), ErrorCode::Parse);
+		assert_eq!(
+			doc.to_json(),
+			before,
+			"rejection must not edit the document"
+		);
+		assert_eq!(doc.selected_range(), selection);
+	}
+
+	Ok(())
+}
+
+#[test]
 fn engines_are_shared_across_threads_and_docs_move_between_them() {
 	const _: () = assert_send_sync::<Engine<canvist_extensions::StarterKitHandles>>();
 	const _: () = assert_send::<Doc>();

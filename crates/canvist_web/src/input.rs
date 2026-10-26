@@ -280,9 +280,11 @@ impl WebEditor {
 	}
 
 	/// Paste HTML over the selection.
+	/// Excessive nesting throws a `parse` error without changing the document.
 	#[wasm_bindgen(js_name = pasteHtml)]
 	pub fn paste_html(&mut self, html: &str) -> JsResult<bool> {
-		let slice = clipboard::from_html(self.doc.document().schema(), html);
+		let slice = clipboard::try_from_html(self.doc.document().schema(), html)
+			.map_err(|error| crate::error::parse("html", &error))?;
 		self.edit(|editor, env| editor.paste(slice, env))
 	}
 

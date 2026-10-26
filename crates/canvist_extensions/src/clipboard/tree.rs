@@ -1,5 +1,7 @@
 //! Building schema-valid slices from parsed content.
 
+use std::cell::Cell;
+
 use canvist_core::Slice;
 use canvist_model::Attrs;
 use canvist_model::BlockId;
@@ -14,6 +16,9 @@ use canvist_model::MarkTypeId;
 use canvist_model::Schema;
 use canvist_model::TreeContent;
 use canvist_model::Value;
+
+use super::MAX_PARSE_DEPTH;
+use super::NestingLimitExceeded;
 
 /// The name of the embed that breaks a line.
 pub(super) const HARD_BREAK: &str = "hardBreak";
@@ -65,6 +70,8 @@ pub(super) fn embed_text(schema: &Schema, embed: &Embed) -> String {
 pub(super) struct Builder<'s> {
 	pub(super) schema: &'s Schema,
 	next: u32,
+	depth: Cell<usize>,
+	exceeded: Cell<bool>,
 }
 
 /// A table's rows without the empty ones no cell above spans across,
@@ -104,23 +111,35 @@ fn spanned_rows(rows: Vec<BlockTree>) -> Vec<BlockTree> {
 
 impl<'s> Builder<'s> {
 	pub(super) fn new(schema: &'s Schema) -> Self {
-		Self { schema, next: 0 }
+		Self {
+			schema,
+			next: 0,
+			depth: Cell::new(0),
+			exceeded: Cell::new(false),
+		}
 	}
 
-	/// `tree` with fresh ids from this builder, so trees read by another
-	/// builder join its slice without clashing.
-	pub(super) fn adopt(&mut self, mut tree: BlockTree) -> BlockTree {
-		tree.id = self.id();
+	/// Reserve a parser level before recursing or opening an HTML frame.
+	/// Count syntax even when its type is absent from the schema.
+	pub(super) fn enter(&self) -> bool {
+		if self.exceeded() || self.depth.get() == MAX_PARSE_DEPTH {
+			self.exceeded.set(true);
 
-		if let TreeContent::Blocks(children) = tree.content {
-			let children = children
-				.into_iter()
-				.map(|child| self.adopt(child))
-				.collect();
-			tree.content = TreeContent::Blocks(children);
+			return false;
 		}
 
-		tree
+		self.depth.set(self.depth.get() + 1);
+		true
+	}
+
+	/// Release a successfully entered parser level.
+	pub(super) fn leave(&self) {
+		self.depth.set(self.depth.get() - 1);
+	}
+
+	/// Stop parsing as soon as a nested reader exhausts the shared budget.
+	pub(super) fn exceeded(&self) -> bool {
+		self.exceeded.get()
 	}
 
 	fn id(&mut self) -> BlockId {
@@ -264,9 +283,15 @@ impl<'s> Builder<'s> {
 	}
 
 	/// Fit `trees` to the schema and wrap them in a slice.
-	pub(super) fn finish(mut self, trees: Vec<BlockTree>) -> Slice {
+	pub(super) fn finish(mut self, trees: Vec<BlockTree>) -> Result<Slice, NestingLimitExceeded> {
+		// Security: reject before fitting, which recursively traverses the
+		// parsed trees. Trees built before rejection have bounded depth too.
+		if self.exceeded() {
+			return Err(NestingLimitExceeded);
+		}
+
 		let fitted = self.fit(None, trees);
-		Slice::new(fitted)
+		Ok(Slice::new(fitted))
 	}
 
 	/// Make `trees` valid children of `parent`: keep what is allowed, wrap

@@ -13,18 +13,48 @@ use canvist_model::MarkSet;
 use canvist_model::Schema;
 use canvist_model::Value;
 
+use super::NestingLimitExceeded;
 use super::tree::Builder;
 
 /// Parse pasted HTML into a slice for `schema`.
+/// Input exceeding [`super::MAX_PARSE_DEPTH`] is preserved as literal
+/// plain text. Use [`try_from_html`] to reject it instead.
 #[must_use]
 pub fn from_html(schema: &Schema, html: &str) -> Slice {
-	let mut reader = Reader::new(schema);
+	try_from_html(schema, html)
+		.unwrap_or_else(|NestingLimitExceeded| super::from_plain_text(schema, html))
+}
+
+/// Parse HTML, rejecting input that exceeds [`super::MAX_PARSE_DEPTH`].
+///
+/// # Errors
+/// Returns [`NestingLimitExceeded`] before excessive nesting can exhaust
+/// the stack while fitting or disposing of parsed trees.
+pub fn try_from_html(schema: &Schema, html: &str) -> Result<Slice, NestingLimitExceeded> {
+	let mut build = Builder::new(schema);
+	let trees = read_html(&mut build, html);
+	build.finish(trees)
+}
+
+/// Read HTML using the enclosing Markdown reader's ids and depth budget.
+pub(super) fn read_html(build: &mut Builder<'_>, html: &str) -> Vec<BlockTree> {
+	if !build.enter() {
+		return Vec::new();
+	}
+
+	let mut reader = Reader::new(build);
 
 	for token in Tokenizer::new(html) {
+		if reader.build.exceeded() {
+			break;
+		}
+
 		reader.token(token);
 	}
 
-	reader.finish()
+	let trees = reader.finish();
+	build.leave();
+	trees
 }
 
 /// One piece of markup.
@@ -769,8 +799,8 @@ struct OpenAtom {
 }
 
 /// Builds block trees from tokens.
-struct Reader<'s> {
-	build: Builder<'s>,
+struct Reader<'b, 's> {
+	build: &'b mut Builder<'s>,
 	frames: Vec<Frame>,
 	text: Option<OpenText>,
 	/// Open inline tags and the marks each applies.
@@ -782,8 +812,8 @@ struct Reader<'s> {
 	leaves: Vec<String>,
 }
 
-impl<'s> Reader<'s> {
-	fn new(schema: &'s Schema) -> Self {
+impl<'b, 's> Reader<'b, 's> {
+	fn new(build: &'b mut Builder<'s>) -> Self {
 		let root = Frame {
 			tag: String::new(),
 			name: "",
@@ -792,7 +822,7 @@ impl<'s> Reader<'s> {
 		};
 
 		Self {
-			build: Builder::new(schema),
+			build,
 			frames: vec![root],
 			text: None,
 			marks: Vec::new(),
@@ -830,6 +860,10 @@ impl<'s> Reader<'s> {
 				});
 			}
 			Role::Container(name, block_attrs) => {
+				if !self.build.enter() {
+					return;
+				}
+
 				self.end_text();
 				self.frames.push(Frame {
 					tag,
@@ -888,7 +922,9 @@ impl<'s> Reader<'s> {
 				}
 			})
 			.collect();
-		self.marks.push((tag, marks));
+		if self.build.enter() {
+			self.marks.push((tag, marks));
+		}
 	}
 
 	/// Close the innermost open thing `tag` closes, checked in order: the
@@ -920,6 +956,7 @@ impl<'s> Reader<'s> {
 
 		if let Some(index) = self.marks.iter().rposition(|(open, _)| open == tag) {
 			self.marks.remove(index);
+			self.build.leave();
 
 			return;
 		}
@@ -952,6 +989,7 @@ impl<'s> Reader<'s> {
 		let Some(mut frame) = self.frames.pop() else {
 			return;
 		};
+		self.build.leave();
 
 		// A cell always holds a block, so an empty one keeps its place.
 		if cfg!(feature = "table")
@@ -1110,19 +1148,21 @@ impl<'s> Reader<'s> {
 		self.children().push(block);
 	}
 
-	fn finish(mut self) -> Slice {
+	fn finish(mut self) -> Vec<BlockTree> {
 		self.end_text();
 
 		while self.frames.len() > 1 {
 			self.pop_frame();
 		}
 
-		let roots = self
-			.frames
+		for _ in &self.marks {
+			self.build.leave();
+		}
+
+		self.frames
 			.pop()
 			.map(|root| root.children)
-			.unwrap_or_default();
-		self.build.finish(roots)
+			.unwrap_or_default()
 	}
 }
 

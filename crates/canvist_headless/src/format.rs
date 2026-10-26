@@ -76,9 +76,9 @@ pub(crate) fn read(
 				serde_json::from_str(input).map_err(|error| HeadlessError::parse("json", error))?;
 			Ok(Document::from_json(schema.clone(), client, &json)?)
 		}
-		Format::Html => from_slice(schema, client, clipboard::from_html(schema, input)),
-		Format::Markdown => from_slice(schema, client, clipboard::from_markdown(schema, input)),
-		Format::Text => from_slice(schema, client, clipboard::from_plain_text(schema, input)),
+		Format::Html | Format::Markdown | Format::Text => {
+			from_slice(schema, client, read_slice(schema, format, input)?)
+		}
 	}
 }
 
@@ -90,8 +90,14 @@ pub(crate) fn read_slice(
 ) -> Result<Slice, HeadlessError> {
 	Ok(match format {
 		Format::Json => whole(&read(schema, 0, format, input)?),
-		Format::Html => clipboard::from_html(schema, input),
-		Format::Markdown => clipboard::from_markdown(schema, input),
+		Format::Html => {
+			clipboard::try_from_html(schema, input)
+				.map_err(|error| HeadlessError::parse("html", error))?
+		}
+		Format::Markdown => {
+			clipboard::try_from_markdown(schema, input)
+				.map_err(|error| HeadlessError::parse("markdown", error))?
+		}
 		Format::Text => clipboard::from_plain_text(schema, input),
 	})
 }

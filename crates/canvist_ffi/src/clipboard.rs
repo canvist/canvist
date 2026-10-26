@@ -11,6 +11,7 @@ use canvist_headless::canvist_model::Value;
 use serde_json::json;
 
 use crate::Editor;
+use crate::error::CanvistError;
 use crate::error::Result;
 use crate::session::Session;
 
@@ -43,17 +44,21 @@ impl Editor {
 	}
 
 	/// Paste HTML over the selection; paste rules apply.
+	/// Excessive nesting returns a `parse` error without changing the document.
 	pub fn paste_html(&self, html: &str) -> Result<bool> {
 		self.change(|session| {
-			let slice = clipboard::from_html(session.doc.document().schema(), html);
+			let slice = clipboard::try_from_html(session.doc.document().schema(), html)
+				.map_err(|error| CanvistError::new("parse", error.to_string()))?;
 			session.edit(|editor, env| editor.paste(slice, env))
 		})
 	}
 
 	/// Paste Markdown over the selection.
+	/// Excessive nesting returns a `parse` error without changing the document.
 	pub fn paste_markdown(&self, markdown: &str) -> Result<bool> {
 		self.change(|session| {
-			let slice = clipboard::from_markdown(session.doc.document().schema(), markdown);
+			let slice = clipboard::try_from_markdown(session.doc.document().schema(), markdown)
+				.map_err(|error| CanvistError::new("parse", error.to_string()))?;
 			session.edit(|editor, env| editor.paste(slice, env))
 		})
 	}
