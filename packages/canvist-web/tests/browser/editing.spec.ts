@@ -254,6 +254,63 @@ for (const input of ["auto", "textarea"] as const) {
 			expect((await paragraphs(page))[0]).toBe("HelloXYZ world");
 		});
 
+		test("rejects excessive HTML nesting without losing pasted-over or dragged text", async ({ page }) => {
+			await open(page, input);
+			const target = await pointAt(page, 1, 16);
+			const before = await page.evaluate(() => {
+				editor.select({ path: [0], offset: 0 }, { path: [0], offset: 5 });
+				editor.focus();
+				return { text: editor.export("text"), selection: editor.selection };
+			});
+			const errors: string[] = [];
+			page.on("pageerror", (error) => errors.push(error.message));
+
+			for (const kind of ["paste", "drop"]) {
+				await page.evaluate(({ kind, target }) => {
+					const html = "<blockquote>".repeat(10_000);
+
+					if (kind === "paste") {
+						const event = new ClipboardEvent("paste", {
+							clipboardData: new DataTransfer(),
+							bubbles: true,
+							cancelable: true,
+						});
+						event.clipboardData?.setData("text/html", html);
+						document.activeElement?.dispatchEvent(event);
+						return;
+					}
+
+					const data = new DataTransfer();
+					const init = {
+						clientX: target.x,
+						clientY: target.y,
+						dataTransfer: data,
+						bubbles: true,
+						cancelable: true,
+					};
+					editor.canvas.dispatchEvent(new DragEvent("dragstart", init));
+					data.setData("text/html", html);
+					editor.canvas.dispatchEvent(new DragEvent("dragover", init));
+					editor.canvas.dispatchEvent(new DragEvent("drop", init));
+					editor.canvas.dispatchEvent(new DragEvent("dragend", init));
+				}, { kind, target });
+
+				expect(
+					await page.evaluate(() => ({
+						text: editor.export("text"),
+						selection: editor.selection,
+					})),
+				).toEqual(before);
+			}
+
+			await expect.poll(() => errors.length).toBe(2);
+			expect(
+				errors.every((error) =>
+					error.includes("nesting exceeds the parser limit")
+				),
+			).toBe(true);
+		});
+
 		test("mirrors the document for assistive technology", async ({ page }) => {
 			await open(page, input);
 			const mirror = page.getByRole("document", { name: "Test editor" });

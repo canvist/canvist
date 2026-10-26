@@ -315,6 +315,13 @@ impl WebEditor {
 			return Ok(false);
 		}
 
+		// Reject invalid HTML before moving the selection or deleting a drag's source.
+		let slice = html
+			.as_deref()
+			.map(|html| clipboard::try_from_html(self.doc.document().schema(), html))
+			.transpose()
+			.map_err(|error| crate::error::parse("html", &error))?;
+
 		let target = if moving {
 			self.delete_selection()?.map_or(target, |update| {
 				update.commit.map(target, Bias::After).point
@@ -324,8 +331,8 @@ impl WebEditor {
 		};
 		self.edit(|editor, env| editor.select(Selection::caret(target), env))?;
 
-		match html {
-			Some(html) => self.paste_html(&html),
+		match slice {
+			Some(slice) => self.edit(|editor, env| editor.paste(slice, env)),
 			None => self.paste_text(text),
 		}
 	}
