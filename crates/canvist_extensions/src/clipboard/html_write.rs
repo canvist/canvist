@@ -11,6 +11,7 @@ use canvist_model::Mark;
 use canvist_model::Schema;
 use canvist_model::TreeContent;
 use canvist_model::Value;
+use canvist_model::is_safe_link_url;
 
 use super::tree::HARD_BREAK;
 
@@ -20,6 +21,7 @@ use super::tree::HARD_BREAK;
 /// `<span style>` for text styles, and `<br>`. Task lists use
 /// TipTap's `data-type` and `data-checked` attributes. Unknown blocks are
 /// written as `<div data-type>` around their content.
+/// Links with unsupported URL schemes retain their text but omit `href`.
 #[must_use]
 pub fn to_html(schema: &Schema, slice: &Slice) -> String {
 	let mut html = String::new();
@@ -420,7 +422,12 @@ fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
 				.get("href")
 				.and_then(Value::as_str)
 				.unwrap_or_default();
-			(format!("<a href=\"{}\">", escape(href)), "</a>")
+
+			if is_safe_link_url(href) {
+				(format!("<a href=\"{}\">", escape(href)), "</a>")
+			} else {
+				("<a>".to_owned(), "</a>")
+			}
 		}
 		"subscript" if cfg!(feature = "subscript") => ("<sub>".to_owned(), "</sub>"),
 		"superscript" if cfg!(feature = "superscript") => ("<sup>".to_owned(), "</sup>"),

@@ -66,6 +66,33 @@ fn html_round_trips_through_paste() {
 }
 
 #[test]
+fn imported_links_with_executable_schemes_export_without_href() {
+	let typist = Typist::new();
+	let schema = typist.editor.schema();
+
+	for href in [
+		"javascript:alert(1)",
+		" JaVaScRiPt:alert(1)",
+		"java\tscript:alert(1)",
+		"java\nscript:alert(1)",
+		"java\rscript:alert(1)",
+		"java&#x73;cript:alert(1)",
+		"java&#9;script:alert(1)",
+		"data:text/html,script",
+		"vbscript:msgbox(1)",
+	] {
+		let html = format!("<p><a href=\"{href}\"><strong>link</strong></a></p>");
+		let slice = clipboard::from_html(schema, &html);
+
+		assert_eq!(
+			clipboard::to_html(schema, &slice),
+			"<p><strong><a>link</a></strong></p>",
+			"{href:?}"
+		);
+	}
+}
+
+#[test]
 fn markdown_round_trips_except_underline() {
 	let (typist, slice) = copied();
 	let schema = typist.editor.schema();

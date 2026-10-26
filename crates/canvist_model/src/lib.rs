@@ -73,6 +73,7 @@ mod table;
 #[cfg(test)]
 mod testing;
 mod transaction;
+mod url;
 
 pub use attrs::Attrs;
 pub use attrs::Value;
@@ -120,3 +121,4 @@ pub use table::GridRect;
 pub use table::TableMap;
 pub use transaction::Commit;
 pub use transaction::Transaction;
+pub use url::is_safe_link_url;
