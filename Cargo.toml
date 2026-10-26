@@ -82,6 +82,7 @@ tokio = { default-features = false, version = "^1" }
 tokio-postgres = { default-features = false, version = "^0.7" }
 tokio-tungstenite = { default-features = false, version = "^0.28" }
 tokio-util = { default-features = false, version = "^0.7" }
+tower = { default-features = false, version = "^0.5" }
 tower-http = { default-features = false, version = "^0.6" }
 tracing = { default-features = false, version = "^0.1" }
 tracing-subscriber = { default-features = false, version = "^0.3" }

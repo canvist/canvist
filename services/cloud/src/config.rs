@@ -137,7 +137,8 @@ pub struct ConvertConfig {
 	pub max_input_bytes: usize,
 	/// The longest one conversion may run before the request gives up.
 	pub timeout: Duration,
-	/// Conversions running at once on this instance.
+	/// Conversions admitted at once on this instance, including input reads.
+	/// Requests beyond this limit are rejected without queuing.
 	pub concurrency: usize,
 }
 

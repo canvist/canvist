@@ -21,6 +21,7 @@ use canvist_headless::canvist_extensions::StarterKitHandles;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value as Json;
+use tokio::sync::OwnedSemaphorePermit;
 use tokio::sync::Semaphore;
 
 use crate::config::ConvertConfig;
@@ -67,6 +68,13 @@ pub struct Converter {
 	config: ConvertConfig,
 }
 
+/// A reserved slot, held from before input is read until blocking work ends.
+#[derive(Debug)]
+pub(crate) struct Conversion<'a> {
+	converter: &'a Converter,
+	permit: OwnedSemaphorePermit,
+}
+
 impl std::fmt::Debug for Converter {
 	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		formatter
@@ -91,8 +99,28 @@ impl Converter {
 		&self.config
 	}
 
+	/// Reserve capacity before reading input. Reject overload without queuing
+	/// request bodies or stored document states in memory.
+	pub(crate) fn try_admit(&self) -> Result<Conversion<'_>, ApiError> {
+		let permit = self
+			.permits
+			.clone()
+			.try_acquire_owned()
+			.map_err(|_| busy())?;
+
+		Ok(Conversion {
+			converter: self,
+			permit,
+		})
+	}
+}
+
+impl Conversion<'_> {
 	/// Convert `request`'s input.
-	pub async fn convert(&self, request: ConvertRequest) -> Result<ConvertResponse, ApiError> {
+	pub(crate) async fn convert(
+		self,
+		request: ConvertRequest,
+	) -> Result<ConvertResponse, ApiError> {
 		let from = parse_format(&request.from)?;
 		let to = parse_format(&request.to)?;
 		let input = input_text(from, request.input)?;
@@ -100,7 +128,11 @@ impl Converter {
 	}
 
 	/// Export a stored document's Yjs `state` as `to`.
-	pub async fn export(&self, state: Vec<u8>, to: Format) -> Result<ConvertResponse, ApiError> {
+	pub(crate) async fn export(
+		self,
+		state: Vec<u8>,
+		to: Format,
+	) -> Result<ConvertResponse, ApiError> {
 		self.run(Source::Yjs(state), to).await
 	}
 
@@ -108,21 +140,16 @@ impl Converter {
 	/// timeout is answered with `504` but still finishes in the background:
 	/// blocking work cannot be cancelled, which is why the semaphore, not
 	/// the timeout, bounds the load.
-	async fn run(&self, source: Source, to: Format) -> Result<ConvertResponse, ApiError> {
-		let permit = self
-			.permits
-			.clone()
-			.acquire_owned()
-			.await
-			.map_err(|_| busy())?;
-		let engine = self.engine.clone();
+	async fn run(self, source: Source, to: Format) -> Result<ConvertResponse, ApiError> {
+		let permit = self.permit;
+		let engine = self.converter.engine.clone();
 		let work = tokio::task::spawn_blocking(move || {
 			let output = convert_blocking(&engine, source, to);
 			drop(permit);
 			output
 		});
 
-		let output = tokio::time::timeout(self.config.timeout, work)
+		let output = tokio::time::timeout(self.converter.config.timeout, work)
 			.await
 			.map_err(|_| timed_out())?
 			.map_err(|_| busy())?
@@ -193,13 +220,69 @@ fn busy() -> ApiError {
 	ApiError::new(
 		StatusCode::SERVICE_UNAVAILABLE,
 		"converter_unavailable",
-		"the converter is shutting down; retry",
+		"the converter is at capacity or shutting down; retry shortly",
 	)
 }
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
 	use super::*;
+
+	#[test]
+	fn timed_out_work_keeps_capacity_until_the_blocking_task_finishes() {
+		let runtime = tokio::runtime::Builder::new_current_thread()
+			.enable_all()
+			.max_blocking_threads(1)
+			.build()
+			.expect("runtime");
+
+		runtime.block_on(async {
+			let converter = Converter::new(ConvertConfig {
+				concurrency: 1,
+				timeout: Duration::ZERO,
+				..ConvertConfig::default()
+			});
+			let (entered, started) = tokio::sync::oneshot::channel();
+			let (release, blocked) = std::sync::mpsc::channel();
+			// Keep conversion work queued so the timeout cannot race completion.
+			let blocker = tokio::task::spawn_blocking(move || {
+				entered.send(()).expect("waiting for blocker");
+				blocked.recv().expect("release blocker");
+			});
+			started.await.expect("blocking pool occupied");
+			let error = converter
+				.try_admit()
+				.expect("capacity")
+				.convert(ConvertRequest {
+					from: "text".to_owned(),
+					to: "html".to_owned(),
+					input: Json::String("hello".to_owned()),
+				})
+				.await
+				.expect_err("queued work times out");
+			assert_eq!(error.status(), StatusCode::GATEWAY_TIMEOUT);
+			assert_eq!(
+				converter
+					.try_admit()
+					.expect_err("work still queued")
+					.status(),
+				StatusCode::SERVICE_UNAVAILABLE
+			);
+
+			release.send(()).expect("unblock pool");
+			blocker.await.expect("blocker finishes");
+			// The single blocking worker completes the conversion before this task.
+			tokio::task::spawn_blocking(|| ())
+				.await
+				.expect("queue drained");
+			assert!(
+				converter.try_admit().is_ok(),
+				"completed work frees capacity"
+			);
+		});
+	}
 
 	fn text(from: Format, input: &str, to: Format) -> Json {
 		convert_blocking(
