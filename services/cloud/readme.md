@@ -27,6 +27,8 @@ The server behind canvist Cloud, and the exact binary self-hosters run. It is no
 - **Webhooks:** a debounced, signed `document.updated` webhook per environment.
 - **REST:** server-side keys mint client tokens, list, read, write, and delete documents.
 
+Updates waiting for missing dependencies count toward `CANVIST_MAX_DOCUMENT_BYTES`, including updates retained internally by yrs. A room accepts at most 128 distinct submissions while dependencies remain unresolved; identical replays do not use more capacity. Charges are released when all waiting updates integrate. Admission is conservative: partially integrated submissions remain charged until then. Once either limit is reached, further new submissions are refused; disconnecting all peers and waiting for idle eviction allows a fresh sync from each client's local state.
+
 Measured on Apple silicon (`test:perf`): one keystroke reaches the last of 100 connected peers in 0.6 ms; a loaded 50-paragraph document holds about 130 KiB; an idle connection about 17 KiB.
 
 See [the API reference](../../docs/src/cloud/api.md) and [self-hosting](../../docs/src/cloud/self-hosting.md).
