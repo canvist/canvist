@@ -9,14 +9,27 @@ use canvist_model::MarkSet;
 use canvist_model::Schema;
 use canvist_model::Value;
 
+use super::NestingLimitExceeded;
 use super::markdown_inline::parse_inline;
 use super::tree::Builder;
 
 /// Parse Markdown into a slice for `schema`: ATX headings, paragraphs,
 /// block quotes, fenced code, thematic breaks, and bullet, ordered, and
 /// task lists, with inline emphasis, code, links, and hard breaks.
+/// Input exceeding [`super::MAX_PARSE_DEPTH`] is preserved as literal
+/// plain text. Use [`try_from_markdown`] to reject it instead.
 #[must_use]
 pub fn from_markdown(schema: &Schema, markdown: &str) -> Slice {
+	try_from_markdown(schema, markdown)
+		.unwrap_or_else(|NestingLimitExceeded| super::from_plain_text(schema, markdown))
+}
+
+/// Parse Markdown, rejecting input that exceeds [`super::MAX_PARSE_DEPTH`].
+///
+/// # Errors
+/// Returns [`NestingLimitExceeded`] before excessive nesting can exhaust
+/// the stack, including nesting inside inline syntax and embedded HTML.
+pub fn try_from_markdown(schema: &Schema, markdown: &str) -> Result<Slice, NestingLimitExceeded> {
 	let normalized = markdown.replace("\r\n", "\n").replace('\r', "\n");
 	let lines: Vec<&str> = normalized.lines().collect();
 	let mut build = Builder::new(schema);
@@ -188,11 +201,15 @@ fn html_block(line: &str) -> Option<&'static str> {
 
 /// Parse a run of lines into blocks.
 fn blocks(build: &mut Builder<'_>, lines: &[&str]) -> Vec<BlockTree> {
+	if !build.enter() {
+		return Vec::new();
+	}
+
 	let mut trees = Vec::new();
 	let mut paragraph: Vec<&str> = Vec::new();
 	let mut index = 0;
 
-	while index < lines.len() {
+	while index < lines.len() && !build.exceeded() {
 		let line = lines[index];
 
 		if line.trim().is_empty() {
@@ -224,6 +241,7 @@ fn blocks(build: &mut Builder<'_>, lines: &[&str]) -> Vec<BlockTree> {
 	}
 
 	flush_paragraph(build, &mut paragraph, &mut trees);
+	build.leave();
 	trees
 }
 
@@ -375,11 +393,7 @@ fn block_html(build: &mut Builder<'_>, lines: &[&str], close: &str) -> (usize, V
 		.position(|line| line.contains(close))
 		.map_or(lines.len(), |index| index + 1);
 	let html = lines[..used].join("\n");
-	let trees = super::html_read::from_html(build.schema, &html)
-		.into_blocks()
-		.into_iter()
-		.map(|tree| build.adopt(tree))
-		.collect();
+	let trees = super::html_read::read_html(build, &html);
 
 	(used, trees)
 }
@@ -589,6 +603,10 @@ fn list(build: &mut Builder<'_>, lines: &[&str]) -> (usize, Vec<BlockTree>) {
 	let mut items = Vec::new();
 
 	while let Some(opening) = lines.get(index).and_then(|line| item(line)) {
+		if build.exceeded() {
+			break;
+		}
+
 		if (opening.ordered, opening.marker) != (first.ordered, first.marker) {
 			break;
 		}

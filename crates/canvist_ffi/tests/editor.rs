@@ -23,6 +23,22 @@ use canvist_ffi::testing::FixedPlatformMeasurer;
 
 type Result = std::result::Result<(), CanvistError>;
 
+#[test]
+fn excessive_clipboard_nesting_returns_parse_errors_without_editing() {
+	let editor = editor("unchanged");
+	editor.select_all().expect("select existing content");
+	let before = editor.export(DocFormat::Json);
+	let selection = editor.selection();
+	let markdown = format!("{}text", "> ".repeat(10_000));
+	let html = "<blockquote>".repeat(10_000);
+
+	for result in [editor.paste_html(&html), editor.paste_markdown(&markdown)] {
+		assert_eq!(result.expect_err("reject paste").code(), "parse");
+		assert_eq!(editor.export(DocFormat::Json), before);
+		assert_eq!(editor.selection(), selection);
+	}
+}
+
 fn editor(markdown: &str) -> Arc<Editor> {
 	let editor = Editor::new(
 		EditorOptions::starter_kit(),

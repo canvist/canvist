@@ -280,9 +280,11 @@ impl WebEditor {
 	}
 
 	/// Paste HTML over the selection.
+	/// Excessive nesting throws a `parse` error without changing the document.
 	#[wasm_bindgen(js_name = pasteHtml)]
 	pub fn paste_html(&mut self, html: &str) -> JsResult<bool> {
-		let slice = clipboard::from_html(self.doc.document().schema(), html);
+		let slice = clipboard::try_from_html(self.doc.document().schema(), html)
+			.map_err(|error| crate::error::parse("html", &error))?;
 		self.edit(|editor, env| editor.paste(slice, env))
 	}
 
@@ -313,6 +315,12 @@ impl WebEditor {
 			return Ok(false);
 		}
 
+		// Reject invalid HTML before moving the selection or deleting a drag's source.
+		let slice = html
+			.map(|html| clipboard::try_from_html(self.doc.document().schema(), &html))
+			.transpose()
+			.map_err(|error| crate::error::parse("html", &error))?;
+
 		let target = if moving {
 			self.delete_selection()?.map_or(target, |update| {
 				update.commit.map(target, Bias::After).point
@@ -322,8 +330,8 @@ impl WebEditor {
 		};
 		self.edit(|editor, env| editor.select(Selection::caret(target), env))?;
 
-		match html {
-			Some(html) => self.paste_html(&html),
+		match slice {
+			Some(slice) => self.edit(|editor, env| editor.paste(slice, env)),
 			None => self.paste_text(text),
 		}
 	}

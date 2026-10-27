@@ -55,9 +55,17 @@ impl InlineParser<'_, '_> {
 
 	/// Parse `source`, consuming one construct at a time.
 	fn parse(&mut self, source: &str) {
+		if !self.build.enter() {
+			return;
+		}
+
 		let mut rest = source;
 
 		while let Some(next) = rest.chars().next() {
+			if self.build.exceeded() {
+				break;
+			}
+
 			let consumed = match next {
 				'\\' => self.escape(rest),
 				'\n' => Some(self.newline()),
@@ -75,6 +83,8 @@ impl InlineParser<'_, '_> {
 			});
 			rest = &rest[consumed..];
 		}
+
+		self.build.leave();
 	}
 
 	fn hard_break(&mut self) {

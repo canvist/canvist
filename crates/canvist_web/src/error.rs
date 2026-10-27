@@ -41,3 +41,11 @@ pub(crate) fn invalid_args(reason: &str) -> JsValue {
 		ErrorCode::InvalidArgs,
 	)
 }
+
+/// A clipboard parser rejected input before the editor was changed.
+pub(crate) fn parse(format: &str, reason: &impl std::fmt::Display) -> JsValue {
+	canvist_error(
+		&format!("could not parse {format}: {reason}"),
+		ErrorCode::Parse,
+	)
+}
