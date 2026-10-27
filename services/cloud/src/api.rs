@@ -1,15 +1,21 @@
 //! The HTTP API. See `docs/src/cloud/api.md` for the reference.
 
+#[cfg(test)]
+mod tests;
+
 use axum::Json;
 use axum::Router;
 use axum::body::Bytes;
 use axum::extract::DefaultBodyLimit;
+use axum::extract::FromRequest;
 use axum::extract::Path;
 use axum::extract::Query;
+use axum::extract::Request;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
+use axum::response::ErrorResponse;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use axum::routing::get;
@@ -103,10 +109,12 @@ fn convert_routes() -> Router<SharedApp> {
 async fn convert(
 	State(app): State<SharedApp>,
 	headers: HeaderMap,
-	Json(request): Json<ConvertRequest>,
-) -> Result<Json<ConvertResponse>, ApiError> {
+	request: Request,
+) -> Result<Json<ConvertResponse>, ErrorResponse> {
 	let principal = app.server_principal(&headers).await?;
-	let response = app.converter.convert(request).await?;
+	let conversion = app.converter.try_admit()?;
+	let Json(request) = Json::<ConvertRequest>::from_request(request, &app).await?;
+	let response = conversion.convert(request).await?;
 	count_conversion(&app, &principal).await;
 	Ok(Json(response))
 }
@@ -279,9 +287,9 @@ async fn export_document(
 ) -> Result<Response, ApiError> {
 	let principal = app.server_principal(&headers).await?;
 	let key = document_key(&principal, &name)?;
-	let state = crate::documents::current_state(&app, &key).await?;
 	let format = match query.format.as_deref() {
 		None | Some("yjs") => {
+			let state = crate::documents::current_state(&app, &key).await?;
 			return Ok(([(CONTENT_TYPE, "application/octet-stream")], state).into_response());
 		}
 		Some(name) => {
@@ -292,7 +300,9 @@ async fn export_document(
 			})?
 		}
 	};
-	let converted = app.converter.export(state, format).await?;
+	let conversion = app.converter.try_admit()?;
+	let state = crate::documents::current_state(&app, &key).await?;
+	let converted = conversion.export(state, format).await?;
 	count_conversion(&app, &principal).await;
 
 	Ok(Json(converted).into_response())

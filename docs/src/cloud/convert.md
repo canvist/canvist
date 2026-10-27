@@ -47,12 +47,15 @@ curl "https://SYNC_HOST/v1/documents/team%2Fnotes?format=markdown" \
 
 ## Limits and errors
 
-| Status | When                                           |
-| ------ | ---------------------------------------------- |
-| `400`  | An unknown format, or the wrong input type     |
-| `413`  | The request is over 8 MiB                      |
-| `422`  | The input doesn't parse (code `unconvertible`) |
-| `504`  | The conversion took longer than 10 seconds     |
+| Status | When                                                                          |
+| ------ | ----------------------------------------------------------------------------- |
+| `400`  | An unknown format, or the wrong input type                                    |
+| `413`  | The request is over 8 MiB                                                     |
+| `422`  | The input doesn't parse (code `unconvertible`)                                |
+| `503`  | All conversion slots are occupied; retry later (code `converter_unavailable`) |
+| `504`  | The conversion took longer than 10 seconds                                    |
+
+Conversions reserve a slot before reading the request body or loading a stored document for export. Excess requests are rejected immediately. A timed-out conversion keeps its slot until its background work finishes.
 
 A 10,000-paragraph document converts in 15 to 50 ms. Every conversion counts toward the month's usage; see [Plans and billing](./billing.md).
 

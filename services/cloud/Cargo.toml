@@ -45,6 +45,7 @@ hmac = { workspace = true }
 sha2 = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
+tower = { workspace = true, features = ["util"] }
 
 [lints]
 workspace = true
