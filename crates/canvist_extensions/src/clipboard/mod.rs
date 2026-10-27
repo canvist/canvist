@@ -17,6 +17,7 @@
 //! and formatting read, and a full HTML parser would add hundreds of
 //! kilobytes to every WebAssembly build.
 
+mod css;
 mod html_read;
 mod html_write;
 mod markdown_inline;
