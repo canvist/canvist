@@ -12,6 +12,12 @@ use canvist_model::StepError;
 /// document with [`Binding::document`](crate::Binding::document) to recover.
 #[derive(Debug, thiserror::Error)]
 pub enum CollabError {
+	/// Shared block nesting exceeds [`MAX_BLOCK_DEPTH`](crate::MAX_BLOCK_DEPTH).
+	#[error(
+		"shared block nesting exceeds the limit of {} levels",
+		crate::MAX_BLOCK_DEPTH
+	)]
+	BlockDepthLimit,
 	/// A translated step was rejected by the model.
 	#[error(transparent)]
 	Step(#[from] StepError),

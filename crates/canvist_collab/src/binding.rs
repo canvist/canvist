@@ -192,6 +192,11 @@ impl Binding {
 	///
 	/// On error the binding may no longer match `doc`; rebuild it with
 	/// [`Binding::document`].
+	///
+	/// Shared trees deeper than [`MAX_BLOCK_DEPTH`](crate::MAX_BLOCK_DEPTH)
+	/// return [`CollabError::BlockDepthLimit`] before the model changes. The
+	/// CRDT retains the update and its events; a later update that restores
+	/// the depth limit can be mirrored, or the binding can be discarded.
 	pub fn apply_update(
 		&mut self,
 		doc: &mut Document,
