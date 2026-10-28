@@ -13,7 +13,7 @@ Both paths run your key bindings first. A key without a binding becomes text. Ev
 
 `editor.inputMode` says which path is in use. To force the textarea, for example while a browser has an `EditContext` bug, pass `input: "textarea"`:
 
-```ts no_run
+```ts no_run live
 import { createEditor } from "@canvist/web";
 
 const element = document.querySelector<HTMLElement>("#editor");

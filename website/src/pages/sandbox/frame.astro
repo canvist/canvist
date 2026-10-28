@@ -1,0 +1,68 @@
+---
+/**
+ * A browser realm for the sandbox: the docs' live samples and the
+ * playground run browser code in a frame of this page. It waits for code
+ * from the page that embeds it (see `src/sandbox/frame.ts`).
+ */
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<meta name="color-scheme" content="light dark" />
+		<title>canvist sandbox</title>
+		<style is:global>
+			:root {
+				color-scheme: light dark;
+				--line: light-dark(#dedaf2, #2e2940);
+				--accent: light-dark(#3b2cf5, #8a80ff);
+			}
+
+			body {
+				margin: 0;
+				padding: 1rem;
+				background: light-dark(#ffffff, #201c2b);
+				color: light-dark(#17141f, #f5f3ff);
+				font: 0.9375rem/1.5 ui-sans-serif, system-ui, sans-serif;
+			}
+
+			/* The samples' toolbars: plain buttons, so the editor stays the focus. */
+			button {
+				min-height: 2rem;
+				margin: 0 0.25rem 0.5rem 0;
+				padding: 0 0.75rem;
+				border: 1px solid var(--line);
+				border-radius: 999px;
+				background: transparent;
+				color: inherit;
+				font: inherit;
+				font-size: 0.8125rem;
+				cursor: pointer;
+			}
+
+			button[aria-pressed="true"] {
+				border-color: var(--accent);
+				background: var(--accent);
+				color: light-dark(#f5f3ff, #17141f);
+			}
+
+			button:disabled {
+				opacity: 0.5;
+				cursor: default;
+			}
+
+			:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+		</style>
+	</head>
+	<body>
+		<script>
+			import "../../sandbox/frame.ts";
+		</script>
+	</body>
+</html>

@@ -1,0 +1,210 @@
+/*
+ * The sandbox's parts, shared by the docs' live samples and the
+ * playground: the code editor's colours, the console, the document
+ * preview, and the frames browser code runs in.
+ */
+
+/*
+ * GitHub's light and dark code colours, as the docs' highlighted samples
+ * use. In light mode the red, green, and grey are GitHub Primer's darker
+ * ones, which stay AA on the active line's tint.
+ */
+.cm-editor {
+	--code-keyword: light-dark(#cf222e, #f97583);
+	--code-string: light-dark(#032f62, #9ecbff);
+	--code-comment: light-dark(#57606a, #a1a9b3);
+	--code-function: light-dark(#6f42c1, #b392f0);
+	--code-constant: light-dark(#005cc5, #79b8ff);
+	--code-tag: light-dark(#116329, #85e89d);
+}
+
+.cm-editor .cm-scroller {
+	scrollbar-width: thin;
+	scrollbar-color: var(--line) transparent;
+}
+
+.cm-editor .cm-content:focus-visible {
+	outline: none;
+}
+
+.cm-editor.cm-focused {
+	box-shadow: inset 0 0 0 2px var(--focus);
+}
+
+/* ---------- Console ---------- */
+
+.sandbox-console {
+	max-height: 16rem;
+	margin: 0;
+	padding: var(--s-2) 0;
+	overflow: auto;
+	list-style: none;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	line-height: 1.6;
+	scrollbar-width: thin;
+}
+
+.sandbox-console:empty {
+	display: none;
+}
+
+.sandbox-console li {
+	display: flex;
+	gap: var(--s-2);
+	padding: 0.0625rem var(--s-3);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.sandbox-console__text {
+	flex: 1;
+	min-width: 0;
+}
+
+.sandbox-console__label {
+	flex: none;
+	min-width: 4.5rem;
+	color: var(--text-muted);
+}
+
+.sandbox-console [data-level="warn"] {
+	background: light-dark(#fff8db, #2b2410);
+}
+
+.sandbox-console [data-level="error"] {
+	background: color-mix(in oklab, var(--error) 9%, transparent);
+	color: var(--error);
+}
+
+.sandbox-console [data-level="note"],
+.sandbox-console [data-level="debug"] {
+	color: var(--text-muted);
+}
+
+.sandbox-console__line {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* ---------- Preview ---------- */
+
+.sandbox-preview {
+	border-top: 1px solid var(--line);
+}
+
+.sandbox-preview:first-child {
+	border-top: 0;
+}
+
+.sandbox-preview[hidden] {
+	display: none;
+}
+
+.sandbox-preview__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s-2);
+	padding: var(--s-2) var(--s-3) 0;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+}
+
+.sandbox-preview__tabs {
+	display: flex;
+	gap: var(--s-1);
+}
+
+.sandbox-preview__tab {
+	min-height: 1.75rem;
+	padding: 0 var(--s-3);
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: none;
+	color: var(--text-muted);
+	font: inherit;
+	cursor: pointer;
+}
+
+.sandbox-preview__tab[aria-selected="true"] {
+	border-color: var(--line);
+	background: var(--surface);
+	color: var(--text);
+}
+
+.sandbox-preview__tab[hidden] {
+	display: none;
+}
+
+.sandbox-preview__picker {
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	color: var(--text-muted);
+}
+
+.sandbox-preview__picker[hidden] {
+	display: none;
+}
+
+.sandbox-preview__picker select {
+	font: inherit;
+}
+
+.sandbox-preview__panel {
+	padding: var(--s-3);
+}
+
+.sandbox-preview__panel:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: -2px;
+}
+
+.sandbox-preview__editor {
+	min-height: 2rem;
+}
+
+.sandbox-preview__html {
+	display: block;
+	width: 100%;
+	min-height: 3rem;
+	border: 1px solid var(--line);
+	border-radius: var(--r-1);
+}
+
+.sandbox-preview__source {
+	max-height: 20rem;
+	margin: 0;
+	padding: var(--s-3);
+	overflow: auto;
+	border-radius: var(--r-1);
+	background: var(--surface);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.sandbox-preview__note {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: var(--t-small);
+}
+
+/* ---------- Browser realms ---------- */
+
+.sandbox-frame {
+	display: block;
+	width: 100%;
+	border: 0;
+	background: var(--raised);
+	color-scheme: normal;
+}

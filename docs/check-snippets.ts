@@ -7,6 +7,11 @@
  * - `ts`: type-checked with `deno check`, then run with `deno run`. A sample
  *   whose info string has `no_run` (it needs a network peer, for example) is
  *   only type-checked.
+ *
+ *   The docs site runs `ts` samples on the page too, in its sandbox
+ *   (`website/src/sandbox`): every sample that runs here, and `no_run`
+ *   samples marked `live` (```ts no_run live), which run in the
+ *   browser against the `html` sample before them.
  * - `dart`: analyzed with `dart analyze --fatal-infos` inside the `canvist`
  *   package, then run with `dart run` unless marked `no_run`. Samples that
  *   import Flutter are analyzed inside the Flutter example app instead.
