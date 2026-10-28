@@ -122,6 +122,12 @@ jobs:
         with:
           deno-version: v2.x
 
+      # A release commit rewrites internal dependencies to versions that are
+      # not on npm yet; the size build uses the workspace packages instead.
+      - name: relink internal dependencies
+        if: steps.need.outputs.build == 'true' || steps.need.outputs.base == 'true'
+        run: deno run --allow-read --allow-write tools/release/relink_workspace_deps.ts
+
       - name: build and measure the head
         if: steps.need.outputs.build == 'true'
         run: |
