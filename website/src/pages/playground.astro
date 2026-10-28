@@ -206,6 +206,8 @@ const description = "Try canvist in your browser: switch any of its 49 extension
 	}
 
 	.pg-example__summary {
+		/* Package names like @canvist/headless/full mustn't widen a card. */
+		overflow-wrap: anywhere;
 		color: var(--chip-muted);
 		font-size: var(--t-micro);
 		line-height: 1.4;
@@ -509,7 +511,7 @@ const description = "Try canvist in your browser: switch any of its 49 extension
 
 	.pg-peers__grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
 		gap: var(--s-3);
 		padding: 0 var(--s-4) var(--s-4);
 	}
@@ -591,13 +593,19 @@ const description = "Try canvist in your browser: switch any of its 49 extension
 
 		.pg-extensions__group ul {
 			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+			grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
 		}
 	}
 
 	@media (max-width: 64rem) {
 		.pg-head,
 		.pg-work {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	@media (max-width: 30rem) {
+		.pg-examples {
 			grid-template-columns: minmax(0, 1fr);
 		}
 	}
