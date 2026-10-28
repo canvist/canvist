@@ -372,8 +372,10 @@ in
       exec = ''
         set -e
         # `*.generated.kt` is produced by the extension handle generator with
-        # its own formatting, enforced by the canvist_ffi handles tests.
-        git ls-files '*.kt' '*.kts' | grep -v 'platforms/flutter/example' | grep -v '\.generated\.kt$' | ktlint --patterns-from-stdin
+        # its own formatting, enforced by the canvist_ffi handles tests. The
+        # files go as arguments: `--patterns-from-stdin` read the whole list as
+        # one pattern, matched nothing, and passed.
+        git ls-files '*.kt' '*.kts' | grep -v 'platforms/flutter/example' | grep -v '\.generated\.kt$' | xargs ktlint
       '';
       description = "Lint tracked Kotlin sources with ktlint (generated files are untracked and skipped).";
       binary = "bash";

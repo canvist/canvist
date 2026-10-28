@@ -3,10 +3,12 @@
 #
 #   platforms/android/emulator.sh ./gradlew connectedDebugAndroidTest
 #
-# Uses an already-connected device when there is one. Otherwise boots the
-# `CANVIST_AVD` AVD (default `canvist-api35`), creating it first if it does not
-# exist, runs the command, and shuts the emulator down again. The command sees
-# the device serial in `ANDROID_SERIAL`.
+# Uses the device in `ANDROID_SERIAL` when it is set, such as
+# `ANDROID_SERIAL=emulator-5554`, so a phone plugged in to charge is never the
+# one tests drive. Otherwise uses an already-connected device when there is
+# one, or boots the `CANVIST_AVD` AVD (default `canvist-api35`), creating it
+# first if it does not exist, runs the command, and shuts the emulator down
+# again. The command sees the device serial in `ANDROID_SERIAL`.
 set -euo pipefail
 
 export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
@@ -24,6 +26,16 @@ log="${tmp%/}/canvist-emulator.log"
 attached_device() {
 	"$adb" devices | awk 'NR > 1 && $2 == "device" { print $1; exit }'
 }
+
+if [ -n "${ANDROID_SERIAL:-}" ]; then
+	if [ "$("$adb" -s "$ANDROID_SERIAL" get-state 2>/dev/null)" != "device" ]; then
+		echo "ANDROID_SERIAL=$ANDROID_SERIAL is not attached" >&2
+		exit 1
+	fi
+
+	echo "Using Android device $ANDROID_SERIAL" >&2
+	exec "$@"
+fi
 
 if [ -z "$(attached_device)" ]; then
 	if ! "$emulator" -list-avds | grep -qx "$avd"; then
