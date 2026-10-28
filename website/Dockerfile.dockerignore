@@ -32,6 +32,7 @@ services/*
 !services/cloud
 tools/*
 !tools/footage
+!tools/release
 assets/*
 !assets/brand
 packages/*

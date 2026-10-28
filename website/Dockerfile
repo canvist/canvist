@@ -59,9 +59,13 @@ COPY crates crates
 COPY packages packages
 COPY --from=packages /repo/packages/canvist-headless packages/canvist-headless
 COPY --from=packages /repo/packages/canvist-web packages/canvist-web
+# A release commit rewrites the site's internal dependencies to versions
+# that are not on npm yet; the site builds from the packages compiled above.
+COPY tools/release/relink_workspace_deps.ts tools/release/relink_workspace_deps.ts
 WORKDIR /repo/website
 COPY website/package.json website/deno.json website/deno.lock ./
-RUN deno install --frozen
+RUN deno run --allow-read --allow-write ../tools/release/relink_workspace_deps.ts \
+	&& deno install --frozen
 COPY website .
 # Railway passes the service's public domain as a build variable, which sets
 # the canonical URL; SITE_URL overrides it.

@@ -112,6 +112,12 @@ jobs:
         with:
           node-version: 24
 
+      # A release commit rewrites internal dependencies to versions that are
+      # not on npm yet; the site builds from the workspace instead.
+      - name: relink internal dependencies
+        working-directory: .
+        run: deno run --allow-read --allow-write tools/release/relink_workspace_deps.ts
+
       - name: install dependencies
         run: deno install --frozen
 
@@ -261,6 +267,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      # A release commit rewrites internal dependencies to versions that are
+      # not on npm yet; the site builds from the workspace instead.
+      - name: relink internal dependencies
+        working-directory: .
+        run: deno run --allow-read --allow-write tools/release/relink_workspace_deps.ts
 
       - name: install dependencies
         run: deno install --frozen
