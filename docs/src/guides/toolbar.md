@@ -90,7 +90,12 @@ console.log(describe(doc));
 
 The same descriptions drive real buttons. Here they are as plain DOM buttons over a `@canvist/web` editor, refreshed through `subscribe`, which calls back after every edit, selection change, and focus change:
 
-```ts no_run
+```html
+<div id="toolbar" role="toolbar" aria-label="Formatting"></div>
+<div id="editor"></div>
+```
+
+```ts no_run live
 import { bold, createEditor, italic } from "@canvist/web";
 
 const element = document.querySelector<HTMLElement>("#editor")!;

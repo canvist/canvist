@@ -430,10 +430,16 @@ html:not(.docs-js) .docs-search-open {
 	font-size: inherit;
 }
 
-.docs-copy {
+.docs-code__actions {
 	position: absolute;
+	z-index: 1;
 	top: var(--s-2);
 	right: var(--s-2);
+	display: flex;
+	gap: var(--s-1);
+}
+
+.docs-copy {
 	min-height: 2rem;
 	padding: 0 var(--s-3);
 	border: 1px solid var(--line);
@@ -461,6 +467,141 @@ html:not(.docs-js) .docs-search-open {
 @media (hover: none) {
 	.docs-copy {
 		opacity: 1;
+	}
+}
+
+/* ---------- Live samples: edit and run on the page ---------- */
+
+.docs-run {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-1);
+	min-height: 2rem;
+	padding: 0 var(--s-3);
+	border: 1px solid var(--accent);
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--accent-text);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	cursor: pointer;
+	transition: transform var(--dur-1) var(--ease-wet);
+}
+
+.docs-run::before {
+	content: "";
+	width: 0;
+	height: 0;
+	border-block: 0.3em solid transparent;
+	border-left: 0.5em solid currentColor;
+}
+
+.docs-run:hover {
+	transform: translateY(-1px);
+}
+
+.docs-run:disabled {
+	cursor: progress;
+	opacity: 0.7;
+	transform: none;
+}
+
+.docs-live {
+	overflow: hidden;
+	border: 1px solid var(--line);
+	border-radius: var(--r-2);
+	background: var(--raised);
+}
+
+.docs-live__editor .cm-editor {
+	max-height: 36rem;
+}
+
+.docs-live__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--s-2);
+	padding: var(--s-2) var(--s-3);
+	border-top: 1px solid var(--line);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+}
+
+.docs-live__status {
+	display: flex;
+	flex: 1 1 14rem;
+	align-items: center;
+	gap: var(--s-2);
+	margin: 0;
+	color: var(--text-muted);
+}
+
+.docs-live__status::before {
+	content: "";
+	flex: none;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.docs-live[data-state="ok"] .docs-live__status::before {
+	background: var(--accent);
+}
+
+.docs-live[data-state="error"] .docs-live__status {
+	color: var(--error);
+}
+
+.docs-live[data-state="running"] .docs-live__status::before {
+	animation: docs-live-pulse 0.9s steps(2, jump-none) infinite;
+}
+
+@keyframes docs-live-pulse {
+	to {
+		opacity: 0.2;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.docs-live[data-state="running"] .docs-live__status::before {
+		animation: none;
+	}
+}
+
+.docs-live__action {
+	min-height: 1.75rem;
+	padding: 0 var(--s-3);
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--text-muted);
+	font: inherit;
+	cursor: pointer;
+}
+
+.docs-live__action:hover {
+	color: var(--accent);
+}
+
+.docs-live__output {
+	border-top: 1px solid var(--line);
+}
+
+.docs-live__output > :empty {
+	display: none;
+}
+
+.docs-live__browser .sandbox-frame {
+	min-height: 6rem;
+}
+
+@media (max-width: 30rem) {
+	.docs-live {
+		margin-inline: calc(var(--gutter) * -1);
+		border-inline: 0;
+		border-radius: 0;
 	}
 }
 

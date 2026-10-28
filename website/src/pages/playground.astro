@@ -1,0 +1,604 @@
+---
+import { extras, starterKit } from "@canvist/headless/full";
+import Base from "../layouts/Base.astro";
+import { DEFAULT_EXAMPLE, EXAMPLES } from "../playground/examples.ts";
+import "../styles/sandbox.css";
+
+/**
+ * The playground: canvist's packages, every extension, and server code,
+ * all running in the visitor's tab. Server code runs in a worker with a
+ * network of its own; browser code runs in frames that reach it on
+ * `localhost`. See `src/sandbox` for how, and `src/playground` for the page.
+ */
+
+const groups = [
+	{ id: "starter-kit", title: "StarterKit", note: "In every editor and engine by default.", extensions: starterKit },
+	{ id: "extras", title: "Beyond the StarterKit", note: "In @canvist/headless/full.", extensions: extras },
+];
+const catalog = { starterKit: starterKit.map((extension) => extension.name), extras: extras.map((extension) => extension.name) };
+const description = "Try canvist in your browser: switch any of its 49 extensions on and off, edit the code, and run collaboration servers in the same tab.";
+---
+
+<Base title="Playground" description={description} preloadMono>
+	<div class="pg" data-playground data-state="loading" data-catalog={JSON.stringify(catalog)} data-default-example={DEFAULT_EXAMPLE}>
+		<section class="pg-head chip" data-chip="1" aria-labelledby="pg-title">
+			<div class="pg-head__text">
+				<h1 id="pg-title" class="pg-head__title">Playground</h1>
+				<p class="pg-head__lede">
+					canvist, its extensions, and its servers, all running in this tab. Edit anything and it runs again; servers listen
+					on a <code>localhost</code> that only this page can reach.
+				</p>
+			</div>
+			<fieldset class="pg-examples">
+				<legend class="visually-hidden">Example</legend>
+				{
+					EXAMPLES.map((example) => (
+						<label class="pg-example">
+							<input type="radio" name="example" value={example.id} checked={example.id === DEFAULT_EXAMPLE} />
+							<span class="pg-example__title">{example.title}</span>
+							<span class="pg-example__summary">{example.summary}</span>
+						</label>
+					))
+				}
+			</fieldset>
+		</section>
+
+		<div class="pg-work">
+			<details class="pg-panel pg-extensions" open>
+				<summary class="pg-panel__head">
+					<h2 class="pg-panel__title">Extensions</h2>
+					<span class="pg-extensions__count" data-extensions-count></span>
+				</summary>
+				<p class="pg-extensions__note" data-extensions-note role="status"></p>
+				{
+					groups.map((group) => (
+						<fieldset class="pg-extensions__group" data-group={group.id}>
+							<legend>
+								{group.title} <span>{group.note}</span>
+							</legend>
+							<ul>
+								{group.extensions.map((extension) => (
+									<li class="pg-extension">
+										<label>
+											<input
+												type="checkbox"
+												name="extension"
+												value={extension.name}
+												aria-describedby={`pg-extension-${extension.name}`}
+												disabled
+											/>
+											<span class="pg-extension__name">{extension.name}</span>
+										</label>
+										<span class="pg-extension__commands" id={`pg-extension-${extension.name}`}>
+											{extension.commands.length === 0
+												? "no commands"
+												: extension.commands.map((command) => command.name).join(" · ")}
+										</span>
+									</li>
+								))}
+							</ul>
+						</fieldset>
+					))
+				}
+			</details>
+
+			<section class="pg-panel pg-code" aria-labelledby="pg-code-title">
+				<div class="pg-panel__head">
+					<h2 id="pg-code-title" class="pg-panel__title">Code</h2>
+					<div class="pg-files" role="tablist" aria-label="Files" data-files></div>
+				</div>
+				<div class="pg-code__editors" data-editors></div>
+				<div class="pg-code__bar">
+					<button class="pg-run" type="button" data-run>Run</button>
+					<span class="pg-code__hint"><kbd>Ctrl</kbd> or <kbd>⌘</kbd> + <kbd>Enter</kbd>, or just keep typing</span>
+					<p class="pg-status" role="status" data-status>Loading the sandbox…</p>
+				</div>
+			</section>
+
+			<section class="pg-panel pg-output" aria-labelledby="pg-output-title">
+				<div class="pg-panel__head">
+					<h2 id="pg-output-title" class="pg-panel__title">Output</h2>
+					<p class="pg-ports" data-ports></p>
+				</div>
+				<div class="pg-peers" data-peers-section>
+					<div class="pg-subhead">
+						<h3>Browser</h3>
+						<button class="pg-small-button" type="button" data-add-peer>Add a peer</button>
+					</div>
+					<div class="pg-peers__grid" data-peers></div>
+				</div>
+				<div class="pg-server-doc" data-server-doc-section hidden>
+					<div class="pg-subhead">
+						<h3>The server's document</h3>
+					</div>
+					<div data-server-doc></div>
+				</div>
+				<div class="pg-console">
+					<div class="pg-subhead">
+						<h3>Console</h3>
+						<button class="pg-small-button" type="button" data-clear>Clear</button>
+					</div>
+					<div data-console></div>
+				</div>
+			</section>
+		</div>
+	</div>
+</Base>
+
+<script>
+	import { mountPlayground } from "../playground/playground.ts";
+
+	const root = document.querySelector<HTMLElement>("[data-playground]");
+	if (root) mountPlayground(root);
+</script>
+
+<style>
+	.pg {
+		display: grid;
+		gap: var(--section-gap);
+		padding: 0 var(--gutter) var(--s-8);
+	}
+
+	.pg-head {
+		display: grid;
+		grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		gap: var(--s-6);
+		align-items: end;
+	}
+
+	.pg-head__title {
+		margin: 0;
+		font-size: var(--t-1);
+		line-height: var(--lh-tight);
+		letter-spacing: -0.045em;
+	}
+
+	.pg-head__lede {
+		max-width: 46ch;
+		margin: var(--s-4) 0 0;
+		color: var(--chip-muted);
+		font-size: var(--t-small);
+	}
+
+	.pg-examples {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--s-2);
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.pg-example {
+		position: relative;
+		display: grid;
+		gap: var(--s-1);
+		padding: var(--s-3) var(--s-4);
+		border: 1px solid color-mix(in oklab, var(--chip-fg) 18%, transparent);
+		border-radius: var(--r-2);
+		background: color-mix(in oklab, var(--raised) 70%, transparent);
+		cursor: pointer;
+		transition: transform var(--dur-1) var(--ease-wet), border-color var(--dur-1) var(--ease-out);
+	}
+
+	.pg-example:hover {
+		transform: translateY(-2px);
+	}
+
+	.pg-example:has(input:checked) {
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+	}
+
+	.pg-example:has(input:focus-visible) {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+
+	.pg-example input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.pg-example__title {
+		font-weight: 700;
+	}
+
+	.pg-example__summary {
+		color: var(--chip-muted);
+		font-size: var(--t-micro);
+		line-height: 1.4;
+	}
+
+	.pg-work {
+		display: grid;
+		grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(0, 1fr);
+		gap: var(--section-gap);
+		align-items: start;
+	}
+
+	.pg-panel {
+		min-width: 0;
+		border: 1px solid var(--line);
+		border-radius: var(--r-2);
+		background: var(--raised);
+	}
+
+	.pg-panel__head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--s-2) var(--s-4);
+		padding: var(--s-3) var(--s-4);
+		border-bottom: 1px solid var(--line);
+	}
+
+	.pg-panel__title {
+		margin: 0;
+		font-size: var(--t-body);
+		letter-spacing: -0.01em;
+	}
+
+	/* ---------- Extensions ---------- */
+
+	.pg-extensions {
+		position: sticky;
+		top: var(--s-4);
+		max-height: calc(100dvh - 2 * var(--s-4));
+		overflow: auto;
+		scrollbar-width: thin;
+	}
+
+	.pg-extensions summary {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--raised);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.pg-extensions summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.pg-extensions summary::after {
+		content: "";
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-left: auto;
+		border-right: 2px solid var(--text-muted);
+		border-bottom: 2px solid var(--text-muted);
+		transform: rotate(45deg);
+	}
+
+	.pg-extensions[open] summary::after {
+		transform: rotate(-135deg);
+	}
+
+	.pg-extensions__count {
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+	}
+
+	.pg-extensions__note {
+		margin: 0;
+		padding: var(--s-3) var(--s-4) 0;
+		color: var(--text-muted);
+		font-size: var(--t-micro);
+		line-height: 1.45;
+	}
+
+	.pg-extensions__note:empty {
+		display: none;
+	}
+
+	.pg-extensions__group {
+		margin: 0;
+		padding: var(--s-3) var(--s-2) var(--s-2);
+		border: 0;
+	}
+
+	.pg-extensions__group legend {
+		padding: 0 var(--s-2);
+		font-weight: 700;
+		font-size: var(--t-small);
+	}
+
+	.pg-extensions__group legend span {
+		display: block;
+		color: var(--text-muted);
+		font-weight: 400;
+		font-size: var(--t-micro);
+	}
+
+	.pg-extensions__group ul {
+		margin: var(--s-2) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.pg-extension {
+		display: grid;
+		padding: var(--s-1) var(--s-2);
+		border-radius: var(--r-1);
+	}
+
+	.pg-extension label {
+		display: flex;
+		align-items: center;
+		gap: var(--s-2);
+		cursor: pointer;
+	}
+
+	.pg-extension:hover {
+		background: var(--surface);
+	}
+
+	/* Disabled switches stay readable: the muted name says it, not fading. */
+	.pg-extension:has(input:disabled) label {
+		color: var(--text-muted);
+		cursor: default;
+	}
+
+	.pg-extension:has(input:disabled):hover {
+		background: none;
+	}
+
+	.pg-extension input {
+		margin: 0;
+		accent-color: var(--accent);
+	}
+
+	.pg-extension__name {
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+	}
+
+	.pg-extension__commands {
+		padding-left: calc(13px + var(--s-2));
+		overflow: hidden;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* ---------- Code ---------- */
+
+	.pg-files {
+		display: flex;
+		gap: var(--s-1);
+		margin-left: auto;
+	}
+
+	.pg-files :global(button) {
+		min-height: 1.75rem;
+		padding: 0 var(--s-3);
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background: none;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+		cursor: pointer;
+	}
+
+	.pg-files :global(button[aria-selected="true"]) {
+		border-color: var(--line);
+		background: var(--surface);
+		color: var(--text);
+	}
+
+	.pg-code__editors :global(.cm-editor) {
+		height: min(70dvh, 46rem);
+	}
+
+	.pg-code__bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--s-2) var(--s-3);
+		padding: var(--s-3) var(--s-4);
+		border-top: 1px solid var(--line);
+	}
+
+	.pg-run {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--s-2);
+		min-height: 2.25rem;
+		padding: 0 var(--s-4);
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent);
+		color: var(--accent-text);
+		font: inherit;
+		font-weight: 700;
+		font-size: var(--t-small);
+		cursor: pointer;
+		transition: transform var(--dur-1) var(--ease-wet);
+	}
+
+	.pg-run::before {
+		content: "";
+		border-block: 0.32em solid transparent;
+		border-left: 0.55em solid currentColor;
+	}
+
+	.pg-run:hover {
+		transform: translateY(-1px);
+	}
+
+	.pg-code__hint {
+		color: var(--text-muted);
+		font-size: var(--t-micro);
+	}
+
+	.pg-code__hint kbd {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+	}
+
+	.pg-status {
+		flex-basis: 100%;
+		margin: 0;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+	}
+
+	.pg[data-state="error"] .pg-status {
+		color: var(--error);
+	}
+
+	/* ---------- Output ---------- */
+
+	.pg-ports {
+		margin: 0 0 0 auto;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+	}
+
+	.pg-subhead {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--s-3);
+		padding: var(--s-3) var(--s-4) var(--s-2);
+	}
+
+	.pg-subhead h3 {
+		margin: 0;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--t-micro);
+		font-weight: 500;
+		letter-spacing: 0.02em;
+	}
+
+	.pg-small-button {
+		min-height: 1.75rem;
+		padding: 0 var(--s-3);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		cursor: pointer;
+	}
+
+	.pg-small-button:hover:not(:disabled) {
+		color: var(--accent);
+	}
+
+	.pg-small-button:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.pg-peers[hidden],
+	.pg-server-doc[hidden] {
+		display: none;
+	}
+
+	.pg-peers__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+		gap: var(--s-3);
+		padding: 0 var(--s-4) var(--s-4);
+	}
+
+	.pg-peers__grid :global(.pg-peer) {
+		overflow: hidden;
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--peer);
+		border-radius: var(--r-1);
+	}
+
+	.pg-peers__grid :global(.pg-peer__head) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--s-1) var(--s-2) var(--s-1) var(--s-3);
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 600;
+	}
+
+	/* The peer's colour is a mark beside its name; the name stays text-coloured for contrast. */
+	.pg-peers__grid :global(.pg-peer__head span::before) {
+		content: "";
+		display: inline-block;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-right: var(--s-2);
+		border-radius: 50%;
+		background: var(--peer);
+	}
+
+	.pg-peers__grid :global(.pg-peer__head button) {
+		padding: 0 var(--s-2);
+		border: 0;
+		background: none;
+		color: var(--text-muted);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	/* Each peer fits its content, within reason; past that it scrolls inside. */
+	.pg-peers__grid :global(.sandbox-frame) {
+		min-height: 12rem;
+		max-height: 36rem;
+	}
+
+	.pg-server-doc {
+		border-top: 1px solid var(--line);
+	}
+
+	.pg-server-doc :global(.sandbox-preview) {
+		border-top: 0;
+	}
+
+	.pg-console {
+		border-top: 1px solid var(--line);
+	}
+
+	.pg-console :global(.sandbox-console) {
+		min-height: 4rem;
+		max-height: 18rem;
+	}
+
+	.pg-console :global(.sandbox-console:empty) {
+		display: block;
+	}
+
+	@media (max-width: 80rem) {
+		.pg-work {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		}
+
+		.pg-extensions {
+			position: static;
+			grid-column: 1 / -1;
+			max-height: none;
+		}
+
+		.pg-extensions__group ul {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+		}
+	}
+
+	@media (max-width: 64rem) {
+		.pg-head,
+		.pg-work {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

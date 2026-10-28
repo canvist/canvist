@@ -5,6 +5,7 @@ import { routePath } from "../lib/route.ts";
 
 const links = [
 	{ href: "/docs", label: "Docs" },
+	{ href: "/playground", label: "Playground" },
 	{ href: "/services", label: "Services" },
 	{ href: "/pricing", label: "Pricing" },
 ];
@@ -126,6 +127,24 @@ const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`)
 			height: 1px;
 			overflow: hidden;
 			clip: rect(0, 0, 0, 0);
+		}
+	}
+
+	/* Five links share one row on phones. */
+	@media (max-width: 26.25rem) {
+		.site-header__nav ul {
+			gap: 0;
+		}
+
+		.site-header__nav a {
+			padding: 0 var(--s-2);
+			font-size: var(--t-micro);
+		}
+	}
+
+	@media (max-width: 21.25rem) {
+		.site-header__nav a {
+			padding: 0 var(--s-1);
 		}
 	}
 </style>

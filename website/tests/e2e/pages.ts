@@ -6,6 +6,7 @@ export const PAGES = [
 	{ path: "/services/sync", title: /canvist Sync · canvist/ },
 	{ path: "/services/convert", title: /canvist Convert · canvist/ },
 	{ path: "/services/history", title: /canvist History · canvist/ },
+	{ path: "/playground", title: /Playground · canvist/ },
 	{ path: "/docs", title: /Introduction · canvist/ },
 	{ path: "/docs/concepts/how-it-works", title: /How canvist works · canvist/ },
 	{ path: "/docs/crates/canvist_model", title: /canvist_model · canvist/ },

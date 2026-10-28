@@ -2,6 +2,7 @@ import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { liveSamples } from "./src/lib/live-samples.ts";
 import { rehypeDocsLinks } from "./src/lib/rehype-docs-links.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -35,6 +36,7 @@ export default defineConfig({
 			themes: { light: "github-light", dark: "github-dark" },
 			defaultColor: false,
 			wrap: false,
+			transformers: [liveSamples],
 		},
 		processor: unified({ rehypePlugins: [rehypeDocsLinks] }),
 	},
@@ -60,6 +62,11 @@ export default defineConfig({
 		},
 		build: {
 			assetsInlineLimit: 0,
+		},
+		// The sandbox's server realm is a module worker that loads canvist's
+		// packages on demand, which needs code splitting.
+		worker: {
+			format: "es",
 		},
 	},
 });
