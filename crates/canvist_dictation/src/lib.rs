@@ -23,7 +23,7 @@
 //! use canvist_dictation::RelayMessage;
 //!
 //! let start = ClientMessage::start();
-//! assert_eq!(start.to_json()?, r#"{"type":"start","polish":true}"#);
+//! assert_eq!(start.to_json(), r#"{"type":"start","polish":true}"#);
 //!
 //! let message = RelayMessage::from_json(r#"{ "type": "final", "segment": 0, "text": "Hi." }"#)?;
 //! assert_eq!(
@@ -87,8 +87,39 @@ impl ClientMessage {
 	}
 
 	/// Encode as the JSON text the protocol sends.
-	pub fn to_json(&self) -> serde_json::Result<String> {
-		serde_json::to_string(self)
+	///
+	/// It is built by hand, as [`RelayMessage::from_json`] decodes by hand,
+	/// so native clients carry no tagged-enum serializer. A test holds it to
+	/// the derived `Serialize`.
+	#[must_use]
+	pub fn to_json(&self) -> String {
+		let Self::Start {
+			language,
+			context,
+			polish,
+		} = self
+		else {
+			return r#"{"type":"stop"}"#.to_owned();
+		};
+		let mut json = String::from(r#"{"type":"start""#);
+
+		// Fields in the order the derive writes them, each value escaped
+		// by serde_json.
+		for (name, value) in [("language", language), ("context", context)] {
+			if let Some(value) = value {
+				json.push_str(",\"");
+				json.push_str(name);
+				json.push_str("\":");
+				json.push_str(&serde_json::Value::from(value.as_str()).to_string());
+			}
+		}
+
+		json.push_str(if *polish {
+			r#","polish":true}"#
+		} else {
+			r#","polish":false}"#
+		});
+		json
 	}
 
 	/// Decode a JSON text message.
@@ -149,9 +180,65 @@ impl RelayMessage {
 	}
 
 	/// Decode a JSON text message.
+	///
+	/// It is decoded by hand from a [`serde_json::Value`] rather than
+	/// through the derived `Deserialize`. An internally tagged enum buffers
+	/// every message through serde's generic content type, which costs every
+	/// native client tens of kilobytes for five small messages. The derive
+	/// still describes the same shape, and a test holds the two together.
 	pub fn from_json(text: &str) -> serde_json::Result<Self> {
-		serde_json::from_str(text)
+		let value: serde_json::Value = serde_json::from_str(text)?;
+		let field = |name: &'static str| {
+			value
+				.get(name)
+				.ok_or_else(|| invalid(&format!("missing field `{name}`")))
+		};
+		let text = |name| {
+			field(name)?
+				.as_str()
+				.map(str::to_owned)
+				.ok_or_else(|| invalid(&format!("`{name}` must be a string")))
+		};
+		let segment = || {
+			field("segment")?
+				.as_u64()
+				.and_then(|segment| u32::try_from(segment).ok())
+				.ok_or_else(|| invalid("`segment` must be a whole number"))
+		};
+
+		match value.get("type").and_then(serde_json::Value::as_str) {
+			Some("ready") => Ok(Self::Ready),
+			Some("done") => Ok(Self::Done),
+			Some("partial") => {
+				Ok(Self::Partial {
+					segment: segment()?,
+					text: text("text")?,
+				})
+			}
+			Some("final") => {
+				Ok(Self::Final {
+					segment: segment()?,
+					text: text("text")?,
+				})
+			}
+			Some("error") => {
+				Ok(Self::Error {
+					code: ErrorCode::named(&text("code")?)
+						.ok_or_else(|| invalid("unknown error `code`"))?,
+					message: text("message")?,
+					fatal: field("fatal")?
+						.as_bool()
+						.ok_or_else(|| invalid("`fatal` must be true or false"))?,
+				})
+			}
+			_ => Err(invalid("unknown message `type`")),
+		}
 	}
+}
+
+/// A decoding error saying what was wrong with a message.
+fn invalid(reason: &str) -> serde_json::Error {
+	<serde_json::Error as serde::de::Error>::custom(reason)
 }
 
 /// What kind of failure an `error` message reports.
@@ -170,6 +257,22 @@ pub enum ErrorCode {
 	Limit,
 	/// The relay failed.
 	Internal,
+}
+
+impl ErrorCode {
+	/// The code with its wire name, such as `bad_request`.
+	#[must_use]
+	pub fn named(name: &str) -> Option<Self> {
+		match name {
+			"unauthorized" => Some(Self::Unauthorized),
+			"bad_request" => Some(Self::BadRequest),
+			"provider" => Some(Self::Provider),
+			"polish" => Some(Self::Polish),
+			"limit" => Some(Self::Limit),
+			"internal" => Some(Self::Internal),
+			_ => None,
+		}
+	}
 }
 
 #[cfg(test)]
@@ -216,7 +319,7 @@ mod tests {
 			}
 		);
 		assert_eq!(
-			message.to_json().expect("encodes"),
+			message.to_json(),
 			r#"{"type":"start","language":"en","context":"The text before the caret, for punctuation and names.","polish":true}"#
 		);
 	}
@@ -236,7 +339,30 @@ mod tests {
 		let message = ClientMessage::from_json(documented).expect("decodes");
 
 		assert_eq!(message, ClientMessage::Stop);
-		assert_eq!(message.to_json().expect("encodes"), compact(documented));
+		assert_eq!(message.to_json(), compact(documented));
+	}
+
+	#[test]
+	fn hand_encoding_agrees_with_the_derive() {
+		let start = |language: Option<&str>, context: Option<&str>, polish| {
+			ClientMessage::Start {
+				language: language.map(str::to_owned),
+				context: context.map(str::to_owned),
+				polish,
+			}
+		};
+		let messages = [
+			ClientMessage::start(),
+			ClientMessage::Stop,
+			start(Some("en-GB"), None, false),
+			start(None, Some("Quotes \" and\nlines"), true),
+			start(Some("fr"), Some("Café"), true),
+		];
+
+		for message in messages {
+			let derived = serde_json::to_string(&message).expect("encodes");
+			assert_eq!(message.to_json(), derived);
+		}
 	}
 
 	#[test]
@@ -295,6 +421,39 @@ mod tests {
 			assert_eq!(
 				serde_json::from_str::<ErrorCode>(&json).expect("decodes"),
 				code
+			);
+			assert_eq!(ErrorCode::named(name), Some(code));
+		}
+
+		assert_eq!(ErrorCode::named("Provider"), None);
+	}
+
+	#[test]
+	fn hand_decoding_agrees_with_the_derive() {
+		let messages = [
+			r#"{"type":"ready"}"#,
+			r#"{"type":"done"}"#,
+			r#"{"type":"partial","segment":3,"text":"the cat sat"}"#,
+			r#"{"type":"final","segment":3,"text":"The cat sat.","extra":1}"#,
+			r#"{"type":"error","code":"polish","message":"timed out","fatal":false}"#,
+			r#"{"type":"partial","segment":4294967296,"text":""}"#,
+			r#"{"type":"partial","segment":1.5,"text":""}"#,
+			r#"{"type":"partial","segment":1}"#,
+			r#"{"type":"final","segment":1,"text":2}"#,
+			r#"{"type":"error","code":"polish","message":""}"#,
+			r#"{"type":"error","code":"polish","message":"","fatal":"no"}"#,
+			r#"{"type":"error","code":"Polish","message":"","fatal":true}"#,
+			r#"{"type":"pause"}"#,
+			r#"{"segment":1,"text":""}"#,
+			"[1,2]",
+			"not json",
+		];
+
+		for message in messages {
+			assert_eq!(
+				RelayMessage::from_json(message).ok(),
+				serde_json::from_str::<RelayMessage>(message).ok(),
+				"{message}"
 			);
 		}
 	}

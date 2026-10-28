@@ -1010,6 +1010,7 @@ dependencies = [
 name = "canvist_ffi"
 version = "0.1.0"
 dependencies = [
+ "canvist_dictation",
  "canvist_headless",
  "canvist_layout",
  "divan",

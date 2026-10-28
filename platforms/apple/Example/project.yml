@@ -19,6 +19,15 @@ targets:
     sources: [CanvistExample]
     dependencies:
       - package: Canvist
+    # Dictation goes through a relay when both are set, for example with
+    # `xcodebuild CANVIST_DICTATION_URL=wss://… CANVIST_DICTATION_TOKEN=…`.
+    # The token is for trying a relay out; a real app fetches a short-lived
+    # one from its own server.
+    info:
+      path: CanvistExample/Info.plist
+      properties:
+        CanvistDictationURL: $(CANVIST_DICTATION_URL)
+        CanvistDictationToken: $(CANVIST_DICTATION_TOKEN)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ifiokjr.canvist.example
@@ -26,6 +35,10 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Canvist
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Dictation listens to the microphone to turn your speech into text.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Dictation recognizes your speech on this device to turn it into text.
+        CANVIST_DICTATION_URL: ""
+        CANVIST_DICTATION_TOKEN: ""
   CanvistExampleUITests:
     type: bundle.ui-testing
     platform: iOS

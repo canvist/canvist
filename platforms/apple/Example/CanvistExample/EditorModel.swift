@@ -8,6 +8,8 @@ import UIKit
 final class EditorModel {
   let kit = StarterKit()
   let view: CanvistView
+  /// Dictation into ``view``, from ``DictationSetup/current``.
+  let dictation: CanvistDictation
   private(set) var active: Set<Format> = []
   private(set) var canUndo = false
   private(set) var canRedo = false
@@ -19,6 +21,7 @@ final class EditorModel {
     view = try CanvistView(extensions: kit.extensions)
     view.accessibilityLabel = label
     view.accessibilityIdentifier = "\(label.lowercased())-editor"
+    dictation = CanvistDictation(view: view)
     try view.editor.load(format: .markdown, content: markdown)
     view.onChange = { [weak self] change in
       self?.refresh()
@@ -30,6 +33,19 @@ final class EditorModel {
   /// Run `format`'s command on the selection.
   func toggle(_ format: Format) {
     perform { _ = try view.editor.run(command: format.command(kit)) }
+  }
+
+  /// Start dictating, or stop when already dictating.
+  func toggleDictation() {
+    if dictation.state.isActive {
+      dictation.stop()
+
+      return
+    }
+
+    guard let source = DictationSetup.current.source() else { return }
+
+    dictation.start(source: source)
   }
 
   func undo() {
@@ -55,6 +71,65 @@ final class EditorModel {
     active = Set(Format.allCases.filter { (try? $0.isActive(kit, editor)) == true })
     canUndo = editor.canUndo()
     canRedo = editor.canRedo()
+  }
+}
+
+/// Where the example's dictation comes from: a relay when the app is
+/// configured with one, otherwise the device's own recognizer on iOS 26.
+///
+/// Set `CANVIST_DICTATION_URL` and `CANVIST_DICTATION_TOKEN` in the
+/// environment (the scheme's, or `SIMCTL_CHILD_` ones for `simctl launch`),
+/// or as build settings, which fill the `CanvistDictationURL` and
+/// `CanvistDictationToken` Info.plist keys.
+enum DictationSetup {
+  case relay(URL, token: String)
+  case onDevice
+  case unavailable(reason: String)
+
+  static let current = DictationSetup()
+
+  private init() {
+    if let url = Self.setting("CANVIST_DICTATION_URL", key: "CanvistDictationURL").flatMap(
+      URL.init),
+      let token = Self.setting("CANVIST_DICTATION_TOKEN", key: "CanvistDictationToken")
+    {
+      self = .relay(url, token: token)
+    } else if #available(iOS 26, *) {
+      self =
+        OnDeviceDictationSource.isAvailable
+        ? .onDevice
+        : .unavailable(reason: "Dictation needs a relay on this device.")
+    } else {
+      self = .unavailable(reason: "Dictation needs a relay or iOS 26.")
+    }
+  }
+
+  /// A new source for a session, or `nil` when dictation is unavailable.
+  @MainActor
+  func source() -> (any DictationSource)? {
+    switch self {
+    case .relay(let url, let token):
+      RelayDictationSource(url: url, token: token)
+    case .onDevice:
+      if #available(iOS 26, *) { OnDeviceDictationSource() } else { nil }
+    case .unavailable:
+      nil
+    }
+  }
+
+  /// Why dictation is unavailable, or `nil` when it is available.
+  var unavailableReason: String? {
+    guard case .unavailable(let reason) = self else { return nil }
+
+    return reason
+  }
+
+  private static func setting(_ variable: String, key: String) -> String? {
+    let value =
+      ProcessInfo.processInfo.environment[variable]
+      ?? Bundle.main.object(forInfoDictionaryKey: key) as? String
+
+    return value?.isEmpty == false ? value : nil
   }
 }
 

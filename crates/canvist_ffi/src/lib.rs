@@ -61,6 +61,9 @@ mod text;
 mod types;
 
 pub use clipboard::ClipboardContent;
+pub use dictation::DictationErrorCode;
+pub use dictation::DictationEvent;
+pub use dictation::dictation_stop_message;
 pub use display::DisplayItem;
 pub use display::FillKind;
 pub use display::Frame;

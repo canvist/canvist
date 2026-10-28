@@ -62,6 +62,8 @@ open class CanvistView: UIScrollView {
   var revealCaret = false
   /// What is painted now.
   var items: [DisplayItem] = []
+  /// Repaints on every display refresh while text in view is animating.
+  var displayLink: CADisplayLink?
   let logger = Logger(subsystem: "dev.canvist", category: "CanvistView")
 
   private let relay: ChangeRelay
@@ -125,6 +127,7 @@ open class CanvistView: UIScrollView {
     addFocusGesture()
     installTextInteraction()
     observeKeyboard()
+    observeMotionPreference()
     setUpAccessibility()
 
     let themeTraits: [UITrait] = [
@@ -150,6 +153,7 @@ open class CanvistView: UIScrollView {
 
     resizeContent(to: CGFloat(frame.height))
     repaint(frame)
+    animate(frame.animated)
 
     if frame.shift != 0 {
       // Blocks above the viewport were measured: keep the content still.
@@ -223,7 +227,8 @@ open class CanvistView: UIScrollView {
 
   // MARK: Changes
   /// The editor changed: repaint on the next layout pass, and tell the text
-  /// input system about changes it did not make itself.
+  /// input system about changes it did not make itself. Typed and dictated
+  /// text keep the caret in view.
   func editorChanged(_ change: EditorChange) {
     if inputCalls == 0 {
       notifyInputSystem(change)
@@ -231,10 +236,17 @@ open class CanvistView: UIScrollView {
       revealCaret = true
     }
 
+    if change.dictation {
+      revealCaret = true
+    }
+
     setNeedsLayout()
     onChange?(change)
   }
 
+  /// UIKit's input methods and autocorrect cache the text and selection,
+  /// so they must hear about every change they did not make: text, the
+  /// marked text, or the selection.
   private func notifyInputSystem(_ change: EditorChange) {
     guard let delegate = textInputDelegate else { return }
 

@@ -74,6 +74,18 @@ final class CanvistExampleUITests: XCTestCase {
   }
 
   @MainActor
+  func testTheToolbarOffersDictation() {
+    let button = app.buttons["dictate"]
+    XCTAssertTrue(button.exists, "the mic button is in the toolbar")
+
+    // With no relay and no on-device recognizer, as on most simulators,
+    // the button is off and says why on screen.
+    let note = app.descendants(matching: .any)["dictation-note"]
+    XCTAssertEqual(note.exists, !button.isEnabled, "a reason shows exactly when the button is off")
+    attach("dictation")
+  }
+
+  @MainActor
   func testTwoEditorsCollaborate() {
     app.tabBars.buttons["Collaborate"].tap()
     let alice = editor("Alice")

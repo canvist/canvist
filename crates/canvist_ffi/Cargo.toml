@@ -30,6 +30,7 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli", "uniffi/cargo-metadata"]
 
 [dependencies]
+canvist_dictation = { workspace = true }
 canvist_headless = { workspace = true, features = ["starter-kit", "collab", "journal"] }
 canvist_layout = { workspace = true, features = ["editor", "provisional"] }
 rustc-hash = { workspace = true, features = ["std"] }

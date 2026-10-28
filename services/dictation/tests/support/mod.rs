@@ -358,7 +358,7 @@ pub async fn connect_with_query(server: &Server, token: &str) -> Socket {
 
 /// Send a client message.
 pub async fn send(socket: &mut Socket, message: &ClientMessage) {
-	let json = message.to_json().expect("encodes");
+	let json = message.to_json();
 	socket.send(Message::text(json)).await.expect("sends");
 }
 

@@ -37,7 +37,7 @@ let start = ClientMessage::Start {
 	context: None,
 	polish: true,
 };
-let json = start.to_json()?;
+let json = start.to_json();
 
 match RelayMessage::from_json(r#"{"type":"partial","segment":0,"text":"hello"}"#)? {
 	RelayMessage::Partial { segment, text } => println!("draft {segment}: {text}"),
