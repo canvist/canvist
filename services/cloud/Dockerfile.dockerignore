@@ -11,6 +11,7 @@
 !services/cloud/
 # Workspace members outside crates/: Cargo reads their manifests even when
 # it builds only canvist_cloud.
+!services/dictation/
 !examples/desktop/
 !tools/footage/
 **/target/
