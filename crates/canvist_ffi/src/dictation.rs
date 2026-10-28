@@ -80,13 +80,7 @@ impl From<ErrorCode> for DictationErrorCode {
 #[uniffi::export]
 #[must_use]
 pub fn dictation_stop_message() -> String {
-	encode(&ClientMessage::Stop)
-}
-
-/// A client message as the JSON text the relay reads. Encoding these plain
-/// enums cannot fail.
-fn encode(message: &ClientMessage) -> String {
-	message.to_json().unwrap_or_default()
+	ClientMessage::Stop.to_json()
 }
 
 #[uniffi::export]
@@ -164,11 +158,12 @@ impl Editor {
 	pub fn dictation_start_message(&self, language: Option<String>, polish: bool) -> String {
 		let context = self.text_before_caret();
 
-		encode(&ClientMessage::Start {
+		ClientMessage::Start {
 			language,
 			context: (!context.is_empty()).then_some(context),
 			polish,
-		})
+		}
+		.to_json()
 	}
 
 	/// Up to [`MAX_CONTEXT_CHARS`] characters of the text before the caret.
