@@ -41,6 +41,11 @@ val hostLibraries = rootDir.resolve("../../target/debug").canonicalPath
 
 tasks.withType<Test>().configureEach {
     systemProperty("jna.library.path", hostLibraries)
+    // A rebuilt core reruns the tests rather than reusing cached results.
+    inputs
+        .files(fileTree(hostLibraries) { include("libcanvist_ffi.dylib", "libcanvist_ffi.so") })
+        .withPropertyName("hostLibraries")
+        .withPathSensitivity(PathSensitivity.NAME_ONLY)
 }
 
 // Apps on older Kotlin compilers must be able to read this library: React
