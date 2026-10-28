@@ -30,6 +30,7 @@ platforms/dart/*
 !platforms/dart/rust
 services/*
 !services/cloud
+!services/dictation
 tools/*
 !tools/footage
 !tools/release

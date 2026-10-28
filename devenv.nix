@@ -347,6 +347,8 @@ in
         monostyle check platforms/dart --fail-under 90
         monostyle check platforms/flutter --fail-under 90
         monostyle check services/cloud --fail-under 90
+        monostyle check crates/canvist_dictation --fail-under 90
+        monostyle check services/dictation --fail-under 90
         monostyle check tools/footage --fail-under 90
         monostyle check tools/bench --fail-under 90
       '';
