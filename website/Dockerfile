@@ -67,6 +67,10 @@ COPY website/package.json website/deno.json website/deno.lock ./
 RUN deno run --allow-read --allow-write ../tools/release/relink_workspace_deps.ts \
 	&& deno install --frozen
 COPY website .
+# The copy above restores the checked-in manifests, undoing the relink when
+# a release commit rewrote them; relink again so the build resolves the
+# packages compiled above.
+RUN deno run --allow-read --allow-write ../tools/release/relink_workspace_deps.ts
 # Railway passes the service's public domain as a build variable, which sets
 # the canonical URL; SITE_URL overrides it.
 ARG RAILWAY_PUBLIC_DOMAIN
