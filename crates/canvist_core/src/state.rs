@@ -17,6 +17,7 @@ use canvist_model::Step;
 
 use crate::Affinity;
 use crate::CommandResult;
+use crate::Dictation;
 use crate::EditKind;
 use crate::EditorError;
 use crate::EditorTransaction;
@@ -93,6 +94,7 @@ struct Transient {
 	selection: Selection,
 	stored_marks: Option<MarkSet>,
 	composition: Option<Composition>,
+	dictation: Dictation,
 	goal: Option<f32>,
 	affinity: Affinity,
 	settings: Attrs,
@@ -111,6 +113,7 @@ pub struct EditorState {
 	selection: Selection,
 	stored_marks: Option<MarkSet>,
 	composition: Option<Composition>,
+	dictation: Dictation,
 	goal: Option<f32>,
 	affinity: Affinity,
 	settings: Attrs,
@@ -126,6 +129,7 @@ impl EditorState {
 			selection,
 			stored_marks: None,
 			composition: None,
+			dictation: Dictation::default(),
 			goal: None,
 			affinity: Affinity::Downstream,
 			settings: Attrs::new(),
@@ -178,6 +182,17 @@ impl EditorState {
 	#[must_use]
 	pub fn composition(&self) -> Option<Composition> {
 		self.composition
+	}
+
+	/// Dictation: segments waiting to be inserted, and text inserted a
+	/// moment ago.
+	#[must_use]
+	pub fn dictation(&self) -> &Dictation {
+		&self.dictation
+	}
+
+	pub(crate) fn dictation_mut(&mut self) -> &mut Dictation {
+		&mut self.dictation
 	}
 
 	/// The horizontal position vertical caret motion tries to keep.
@@ -317,6 +332,7 @@ impl EditorState {
 			selection: self.selection,
 			stored_marks: self.stored_marks.clone(),
 			composition: self.composition,
+			dictation: self.dictation.clone(),
 			goal: self.goal,
 			affinity: self.affinity,
 			settings: self.settings.clone(),
@@ -327,6 +343,7 @@ impl EditorState {
 		self.selection = saved.selection;
 		self.stored_marks = saved.stored_marks;
 		self.composition = saved.composition;
+		self.dictation = saved.dictation;
 		self.goal = saved.goal;
 		self.affinity = saved.affinity;
 		self.settings = saved.settings;
@@ -353,6 +370,8 @@ impl EditorState {
 					.and_then(|composition| composition.map(&commit))
 			}
 		};
+
+		self.dictation.map(&commit);
 
 		for (key, value) in effects.settings.iter() {
 			self.settings.set(key, value.clone());

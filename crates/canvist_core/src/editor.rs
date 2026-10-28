@@ -37,11 +37,13 @@ use crate::Platform;
 use crate::QuerySpec;
 use crate::RuleInput;
 use crate::Slice;
+use crate::Transcript;
 use crate::UndoHistory;
 use crate::Update;
 use crate::UpdateFilter;
 use crate::commands;
 use crate::context::AppliedRule;
+use crate::dictation;
 use crate::position;
 
 /// What the host knows about the moment an input event happened.
@@ -569,6 +571,28 @@ impl Editor {
 	pub fn cancel_composition(&mut self, env: &mut Env<'_>) -> CommandResult {
 		let update = commands::cancel_composition(&mut self.state)?;
 		self.finish(update, env.now)
+	}
+
+	/// Record what a speech model said about `segment` of dictation, and
+	/// insert every final segment that is ready, in order. Provisional text
+	/// changes only [`EditorState::dictation`]; the document changes when the
+	/// first transcript replaces a selection, and when final text is
+	/// inserted. See [`Dictation`].
+	pub fn dictate(
+		&mut self,
+		segment: u32,
+		transcript: Transcript<'_>,
+		env: &mut Env<'_>,
+	) -> CommandResult {
+		self.state.dictation_mut().record(segment, transcript);
+		let update = dictation::insert_ready(&mut self.state, env.now)?;
+		self.finish(update, env.now)
+	}
+
+	/// Stop dictating: forget every segment that is not final yet. Returns
+	/// whether provisional text was showing.
+	pub fn stop_dictation(&mut self) -> bool {
+		self.state.dictation_mut().stop()
 	}
 
 	/// Apply steps from a collaborator.

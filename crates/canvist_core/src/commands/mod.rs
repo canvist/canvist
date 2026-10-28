@@ -37,6 +37,7 @@ pub use delete::delete_forward;
 pub use delete::delete_selection;
 pub use delete::join_backward;
 pub use delete::join_forward;
+pub(crate) use insert::insert_at;
 pub use insert::insert_embed;
 pub use insert::insert_text;
 pub use lists::ListType;
