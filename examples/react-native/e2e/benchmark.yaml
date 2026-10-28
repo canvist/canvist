@@ -2,12 +2,12 @@
 # them against their budgets (see `benchmark.ts`).
 appId: dev.canvist.example
 name: Bridge benchmark
-env:
-  PERF_SLACK: "1"
 ---
 - launchApp:
     clearState: true
-    # Multiplies the budgets on slow CI devices (`CANVIST_PERF_SLACK`).
+    # Multiplies the budgets on slow CI devices: `test.sh` passes
+    # `CANVIST_PERF_SLACK` as `-e PERF_SLACK`, 1 by default. The flow sets no
+    # `env` default, because Maestro applies a flow's `env` after `-e`.
     arguments:
       perfSlack: "${PERF_SLACK}"
 - extendedWaitUntil:
