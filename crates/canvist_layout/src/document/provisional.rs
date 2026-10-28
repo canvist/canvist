@@ -12,6 +12,7 @@ use std::sync::Arc;
 use canvist_model::InlineText;
 use canvist_model::Point;
 
+#[cfg(feature = "provisional")]
 use super::DocumentLayout;
 
 /// Text laid out at a point in the document without being part of it.
@@ -52,6 +53,7 @@ impl Provisional {
 	}
 }
 
+#[cfg(feature = "provisional")]
 impl DocumentLayout {
 	/// The provisional text, if any.
 	#[must_use]

@@ -603,7 +603,9 @@ impl DocumentLayout {
 			let shown = self
 				.provisional
 				.as_ref()
-				.filter(|provisional| provisional.at.block == row.block)
+				.filter(|provisional| {
+					cfg!(feature = "provisional") && provisional.at.block == row.block
+				})
 				.and_then(|provisional| provisional.insert_into(inline));
 			// An edit's offsets are in document terms, so a layout that held
 			// provisional text, or will, starts afresh.

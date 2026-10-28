@@ -36,7 +36,7 @@ name = "layout"
 harness = false
 
 [features]
-default = ["ink", "kinetic", "tables", "theme-extensions"]
+default = ["ink", "kinetic", "provisional", "tables", "theme-extensions"]
 # StarterKit theme rules for blocks, marks, and embeds beyond the
 # StarterKit. Without it a host whose schema has none of them carries
 # none of their styles.
@@ -46,6 +46,10 @@ ink = []
 # Move kinetic text when a display list is given a time. Without it the
 # text stays still.
 kinetic = []
+# Lay out and paint provisional text, such as dictation the speech model
+# may still revise, and fade text that just became final into ink. Without
+# it `DocumentLayout::set_provisional` is absent and nothing is faded.
+provisional = []
 # Lay tables out on a grid. Without it a table's cells stack like any
 # container's children, which keeps hosts whose schema has no tables smaller.
 tables = []

@@ -28,6 +28,7 @@ use canvist_layout::DisplayOptions;
 use canvist_layout::DocumentLayout;
 use canvist_layout::FixedMeasurer;
 use canvist_layout::LayoutOptions;
+#[cfg(feature = "provisional")]
 use canvist_layout::Provisional;
 use canvist_layout::Theme;
 use canvist_model::Attrs;
@@ -74,8 +75,10 @@ const DISPLAY_LIST_BUDGET: Duration = Duration::from_micros(100);
 
 /// Relaying out after the speech model revises provisional text: the one
 /// paragraph holding it is laid out again, as for a keystroke.
+#[cfg(feature = "provisional")]
 const PROVISIONAL_BUDGET: Duration = Duration::from_micros(100);
 /// Two revisions of a dictated draft, alternated by the provisional budget.
+#[cfg(feature = "provisional")]
 const DRAFTS: [&str; 2] = [
 	"the meeting is on Tuesday",
 	"the meeting is on Wednesday at noon",
@@ -320,6 +323,7 @@ fn display_list_for_one_screen() {
 	assert_within("display list, one screen", measured, DISPLAY_LIST_BUDGET);
 }
 
+#[cfg(feature = "provisional")]
 #[test]
 #[ignore = "release-mode performance budget; run with `test:perf`"]
 fn provisional_text_relayout() {
@@ -344,6 +348,7 @@ fn provisional_text_relayout() {
 	);
 }
 
+#[cfg(feature = "provisional")]
 #[test]
 #[ignore = "release-mode performance budget; run with `test:perf`"]
 fn display_list_with_provisional_and_settling_text() {

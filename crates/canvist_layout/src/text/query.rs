@@ -18,17 +18,23 @@ impl TextLayout {
 	/// text.
 	pub(crate) fn document_len(&self) -> u32 {
 		let provisional = self
-			.provisional
-			.as_ref()
+			.provisional()
 			.map_or(0, |range| range.end - range.start);
 		self.text.len() as u32 - provisional
+	}
+
+	/// The bytes of provisional text, when this build lays it out at all.
+	fn provisional(&self) -> Option<&std::ops::Range<u32>> {
+		self.provisional
+			.as_ref()
+			.filter(|_| cfg!(feature = "provisional"))
 	}
 
 	/// Where document offset `offset` is in the laid-out text. A caret where
 	/// provisional text was inserted shows after it, as it will once the text
 	/// is final.
 	pub(crate) fn laid_out(&self, offset: u32) -> u32 {
-		match &self.provisional {
+		match self.provisional() {
 			Some(range) if offset >= range.start => offset.saturating_add(range.end - range.start),
 			_ => offset,
 		}
@@ -37,7 +43,7 @@ impl TextLayout {
 	/// The document offset of laid-out offset `offset`. Every offset inside
 	/// provisional text is where the text was inserted.
 	pub(crate) fn in_document(&self, offset: u32) -> u32 {
-		match &self.provisional {
+		match self.provisional() {
 			Some(range) if offset >= range.end => offset - (range.end - range.start),
 			Some(range) if offset > range.start => range.start,
 			_ => offset,

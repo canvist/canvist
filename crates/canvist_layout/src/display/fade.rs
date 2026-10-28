@@ -7,7 +7,6 @@
 //! for readers who prefer reduced motion, provisional text is a steady
 //! [`PROVISIONAL_ALPHA`] and final text is at full opacity at once.
 
-use std::f32::consts::TAU;
 use std::ops::Range;
 
 use canvist_model::BlockId;
@@ -36,7 +35,8 @@ pub(crate) struct Fade {
 	pub(crate) strength: f32,
 }
 
-/// The faded ranges of `block`'s laid-out `text`, in order, and whether any
+/// The faded ranges of `block`'s laid-out `text`, which never overlap, and
+/// whether any
 /// of them changes with time. `settling` holds document ranges and the
 /// seconds since each settled; `time` is the animation clock.
 pub(crate) fn fades(
@@ -68,7 +68,6 @@ pub(crate) fn fades(
 		}
 	}
 
-	fades.sort_by_key(|fade| fade.range.start);
 	(fades, animated)
 }
 
@@ -78,7 +77,16 @@ fn provisional_strength(time: Option<f32>) -> f32 {
 		return PROVISIONAL_ALPHA;
 	};
 
-	PROVISIONAL_ALPHA + BREATH * (TAU * time / BREATH_PERIOD).sin()
+	PROVISIONAL_ALPHA + BREATH * wave(time / BREATH_PERIOD)
+}
+
+/// A smooth wave from -1 to 1 and back once per unit of `cycles`, shaped
+/// like a sine without calling one: on WebAssembly `sin` brings in kilobytes
+/// of argument reduction. A triangle wave, eased by a cubic.
+fn wave(cycles: f32) -> f32 {
+	let phase = cycles - cycles.floor();
+	let triangle = 1.0 - 4.0 * (phase - 0.25).abs().min((phase - 1.25).abs());
+	triangle * (1.5 - 0.5 * triangle * triangle)
 }
 
 /// How opaque settling text is `elapsed` seconds after it settled, or `None`
@@ -181,5 +189,14 @@ mod tests {
 
 		let quarter = provisional_strength(Some(BREATH_PERIOD / 4.0));
 		assert!((quarter - (PROVISIONAL_ALPHA + BREATH)).abs() < 1e-5);
+	}
+
+	#[test]
+	fn the_breath_follows_a_sine_closely() {
+		for step in 0..=40_u8 {
+			let cycles = f32::from(step) / 16.0;
+			let sine = (std::f32::consts::TAU * cycles).sin();
+			assert!((wave(cycles) - sine).abs() < 0.03, "at {cycles} cycles");
+		}
 	}
 }

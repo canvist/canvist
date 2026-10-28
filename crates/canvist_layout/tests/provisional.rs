@@ -4,6 +4,7 @@
 //! Geometry is in terms of the [`FixedMeasurer`]: every character advances
 //! [`ADVANCE`] pixels.
 
+#![cfg(feature = "provisional")]
 #![allow(clippy::float_cmp, reason = "layout with the fixed measurer is exact")]
 
 mod support;
