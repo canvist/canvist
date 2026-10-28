@@ -93,10 +93,13 @@ enum DictationSetup {
       let token = Self.setting("CANVIST_DICTATION_TOKEN", key: "CanvistDictationToken")
     {
       self = .relay(url, token: token)
-    } else if #available(iOS 26, *), OnDeviceDictationSource.isAvailable {
-      self = .onDevice
+    } else if #available(iOS 26, *) {
+      self =
+        OnDeviceDictationSource.isAvailable
+        ? .onDevice
+        : .unavailable(reason: "Dictation needs a relay on this device.")
     } else {
-      self = .unavailable(reason: "Dictation needs a relay, or iOS 26 for on-device dictation.")
+      self = .unavailable(reason: "Dictation needs a relay or iOS 26.")
     }
   }
 

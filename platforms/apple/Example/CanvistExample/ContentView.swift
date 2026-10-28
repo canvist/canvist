@@ -56,12 +56,13 @@ struct EditorScreen: View {
       VStack(spacing: 0) {
         FormatBar(model: model)
 
-        if case .failed(let error) = model.dictation.state {
-          Text(error.localizedDescription)
+        if let note = dictationNote {
+          Label(note, systemImage: "mic.slash")
             .font(.footnote)
             .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Metrics.barPadding)
-            .accessibilityIdentifier("dictation-error")
+            .accessibilityIdentifier("dictation-note")
         }
 
         Divider()
@@ -85,6 +86,18 @@ struct EditorScreen: View {
   }
 }
 
+extension EditorScreen {
+  /// Why dictation is off or failed, under the toolbar so people see it
+  /// without tapping a disabled button.
+  private var dictationNote: String? {
+    if case .failed(let error) = model.dictation.state {
+      return error.localizedDescription
+    }
+
+    return DictationSetup.current.unavailableReason
+  }
+}
+
 /// Starts and stops dictation. It glows red and pulses while listening, and
 /// is disabled, saying why, when the app has no way to dictate.
 struct DictationButton: View {
@@ -104,6 +117,7 @@ struct DictationButton: View {
     .disabled(reason != nil || state == .finishing)
     .accessibilityIdentifier("dictate")
     .accessibilityHint(reason ?? "")
+    .help(reason ?? "")
   }
 }
 
