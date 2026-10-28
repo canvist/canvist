@@ -76,6 +76,8 @@ final class NoteModel {
 - **`cancel()`** ends a session at once and drops the words that aren't final.
 - **Permissions.** Add `NSMicrophoneUsageDescription` to your Info.plist, and `NSSpeechRecognitionUsageDescription` for on-device dictation. iOS asks the first time someone dictates. A refusal fails the session with `microphoneDenied` or `speechRecognitionDenied`.
 
+- **Calls and headsets.** A phone call, Siri, or another app taking the microphone finishes the session as `stop()` does: the words already said still land, and the person taps again to carry on. Connecting or disconnecting a headset moves capture to the new microphone without ending the session, or finishes it cleanly when there's no microphone left.
+
 Whatever happens (a fatal relay error, a dropped connection, or a cancel), the draft disappears with the session.
 
 ## Dictate on the device

@@ -4,10 +4,20 @@ import os
 /// Where speech audio comes from: the microphone, or synthetic audio in
 /// tests.
 @MainActor
-protocol AudioInput: AnyObject {
+protocol AudioInput: AnyObject, Sendable {
+  /// The object that posts `AVAudioEngineConfigurationChange` for this
+  /// input.
+  var engine: AnyObject { get }
+
   /// Start capturing, calling `receive` with each buffer, in the order
   /// captured, on an audio thread.
   func start(_ receive: @escaping @Sendable (AVAudioPCMBuffer) -> Void) async throws
+
+  /// Capture from the current input route, after the route or the
+  /// engine's configuration changed, handing buffers to the same
+  /// `receive`. Their format may differ from before. Does nothing when not
+  /// capturing.
+  func restart() throws
 
   /// Stop capturing. Safe to call when not capturing.
   func stop()
@@ -17,8 +27,13 @@ protocol AudioInput: AnyObject {
 /// first, and holds the audio session only while capturing.
 @MainActor
 final class MicrophoneInput: AudioInput {
-  private let engine = AVAudioEngine()
-  private var capturing = false
+  private let audioEngine = AVAudioEngine()
+  /// Where captured buffers go, while capturing.
+  private var receive: (@Sendable (AVAudioPCMBuffer) -> Void)?
+  /// The format the tap was installed in.
+  private var tapped: AVAudioFormat?
+
+  var engine: AnyObject { audioEngine }
   private let logger = Logger(subsystem: "dev.canvist", category: "Dictation")
 
   func start(_ receive: @escaping @Sendable (AVAudioPCMBuffer) -> Void) async throws {
@@ -39,27 +54,28 @@ final class MicrophoneInput: AudioInput {
     let session = AVAudioSession.sharedInstance()
     try session.setCategory(.record, mode: .measurement)
     try session.setActive(true)
-    capturing = true
+    self.receive = receive
+    try tap(receive)
+  }
 
-    let input = engine.inputNode
-    let format = input.outputFormat(forBus: 0)
+  func restart() throws {
+    guard let receive else { return }
 
-    // Installing a tap in a format with no rate raises an exception.
-    guard format.sampleRate > 0, format.channelCount > 0 else {
-      throw DictationError.audio("the microphone has no input format")
+    // A route change that kept the format leaves the engine running on the
+    // new route.
+    if audioEngine.isRunning, audioEngine.inputNode.outputFormat(forBus: 0) == tapped {
+      return
     }
 
-    Self.tap(input, format: format, receive: receive)
-    engine.prepare()
-    try engine.start()
+    untap()
+    try tap(receive)
   }
 
   func stop() {
-    guard capturing else { return }
+    guard receive != nil else { return }
 
-    capturing = false
-    engine.inputNode.removeTap(onBus: 0)
-    engine.stop()
+    receive = nil
+    untap()
 
     do {
       try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -68,11 +84,34 @@ final class MicrophoneInput: AudioInput {
     }
   }
 
+  /// Tap the input in its current format and start the engine.
+  private func tap(_ receive: @escaping @Sendable (AVAudioPCMBuffer) -> Void) throws {
+    let input = audioEngine.inputNode
+    let format = input.outputFormat(forBus: 0)
+
+    // Installing a tap in a format with no rate raises an exception, as
+    // with no microphone on the route.
+    guard format.sampleRate > 0, format.channelCount > 0 else {
+      throw DictationError.audio("the microphone has no input format")
+    }
+
+    Self.install(on: input, format: format, receive: receive)
+    tapped = format
+    audioEngine.prepare()
+    try audioEngine.start()
+  }
+
+  private func untap() {
+    audioEngine.inputNode.removeTap(onBus: 0)
+    audioEngine.stop()
+    tapped = nil
+  }
+
   /// Install the tap outside the main actor: the engine calls it on an
   /// audio thread, and a closure made on the main actor would assert it
   /// runs there.
-  private nonisolated static func tap(
-    _ input: AVAudioInputNode,
+  private nonisolated static func install(
+    on input: AVAudioInputNode,
     format: AVAudioFormat,
     receive: @escaping @Sendable (AVAudioPCMBuffer) -> Void
   ) {

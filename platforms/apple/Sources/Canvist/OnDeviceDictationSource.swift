@@ -14,6 +14,7 @@ import os
 public final class OnDeviceDictationSource: DictationSource {
   private let locale: Locale
   private let input: any AudioInput
+  private let notifications: NotificationCenter
   /// Stops the microphone and ends the audio stream, so the analyzer
   /// finalizes what it heard and its results end. Set while a session runs.
   private var endAudio: (() -> Void)?
@@ -29,9 +30,10 @@ public final class OnDeviceDictationSource: DictationSource {
     self.init(locale: locale, input: MicrophoneInput())
   }
 
-  init(locale: Locale, input: any AudioInput) {
+  init(locale: Locale, input: any AudioInput, notifications: NotificationCenter = .default) {
     self.locale = locale
     self.input = input
+    self.notifications = notifications
   }
 
   /// Whether this device has an on-device recognizer.
@@ -39,7 +41,9 @@ public final class OnDeviceDictationSource: DictationSource {
     SpeechTranscriber.isAvailable
   }
 
-  public func run(into editor: Editor, ready: @escaping @MainActor () -> Void) async throws {
+  public func run(
+    into editor: Editor, progress: @escaping @MainActor (DictationProgress) -> Void
+  ) async throws {
     segment = 0
     try await Self.authorize()
 
@@ -74,8 +78,16 @@ public final class OnDeviceDictationSource: DictationSource {
       finish()
     }
 
+    // A phone call or a new route mid-session is handled as stopping is,
+    // so the words already said still become final.
+    let supervisor = CaptureSupervisor(input: input, notifications: notifications) {
+      progress(.finishing)
+      self.finish()
+    }
+    defer { supervisor.cancel() }
+
     try await analyzer.start(inputSequence: audio)
-    ready()
+    progress(.listening)
 
     do {
       try await withTaskCancellationHandler {

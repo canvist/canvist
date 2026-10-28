@@ -8,40 +8,14 @@ import XCTest
 /// scripted messages: no microphone or network.
 @MainActor
 final class DictationTests: XCTestCase {
-  private let kit = StarterKit()
-
-  /// A view holding `markdown`, with the caret at the end.
   private func view(_ markdown: String = "Hello") throws -> CanvistView {
-    let view = try CanvistView(extensions: kit.extensions)
-    try view.editor.load(format: .markdown, content: markdown)
-    let end = view.editor.textLength()
-    _ = try view.editor.select(anchor: end, head: end)
-
-    return view
+    try dictationView(markdown)
   }
 
   private func relaySource(_ relay: FakeRelay, microphone: FakeMicrophone = FakeMicrophone())
     -> RelayDictationSource
   {
     RelayDictationSource(language: "en", polish: true, input: microphone) { relay }
-  }
-
-  /// Wait for `condition`, failing after a couple of seconds.
-  private func eventually(
-    _ description: String, file: StaticString = #filePath, line: UInt = #line,
-    _ condition: () -> Bool
-  ) async throws {
-    let deadline = Date.now.addingTimeInterval(2)
-
-    while !condition() {
-      guard Date.now < deadline else {
-        XCTFail("timed out waiting for \(description)", file: file, line: line)
-
-        return
-      }
-
-      try await Task.sleep(for: .milliseconds(5))
-    }
   }
 
   // MARK: Audio
@@ -184,7 +158,7 @@ final class DictationTests: XCTestCase {
   func testStoppingWhileConnectingEndsTheSession() async throws {
     let view = try view()
     let microphone = FakeMicrophone()
-    let relay = FakeRelay { message in message == "stop" ? [#"{"type":"done"}"#] : [] }
+    let relay = FakeRelay.replying(to: "stop", with: [#"{"type":"done"}"#])
     let dictation = CanvistDictation(view: view)
 
     dictation.start(source: relaySource(relay, microphone: microphone))
@@ -198,9 +172,8 @@ final class DictationTests: XCTestCase {
   func testCancellingMidDraftClearsIt() async throws {
     let view = try view()
     let microphone = FakeMicrophone()
-    let relay = FakeRelay { message in
-      message == "start" ? [#"{"type":"ready"}"#, #"{"type":"partial","segment":0,"text":"world"}"#] : []
-    }
+    let relay = FakeRelay.replying(
+      to: "start", with: [#"{"type":"ready"}"#, #"{"type":"partial","segment":0,"text":"world"}"#])
     let dictation = CanvistDictation(view: view)
 
     dictation.start(source: relaySource(relay, microphone: microphone))
@@ -216,9 +189,8 @@ final class DictationTests: XCTestCase {
 
   func testTheSocketClosingMidDraftFailsAndClearsIt() async throws {
     let view = try view()
-    let relay = FakeRelay { message in
-      message == "start" ? [#"{"type":"ready"}"#, #"{"type":"partial","segment":0,"text":"world"}"#] : []
-    }
+    let relay = FakeRelay.replying(
+      to: "start", with: [#"{"type":"ready"}"#, #"{"type":"partial","segment":0,"text":"world"}"#])
     let dictation = CanvistDictation(view: view)
 
     dictation.start(source: relaySource(relay))
@@ -238,7 +210,7 @@ final class DictationTests: XCTestCase {
     let source = RelayDictationSource(language: nil, polish: true, input: microphone) {
       connected = true
 
-      return FakeRelay { _ in [] }
+      return FakeRelay.replying(to: "start", with: [])
     }
     let dictation = CanvistDictation(view: view)
 
@@ -310,114 +282,5 @@ final class DictationTests: XCTestCase {
     XCTAssertNil(view.displayLink)
     XCTAssertFalse(try view.editor.frame().animated)
     XCTAssertEqual(view.editor.dictationDraft(), " world", "the draft still shows, steadily")
-  }
-}
-
-/// A sine wave at half scale, as the microphone would deliver it: mono
-/// 32-bit floats. `offset` continues the wave from earlier buffers.
-private func sine(seconds: Double, sampleRate: Double, offset: Int = 0) -> AVAudioPCMBuffer? {
-  let frames = AVAudioFrameCount(seconds * sampleRate)
-
-  guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
-    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
-    let channel = buffer.floatChannelData?[0]
-  else { return nil }
-
-  buffer.frameLength = frames
-  let start = offset * Int(frames)
-
-  for index in 0..<Int(frames) {
-    channel[index] = 0.5 * sin(2 * .pi * 440 * Float(start + index) / Float(sampleRate))
-  }
-
-  return buffer
-}
-
-/// A microphone that delivers a few synthetic buffers when started.
-@MainActor
-private final class FakeMicrophone: AudioInput {
-  let buffers = (0..<3).compactMap { index in sine(seconds: 0.1, sampleRate: 48_000, offset: index) }
-  var failure: DictationError?
-  private(set) var stopped = false
-
-  func start(_ receive: @escaping @Sendable (AVAudioPCMBuffer) -> Void) async throws {
-    if let failure {
-      throw failure
-    }
-
-    buffers.forEach(receive)
-  }
-
-  func stop() {
-    stopped = true
-  }
-}
-
-/// A relay that records what it is sent and answers text messages with
-/// scripted replies, keyed by the message's `type`.
-private final class FakeRelay: DictationTransport, @unchecked Sendable {
-  private let lock = NSLock()
-  private let replies: @Sendable (String) -> [String]
-  private let incoming: AsyncStream<URLSessionWebSocketTask.Message>.Continuation
-  private var messages: AsyncStream<URLSessionWebSocketTask.Message>.Iterator
-  private var recorded: [URLSessionWebSocketTask.Message] = []
-  private var isClosed = false
-
-  init(replies: @escaping @Sendable (String) -> [String]) {
-    let (stream, continuation) = AsyncStream.makeStream(of: URLSessionWebSocketTask.Message.self)
-    self.replies = replies
-    incoming = continuation
-    messages = stream.makeAsyncIterator()
-  }
-
-  var sent: [URLSessionWebSocketTask.Message] {
-    lock.withLock { recorded }
-  }
-
-  var closed: Bool {
-    lock.withLock { isClosed }
-  }
-
-  func send(_ message: URLSessionWebSocketTask.Message) async throws {
-    lock.withLock { recorded.append(message) }
-
-    guard let text = message.text,
-      let json = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
-      let type = json["type"] as? String
-    else { return }
-
-    for reply in replies(type) {
-      incoming.yield(.string(reply))
-    }
-  }
-
-  func receive() async throws -> URLSessionWebSocketTask.Message {
-    // One reader at a time, as the relay source reads.
-    guard let message = await messages.next() else {
-      try Task.checkCancellation()
-
-      throw DictationError.connection("closed")
-    }
-
-    return message
-  }
-
-  func close() {
-    lock.withLock { isClosed = true }
-    incoming.finish()
-  }
-}
-
-extension URLSessionWebSocketTask.Message {
-  fileprivate var text: String? {
-    guard case .string(let text) = self else { return nil }
-
-    return text
-  }
-
-  fileprivate var audio: Data? {
-    guard case .data(let data) = self else { return nil }
-
-    return data
   }
 }

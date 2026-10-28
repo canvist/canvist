@@ -17,6 +17,7 @@ public final class RelayDictationSource: DictationSource {
   private let language: String?
   private let polish: Bool
   private let input: any AudioInput
+  private let notifications: NotificationCenter
   private let connect: @MainActor () -> any DictationTransport
   /// Stops the microphone and ends the audio stream, so the stop message
   /// follows the last audio sent. Set while a session runs.
@@ -41,15 +42,19 @@ public final class RelayDictationSource: DictationSource {
     language: String?,
     polish: Bool,
     input: any AudioInput,
+    notifications: NotificationCenter = .default,
     connect: @escaping @MainActor () -> any DictationTransport
   ) {
     self.language = language
     self.polish = polish
     self.input = input
+    self.notifications = notifications
     self.connect = connect
   }
 
-  public func run(into editor: Editor, ready: @escaping @MainActor () -> Void) async throws {
+  public func run(
+    into editor: Editor, progress: @escaping @MainActor (DictationProgress) -> Void
+  ) async throws {
     let (audio, chunks) = AsyncStream.makeStream(of: Data.self)
 
     endAudio = {
@@ -75,6 +80,14 @@ public final class RelayDictationSource: DictationSource {
       finish()
     }
 
+    // A phone call or a new route mid-session is handled as stopping is,
+    // so the words already said still become final.
+    let supervisor = CaptureSupervisor(input: input, notifications: notifications) {
+      progress(.finishing)
+      self.finish()
+    }
+    defer { supervisor.cancel() }
+
     let transport = connect()
     defer { transport.close() }
 
@@ -86,7 +99,7 @@ public final class RelayDictationSource: DictationSource {
         return false
       }
       group.addTask {
-        try await self.receive(from: transport, into: editor, ready: ready)
+        try await self.receive(from: transport, into: editor, progress: progress)
 
         return true
       }
@@ -121,7 +134,7 @@ public final class RelayDictationSource: DictationSource {
   private func receive(
     from transport: any DictationTransport,
     into editor: Editor,
-    ready: @MainActor () -> Void
+    progress: @MainActor (DictationProgress) -> Void
   ) async throws {
     while true {
       guard case .string(let message) = try await transport.receive() else {
@@ -132,7 +145,7 @@ public final class RelayDictationSource: DictationSource {
 
       switch try editor.receiveDictation(message: message) {
       case .ready:
-        ready()
+        progress(.listening)
       case .transcript:
         continue
       case .error(let code, let message, true):

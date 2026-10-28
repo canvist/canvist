@@ -90,7 +90,7 @@ public final class CanvistDictation {
 
   private func run(_ source: any DictationSource, into editor: Editor) async {
     do {
-      try await source.run(into: editor) { self.listening() }
+      try await source.run(into: editor) { progress in self.advance(progress) }
       end(.idle)
     } catch {
       end(Self.state(after: error))
@@ -110,9 +110,17 @@ public final class CanvistDictation {
     return .failed(.connection(error.localizedDescription))
   }
 
-  private func listening() {
-    if state == .connecting {
+  /// Follow the source: listening once speech is being transcribed, and
+  /// finishing when it stops listening on its own, such as for a phone
+  /// call.
+  private func advance(_ progress: DictationProgress) {
+    switch (progress, state) {
+    case (.listening, .connecting):
       state = .listening
+    case (.finishing, .connecting), (.finishing, .listening):
+      state = .finishing
+    default:
+      break
     }
   }
 
@@ -137,12 +145,21 @@ public final class CanvistDictation {
 @MainActor
 public protocol DictationSource: AnyObject {
   /// Listen, and dictate what is said into `editor` until ``finish()`` or
-  /// cancellation. Calls `ready` once speech is being transcribed, returns
-  /// when the session is over, and throws a ``DictationError`` when it
-  /// fails. ``CanvistDictation`` drops any draft left once it returns.
-  func run(into editor: Editor, ready: @escaping @MainActor () -> Void) async throws
+  /// cancellation. Reports `progress` as the session goes on, returns when
+  /// it is over, and throws a ``DictationError`` when it fails.
+  /// ``CanvistDictation`` drops any draft left once it returns.
+  func run(into editor: Editor, progress: @escaping @MainActor (DictationProgress) -> Void) async throws
 
   /// Stop listening, let the words already said become final, then return
-  /// from ``run(into:ready:)``.
+  /// from ``run(into:progress:)``.
   func finish()
+}
+
+/// How a dictation session is going, as its source reports it.
+public enum DictationProgress: Equatable, Sendable {
+  /// Speech is being transcribed.
+  case listening
+  /// The source stopped listening on its own, as when a phone call takes
+  /// the microphone: the words already said are becoming final.
+  case finishing
 }
