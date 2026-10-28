@@ -50,6 +50,7 @@ Every number below has a budget, and a test fails the build when an operation go
 | Typing burst: 1,000 key events on the web ⁴            | no crash, no dropped input, ≤ 2 frames late | 1,000 of 1,000       |
 | Open a 10k-paragraph document → first paint            | < 50 ms                                     | layout 0.6 ms        |
 | Native: keystroke → frame in Rust, 10k paragraphs ⁵    | < 200 µs                                    | 35 µs                |
+| Native: dictated draft → frame, 10k paragraphs ⁵       | < 200 µs                                    | 30 µs                |
 | Native: IME update → frame, 10k paragraphs ⁵           | < 200 µs                                    | 29 µs                |
 | Native: collaborator's keystroke → frame ⁵             | < 200 µs                                    | 57 µs                |
 | iOS: keystroke → paint, p95 ⁶                          | < 16 ms                                     | 1.2 ms               |

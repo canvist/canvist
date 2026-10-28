@@ -263,6 +263,8 @@ pub struct EditorChange {
 	pub selection: bool,
 	/// IME composition started, changed, or ended.
 	pub composition: bool,
+	/// Dictation's provisional text appeared, changed, or went.
+	pub dictation: bool,
 	/// The document is shared and has Yjs updates waiting in
 	/// [`Editor::take_updates`](crate::Editor::take_updates).
 	pub updates: bool,
@@ -282,6 +284,7 @@ impl EditorChange {
 			document: self.document || other.document,
 			selection: self.selection || other.selection,
 			composition: self.composition || other.composition,
+			dictation: self.dictation || other.dictation,
 			updates: self.updates || other.updates,
 		}
 	}
