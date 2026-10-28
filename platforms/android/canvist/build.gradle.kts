@@ -27,6 +27,20 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // The JVM tests run on the host against Android's stub `android.jar`: a
+    // log call returns 0 there instead of throwing.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+// The JVM tests drive the real Rust core, built for this machine by
+// `test.sh` (`cargo build -p canvist_ffi`), through the desktop JNA.
+val hostLibraries = rootDir.resolve("../../target/debug").canonicalPath
+
+tasks.withType<Test>().configureEach {
+    systemProperty("jna.library.path", hostLibraries)
 }
 
 // Apps on older Kotlin compilers must be able to read this library: React
@@ -43,7 +57,15 @@ kotlin {
 dependencies {
     // UniFFI's Kotlin bindings call into Rust through JNA.
     api("${libs.jna.get()}@aar")
+    // `CanvistDictation.state` is a `StateFlow`, and sessions are coroutines.
+    api(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.annotation)
+    // The dictation relay's WebSocket. React Native apps already ship OkHttp 4.
+    implementation(libs.okhttp)
+
+    testImplementation(libs.jna)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)
