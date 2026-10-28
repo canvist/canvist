@@ -40,7 +40,8 @@ extension CanvistView {
 
     guard displayLink == nil else { return }
 
-    let link = CADisplayLink(target: DisplayLinkTarget(view: self), selector: #selector(DisplayLinkTarget.step))
+    let link = CADisplayLink(
+      target: DisplayLinkTarget(view: self), selector: #selector(DisplayLinkTarget.step))
     link.add(to: .main, forMode: .common)
     displayLink = link
   }

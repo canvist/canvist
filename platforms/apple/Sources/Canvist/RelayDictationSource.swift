@@ -91,7 +91,8 @@ public final class RelayDictationSource: DictationSource {
     let transport = connect()
     defer { transport.close() }
 
-    try await transport.send(.string(editor.dictationStartMessage(language: language, polish: polish)))
+    try await transport.send(
+      .string(editor.dictationStartMessage(language: language, polish: polish)))
     try await withThrowingTaskGroup(of: Bool.self) { group in
       group.addTask {
         try await Self.send(audio, over: transport)

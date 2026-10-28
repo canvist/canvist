@@ -64,7 +64,8 @@ func sine(
 @MainActor
 final class FakeMicrophone: AudioInput {
   let engine: AnyObject = NSObject()
-  let buffers = (0..<3).compactMap { index in sine(seconds: 0.1, sampleRate: 48_000, offset: index) }
+  let buffers = (0..<3).compactMap { index in sine(seconds: 0.1, sampleRate: 48_000, offset: index)
+  }
   /// What a headset's microphone delivers after a restart.
   let rerouted = (0..<2).compactMap { index in
     sine(seconds: 0.1, sampleRate: 44_100, channels: 2, offset: index)

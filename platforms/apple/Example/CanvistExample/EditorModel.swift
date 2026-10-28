@@ -89,7 +89,8 @@ enum DictationSetup {
   static let current = DictationSetup()
 
   private init() {
-    if let url = Self.setting("CANVIST_DICTATION_URL", key: "CanvistDictationURL").flatMap(URL.init),
+    if let url = Self.setting("CANVIST_DICTATION_URL", key: "CanvistDictationURL").flatMap(
+      URL.init),
       let token = Self.setting("CANVIST_DICTATION_TOKEN", key: "CanvistDictationToken")
     {
       self = .relay(url, token: token)

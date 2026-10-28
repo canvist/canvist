@@ -148,7 +148,8 @@ public protocol DictationSource: AnyObject {
   /// cancellation. Reports `progress` as the session goes on, returns when
   /// it is over, and throws a ``DictationError`` when it fails.
   /// ``CanvistDictation`` drops any draft left once it returns.
-  func run(into editor: Editor, progress: @escaping @MainActor (DictationProgress) -> Void) async throws
+  func run(into editor: Editor, progress: @escaping @MainActor (DictationProgress) -> Void)
+    async throws
 
   /// Stop listening, let the words already said become final, then return
   /// from ``run(into:progress:)``.

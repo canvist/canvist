@@ -227,7 +227,8 @@ final class DictationTests: XCTestCase {
     guard #available(iOS 26, *) else { throw XCTSkip("SpeechAnalyzer needs iOS 26") }
 
     let view = try view("Hi")
-    let source = OnDeviceDictationSource(locale: Locale(identifier: "en-US"), input: FakeMicrophone())
+    let source = OnDeviceDictationSource(
+      locale: Locale(identifier: "en-US"), input: FakeMicrophone())
 
     try source.dictate(" hello", isFinal: false, into: view.editor)
     XCTAssertEqual(view.editor.dictationDraft(), " hello")

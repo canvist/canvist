@@ -71,7 +71,8 @@ public final class OnDeviceDictationSource: DictationSource {
 
     // Capture before analyzing: a refused microphone starts no analyzer,
     // and the first words wait in the stream.
-    try await input.start(converter.converting { converted in inputs.yield(AnalyzerInput(buffer: converted)) })
+    try await input.start(
+      converter.converting { converted in inputs.yield(AnalyzerInput(buffer: converted)) })
 
     // Stopping while the microphone was starting stops it now.
     if finishing {
@@ -156,11 +157,14 @@ public final class OnDeviceDictationSource: DictationSource {
     )
 
     do {
-      if let installation = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+      if let installation = try await AssetInventory.assetInstallationRequest(supporting: [
+        transcriber
+      ]) {
         try await installation.downloadAndInstall()
       }
     } catch {
-      logger.error("installing the speech model failed: \(error.localizedDescription, privacy: .public)")
+      logger.error(
+        "installing the speech model failed: \(error.localizedDescription, privacy: .public)")
 
       throw DictationError.recognizerUnavailable
     }

@@ -38,21 +38,26 @@ final class AudioSessionDictationTests: XCTestCase {
     try await eventually("the draft") { view.editor.dictationDraft() == " world" }
   }
 
-  private func post(_ name: Notification.Name, object: AnyObject? = nil, _ userInfo: [String: UInt] = [:]) {
+  private func post(
+    _ name: Notification.Name, object: AnyObject? = nil, _ userInfo: [String: UInt] = [:]
+  ) {
     notifications.post(name: name, object: object, userInfo: userInfo)
   }
 
   private func interruption(_ type: AVAudioSession.InterruptionType) {
-    post(AVAudioSession.interruptionNotification, [AVAudioSessionInterruptionTypeKey: type.rawValue])
+    post(
+      AVAudioSession.interruptionNotification, [AVAudioSessionInterruptionTypeKey: type.rawValue])
   }
 
   private func routeChange(_ reason: AVAudioSession.RouteChangeReason) {
-    post(AVAudioSession.routeChangeNotification, [AVAudioSessionRouteChangeReasonKey: reason.rawValue])
+    post(
+      AVAudioSession.routeChangeNotification, [AVAudioSessionRouteChangeReasonKey: reason.rawValue])
   }
 
   /// The session ended with the draft made final, and nothing provisional
   /// left.
-  private func assertFinishedWithFinalText(file: StaticString = #filePath, line: UInt = #line) async {
+  private func assertFinishedWithFinalText(file: StaticString = #filePath, line: UInt = #line) async
+  {
     await dictation.session?.value
 
     XCTAssertEqual(dictation.state, .idle, file: file, line: line)
