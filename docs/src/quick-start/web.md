@@ -19,7 +19,7 @@ Give the editor an element with a width. Without a height, it grows with its doc
 <div id="editor" style="max-width: 640px"></div>
 ```
 
-```ts no_run
+```ts no_run live
 import { createEditor } from "@canvist/web";
 
 const element = document.querySelector<HTMLElement>("#editor");
@@ -86,7 +86,7 @@ The server and the browser must lay text out with the same font files. [Fonts an
 
 ## 5. Read-only editors and placeholders
 
-```ts no_run
+```ts no_run live
 import { createEditor } from "@canvist/web";
 
 const element = document.querySelector<HTMLElement>("#editor");
@@ -117,7 +117,7 @@ if (element !== null) {
 </div>
 ```
 
-```ts no_run
+```ts no_run live
 import { createEditor } from "@canvist/web";
 import { bubbleMenu } from "@canvist/web/menus";
 

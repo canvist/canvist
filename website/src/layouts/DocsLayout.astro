@@ -1,6 +1,7 @@
 ---
 import type { MarkdownHeading } from "astro";
 import "../styles/docs.css";
+import "../styles/sandbox.css";
 import DocsPager from "../components/docs/DocsPager.astro";
 import DocsSearch from "../components/docs/DocsSearch.astro";
 import DocsSidebar from "../components/docs/DocsSidebar.astro";
@@ -84,6 +85,8 @@ const { title, description, nav, current, headings, prev, next, editUrl } = Astr
 </Base>
 
 <script>
+	import { actionsOf, enhanceLiveSamples } from "../scripts/docs-live.ts";
+
 	// The small-screen drawer: a modal dialog, so focus and Escape come for free.
 	const menu = document.querySelector<HTMLButtonElement>("[data-docs-menu]");
 	const drawer = document.querySelector<HTMLDialogElement>("#docs-drawer");
@@ -130,6 +133,9 @@ const { title, description, nav, current, headings, prev, next, editUrl } = Astr
 				button.textContent = "Copy";
 			}, 1600);
 		});
-		frame.append(button);
+		actionsOf(frame).append(button);
 	}
+
+	// Run buttons on samples that run in the browser, before Copy.
+	enhanceLiveSamples();
 </script>

@@ -11,7 +11,7 @@ The editor paints the document on a canvas, but it uses fonts exactly as a web p
 
 Set the font stacks in the theme:
 
-```ts no_run
+```ts no_run live
 import { createEditor } from "@canvist/web";
 
 const element = document.querySelector<HTMLElement>("#editor");

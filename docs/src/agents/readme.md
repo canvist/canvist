@@ -235,6 +235,29 @@ Give the model the document as Markdown or JSON, and the positions it needs, so 
 - **Forgetting `dispose()` in Dart.** Documents and engines hold native memory. Dispose them in `State.dispose`.
 - **Two peers with the same client id.** Their edits collide. Give every peer its own.
 
+## 7. Check behaviour in the browser
+
+You can see what canvist does before you write the integration, and check it after:
+
+- **Every runnable TypeScript sample in these docs has a Run button.** It runs the sample on the page, re-runs it as you edit, and shows what it printed (and whether that matches the comments), with the document it made as the real editor paints it and as HTML, JSON, and Markdown.
+- **The [playground](/playground) runs whole integrations in one tab.** Browser code runs in one or more live editors. Server code runs in a worker, on a `localhost` only that tab can reach, so a sync server and its editors collaborate with nothing deployed. A switch for every extension rewrites the code's extension list and import.
+
+Server code in the playground and the docs can import `@canvist/headless` (and `/full` and `/ssr`), `ws`, `node:http`, and `node:events`, and use `Deno.serve`, `Deno.upgradeWebSocket`, `process.env`, and `Buffer`. Browser code can import `@canvist/web` (and `/collab` and `/menus`) and `@canvist/headless`. Its `WebSocket` and `fetch` reach the server realm at `localhost`, and every other address normally. It isn't Node: there's no file system, no package installs, and no other modules.
+
+To check behaviour from a browser automation tool, open `/playground` and call `window.canvistPlayground`, for example through Playwright's `page.evaluate`:
+
+| Call                                   | What it does                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `load(example)`                        | Opens `editor`, `extensions`, `collaboration`, or `node`, runs it, and resolves with the result.            |
+| `read(file)`, `write(file, code)`      | Reads or replaces `server.ts`, `client.ts`, or `index.html`. `write` runs everything again.                 |
+| `run()`                                | Runs the server, then each browser peer, and resolves with `{ ok, errors, logs, documents, ports }`.        |
+| `extensions()`, `setExtensions(names)` | Reads the extensions the code registers, or rewrites its list and import to register `names`, then runs it. |
+| `addPeer()`                            | Opens another browser peer running `client.ts`.                                                             |
+| `fetch(url, init)`                     | Calls the server realm from the page, as `fetch("http://localhost:3000/convert")`.                          |
+| `logs()`, `documents()`                | What every realm printed since the last run, and the server's documents as they are now.                    |
+
+The root element's `data-state` is `running`, `ok`, or `error`, for tools that wait on the page instead.
+
 ## Where the skill's evaluations will live
 
 The `canvist` skill in [`skills/canvist`](https://github.com/canvist/canvist/tree/main/skills/canvist) will get an evaluation suite in `skills/canvist/evals/`: real integration tasks that score whether an agent's code compiles, uses only registered extensions, and passes the task's tests.

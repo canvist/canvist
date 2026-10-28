@@ -35,9 +35,12 @@ console.log(doc.export("html"));
 
 `doc.commands.toggleItalic()` would be a type error here, because italic isn't registered.
 
+On the docs site, samples like this one have a **Run** button: edit the code, and see what it prints and the document it makes, painted by the real editor.
+
 ## Where to go next
 
 - **[Quick start](./quick-start/readme.md):** install canvist on your platform and get a working document in five minutes.
 - **[Core concepts](./concepts/documents.md):** documents, extensions, commands, and selections, in a few short pages.
 - **[Build your own editor](./extensions/build-your-own-editor.md):** go from a minimal editor to a Google Docs-style one, one extension at a time.
 - **[Integrate canvist with an agent](./agents/readme.md):** the steps and checklist for AI coding agents.
+- **[Playground](/playground):** switch every extension on and off, and run collaboration servers and editors in your browser.
