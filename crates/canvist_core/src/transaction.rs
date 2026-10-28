@@ -37,6 +37,9 @@ pub enum EditKind {
 	Paste,
 	/// An input rule rewrote the text before the caret.
 	InputRule,
+	/// Dictation inserted a final segment, or replaced the selection when
+	/// speech began. Each is its own undo step.
+	Dictation,
 	/// A collaborator's change, whose original kind is not known locally.
 	Remote,
 }

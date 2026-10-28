@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 use std::time::SystemTime;
 
 use canvist_headless::Doc;
@@ -30,6 +31,7 @@ use canvist_layout::DisplayList;
 use canvist_layout::DisplayOptions;
 use canvist_layout::DocumentLayout;
 use canvist_layout::LayoutOptions;
+use canvist_layout::Provisional;
 use canvist_layout::StarterKitOptions;
 use canvist_layout::Theme;
 
@@ -60,6 +62,7 @@ pub(crate) struct Observed {
 	version: u64,
 	selection: TextSelection,
 	composition: Option<OffsetRange>,
+	draft: Option<String>,
 }
 
 #[allow(
@@ -90,6 +93,12 @@ pub(crate) struct Session {
 	top: f32,
 	focused: bool,
 	caret_on: bool,
+	/// Whether frames animate provisional, settling, and kinetic text. Off
+	/// until the host drives frames while [`Frame::animated`], and for people
+	/// who prefer reduced motion.
+	animations: bool,
+	/// When the session started, for the animation clock.
+	started: Instant,
 	/// What the platform shows now, for the next frame's damage.
 	painted: Option<DisplayList>,
 	full_repaint: bool,
@@ -127,6 +136,8 @@ impl Session {
 			top: 0.0,
 			focused: false,
 			caret_on: true,
+			animations: false,
+			started: Instant::now(),
 			painted: None,
 			full_repaint: true,
 		})
@@ -185,7 +196,35 @@ impl Session {
 			self.region = None;
 		}
 
+		self.layout.set_provisional(self.provisional());
 		self.caret_on = true;
+	}
+
+	/// Dictation's provisional text, at the caret, as layout shows it.
+	fn provisional(&self) -> Option<Provisional> {
+		let state = self.doc.state();
+		let caret = state.selection().as_caret()?;
+		let text = state.dictation().provisional(state.doc(), caret)?;
+		Some(Provisional::new(caret, &text))
+	}
+
+	/// The provisional text showing, if any.
+	pub(crate) fn draft(&self) -> Option<String> {
+		self.layout
+			.provisional()
+			.map(|provisional| provisional.text.to_string())
+	}
+
+	/// Forget dictation's provisional text. Returns whether some showed.
+	pub(crate) fn stop_dictation(&mut self) -> bool {
+		let stopped = self.doc.stop_dictation();
+		self.sync();
+		stopped
+	}
+
+	pub(crate) fn set_animations(&mut self, enabled: bool) {
+		self.full_repaint |= enabled != self.animations;
+		self.animations = enabled;
 	}
 
 	/// Run a [`Doc`] call that changes the document outside
@@ -214,6 +253,7 @@ impl Session {
 			version: self.doc.document().version(),
 			selection: self.selection(),
 			composition: self.marked_range(),
+			draft: self.draft(),
 		}
 	}
 
@@ -225,6 +265,7 @@ impl Session {
 			document,
 			selection: now.selection != before.selection,
 			composition: now.composition != before.composition,
+			dictation: now.draft != before.draft,
 			updates: document && self.doc.is_shared(),
 		}
 	}
@@ -561,7 +602,9 @@ impl Session {
 		let update =
 			self.layout
 				.ensure(self.doc.document(), &mut self.measurer, self.top, bottom)?;
-		let mut list = self.layout.display_list(&self.display_options(bottom));
+		let mut list = self
+			.layout
+			.display_list(&self.animate(self.display_options(bottom)));
 		self.underline_marked_text(&mut list);
 
 		let mut full = self.full_repaint || update.shift != 0.0;
@@ -592,6 +635,7 @@ impl Session {
 			full,
 			laid_out: update.laid_out as u32,
 			measured: update.measurer_calls as u32,
+			animated: self.animations && list.animated,
 		};
 
 		self.painted = Some(list);
@@ -619,6 +663,25 @@ impl Session {
 
 		let affinity = self.doc.state().affinity().into();
 		options.caret(Caret::with_affinity(caret, affinity))
+	}
+
+	/// Run `options` on the animation clock, with dictated text settling into
+	/// ink, while animations are on.
+	fn animate(&self, options: DisplayOptions) -> DisplayOptions {
+		if !self.animations {
+			return options;
+		}
+
+		let now = now();
+		let settling = self.doc.state().dictation().settling();
+
+		settling.iter().fold(
+			options.time(self.started.elapsed().as_secs_f32()),
+			|options, range| {
+				let elapsed = now.saturating_sub(range.since).as_secs_f32();
+				options.settling(range.block, range.start..range.end, elapsed)
+			},
+		)
 	}
 
 	/// Underline the marked text, as platform text fields do.

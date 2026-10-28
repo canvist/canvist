@@ -93,6 +93,7 @@
 mod base_keymap;
 pub mod commands;
 mod context;
+mod dictation;
 mod editor;
 mod error;
 mod extension;
@@ -122,6 +123,9 @@ pub use context::command;
 pub use context::redo;
 pub use context::undo;
 pub use context::undo_input_rule;
+pub use dictation::Dictation;
+pub use dictation::Settling;
+pub use dictation::Transcript;
 pub use editor::Editor;
 pub use editor::EditorBuilder;
 pub use editor::Env;

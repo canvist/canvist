@@ -48,6 +48,7 @@
 mod access;
 mod clipboard;
 mod collab;
+mod dictation;
 mod display;
 mod editor;
 mod error;

@@ -22,6 +22,7 @@ use crate::Rect;
 use crate::text::slice;
 
 mod build;
+mod fade;
 mod motion;
 
 /// What a rectangle is for.
@@ -222,6 +223,10 @@ pub struct DisplayOptions {
 	/// prefer reduced motion. [`DisplayList::animated`] says whether a
 	/// later frame would differ.
 	pub time: Option<f32>,
+	/// Text dictation inserted a moment ago, as its block, its byte range in
+	/// the document, and the seconds since: drawn fading from faint into ink
+	/// while [`DisplayOptions::time`] runs.
+	pub settling: Vec<(BlockId, Range<u32>, f32)>,
 }
 
 impl DisplayOptions {
@@ -263,6 +268,14 @@ impl DisplayOptions {
 		self
 	}
 
+	/// Fade `range` of `block` into ink, `elapsed` seconds after dictation
+	/// inserted it.
+	#[must_use]
+	pub fn settling(mut self, block: BlockId, range: Range<u32>, elapsed: f32) -> Self {
+		self.settling.push((block, range, elapsed));
+		self
+	}
+
 	/// Show `text` in `block` while it is empty.
 	#[must_use]
 	pub fn placeholder(mut self, block: BlockId, text: &str) -> Self {
@@ -282,8 +295,9 @@ pub struct DisplayList {
 	/// The painted area: the full document width between the requested top
 	/// and bottom.
 	pub bounds: Rect,
-	/// Whether kinetic text is in view, so a host animating it should keep
-	/// asking for frames, and one that is not knows it could.
+	/// Whether kinetic, provisional, or settling text is in view, so a host
+	/// animating it should keep asking for frames, and one that is not knows
+	/// it could.
 	pub animated: bool,
 	/// The points of every stroke, as `x, y` pairs, each stroke's at the
 	/// range it holds.

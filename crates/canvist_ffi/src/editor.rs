@@ -336,7 +336,7 @@ impl Editor {
 
 	/// Run `call` on the session, then tell observers what changed, after
 	/// releasing the lock so they can call back in.
-	pub(crate) fn change<T>(&self, call: impl FnOnce(&mut Session) -> Result<T>) -> Result<T> {
+	pub(crate) fn change<T>(&self, call: impl FnOnce(&mut Session) -> T) -> T {
 		let (result, change) = {
 			let mut session = self.lock();
 			let before = session.observed();

@@ -369,6 +369,13 @@ impl Doc {
 		self.editor.can_redo()
 	}
 
+	/// Stop dictating: forget every dictated segment that is not final yet.
+	/// Returns whether provisional text was showing. Report segments with
+	/// [`Doc::edit`] and [`Editor::dictate`].
+	pub fn stop_dictation(&mut self) -> bool {
+		self.editor.stop_dictation()
+	}
+
 	/// Change the document through the editor with an interactive host's
 	/// clock and line navigator, and return the update so the host can lay
 	/// out again.

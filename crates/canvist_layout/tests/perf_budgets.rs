@@ -28,6 +28,8 @@ use canvist_layout::DisplayOptions;
 use canvist_layout::DocumentLayout;
 use canvist_layout::FixedMeasurer;
 use canvist_layout::LayoutOptions;
+#[cfg(feature = "provisional")]
+use canvist_layout::Provisional;
 use canvist_layout::Theme;
 use canvist_model::Attrs;
 use canvist_model::BlockId;
@@ -70,6 +72,17 @@ const CARET_RECT_BUDGET: Duration = Duration::from_micros(2);
 /// Building a screen's display list, well under a millisecond so painting
 /// keeps the frame.
 const DISPLAY_LIST_BUDGET: Duration = Duration::from_micros(100);
+
+/// Relaying out after the speech model revises provisional text: the one
+/// paragraph holding it is laid out again, as for a keystroke.
+#[cfg(feature = "provisional")]
+const PROVISIONAL_BUDGET: Duration = Duration::from_micros(100);
+/// Two revisions of a dictated draft, alternated by the provisional budget.
+#[cfg(feature = "provisional")]
+const DRAFTS: [&str; 2] = [
+	"the meeting is on Tuesday",
+	"the meeting is on Wednesday at noon",
+];
 
 /// Relaying out after a web font loads: forgetting the face's measurements
 /// across the whole document, then laying out the affected blocks on screen.
@@ -308,6 +321,59 @@ fn display_list_for_one_screen() {
 	});
 
 	assert_within("display list, one screen", measured, DISPLAY_LIST_BUDGET);
+}
+
+#[cfg(feature = "provisional")]
+#[test]
+#[ignore = "release-mode performance budget; run with `test:perf`"]
+fn provisional_text_relayout() {
+	let (doc, mut layout, mut measurer, block) = opened(MEDIUM_DOC);
+	let mut revision = 0;
+
+	let measured = median_per_call(KEYSTROKE_BATCH, || {
+		let draft = DRAFTS[revision % DRAFTS.len()];
+		revision += 1;
+		layout.set_provisional(Some(Provisional::new(
+			Point::new(block, EDIT_OFFSET),
+			draft,
+		)));
+		let update = layout.ensure(&doc, &mut measurer, 0.0, SCREEN);
+		std::hint::black_box(update.expect("measured"));
+	});
+
+	assert_within(
+		"provisional text relayout, 10k paragraphs",
+		measured,
+		PROVISIONAL_BUDGET,
+	);
+}
+
+#[cfg(feature = "provisional")]
+#[test]
+#[ignore = "release-mode performance budget; run with `test:perf`"]
+fn display_list_with_provisional_and_settling_text() {
+	let (doc, mut layout, mut measurer, block) = opened(MEDIUM_DOC);
+	layout.set_provisional(Some(Provisional::new(
+		Point::new(block, EDIT_OFFSET),
+		DRAFTS[1],
+	)));
+	layout
+		.ensure(&doc, &mut measurer, 0.0, SCREEN)
+		.expect("measured");
+	let settled = doc.children(None)[EDITED + 1];
+	let options = DisplayOptions::viewport(0.0, SCREEN)
+		.time(1.0)
+		.settling(settled, 4..40, 0.1);
+
+	let measured = median_per_call(DISPLAY_BATCH, || {
+		std::hint::black_box(layout.display_list(&options));
+	});
+
+	assert_within(
+		"display list with dictation, one screen",
+		measured,
+		DISPLAY_LIST_BUDGET,
+	);
 }
 
 /// A document of `count` blocks where every [`CODE_EVERY`]th is a code block

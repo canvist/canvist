@@ -144,6 +144,31 @@ fn composition_to_frame_at_10k_paragraphs() {
 
 #[test]
 #[ignore = "release-mode performance budget; run with `test:perf`"]
+fn dictation_draft_to_frame_at_10k_paragraphs() {
+	let editor = editor();
+	editor.set_animations(true);
+	let mut longer = false;
+	let update = median_per_call(200, || {
+		longer = !longer;
+		let draft = if longer {
+			"the meeting moved to Wednesday at noon"
+		} else {
+			"the meeting moved"
+		};
+		assert!(editor.dictate(0, draft, false).expect("dictates"));
+		let frame = editor.frame().expect("paints");
+		assert!(frame.items.is_some(), "the revised draft shows");
+	});
+
+	assert_within(
+		"revise a dictated draft and build its frame @10k paragraphs",
+		update,
+		Duration::from_micros(200),
+	);
+}
+
+#[test]
+#[ignore = "release-mode performance budget; run with `test:perf`"]
 fn text_input_queries_at_10k_paragraphs() {
 	let editor = editor();
 	let queries = median_per_call(1_000, || {

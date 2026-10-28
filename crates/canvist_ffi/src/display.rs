@@ -174,6 +174,11 @@ pub struct Frame {
 	/// Calls to the platform measurer for this frame: 0 when every segment
 	/// was cached.
 	pub measured: u32,
+	/// Whether the next frame would differ even if nothing else changed,
+	/// because text in view is animating: ask for frames on the display's
+	/// refresh until it is `false`. Only with animations on (see
+	/// [`Editor::set_animations`](crate::Editor::set_animations)).
+	pub animated: bool,
 }
 
 /// The display list as records, naming slots from `doc`'s schema.

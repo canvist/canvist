@@ -89,6 +89,7 @@ pub use document::Damage;
 pub use document::DocumentLayout;
 pub use document::FontInvalidation;
 pub use document::LayoutOptions;
+pub use document::Provisional;
 pub use document::ViewportUpdate;
 pub use font::FontBook;
 pub use font::FontId;
