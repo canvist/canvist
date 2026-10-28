@@ -14,6 +14,36 @@ use crate::Affinity;
 const TOUCHING_SPAN_GAP: f32 = 0.01;
 
 impl TextLayout {
+	/// The length of the document's text in this block, without provisional
+	/// text.
+	pub(crate) fn document_len(&self) -> u32 {
+		let provisional = self
+			.provisional
+			.as_ref()
+			.map_or(0, |range| range.end - range.start);
+		self.text.len() as u32 - provisional
+	}
+
+	/// Where document offset `offset` is in the laid-out text. A caret where
+	/// provisional text was inserted shows after it, as it will once the text
+	/// is final.
+	pub(crate) fn laid_out(&self, offset: u32) -> u32 {
+		match &self.provisional {
+			Some(range) if offset >= range.start => offset.saturating_add(range.end - range.start),
+			_ => offset,
+		}
+	}
+
+	/// The document offset of laid-out offset `offset`. Every offset inside
+	/// provisional text is where the text was inserted.
+	pub(crate) fn in_document(&self, offset: u32) -> u32 {
+		match &self.provisional {
+			Some(range) if offset >= range.end => offset - (range.end - range.start),
+			Some(range) if offset > range.start => range.start,
+			_ => offset,
+		}
+	}
+
 	/// The line holding the caret at `offset`. At a soft wrap the offset ends
 	/// one line and starts the next; `affinity` picks which.
 	pub(crate) fn line_index(&self, offset: u32, affinity: Affinity) -> usize {

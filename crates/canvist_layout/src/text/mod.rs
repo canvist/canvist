@@ -14,7 +14,7 @@ use unicode_bidi::Level;
 
 use self::breaking::RawLine;
 pub(crate) use self::items::Direction;
-use self::items::Item;
+pub(crate) use self::items::Item;
 pub(crate) use self::items::ItemContext;
 pub(crate) use self::items::ItemKind;
 use self::items::Itemized;
@@ -146,6 +146,10 @@ pub(crate) struct TextLayout {
 	pub(crate) bidi: bool,
 	/// How lines sit in the content box.
 	pub(crate) align: Align,
+	/// The bytes of provisional text laid out with the block, which is not
+	/// part of the document. Offsets in `text`, lines, and items include it;
+	/// [`TextLayout::laid_out`] and [`TextLayout::in_document`] convert.
+	pub(crate) provisional: Option<Range<u32>>,
 }
 
 /// A block whose measurements have been queued.
@@ -246,6 +250,7 @@ pub(crate) fn finish(
 		rtl,
 		bidi,
 		align,
+		provisional: None,
 	};
 
 	layout.stack_lines(raw, bidi);

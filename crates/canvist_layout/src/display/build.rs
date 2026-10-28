@@ -14,6 +14,8 @@ use super::DisplayOptions;
 use super::RectKind;
 use super::SlotKind;
 use super::TextRun;
+use super::fade;
+use super::fade::Fade;
 use super::motion;
 use crate::BlockStyle;
 use crate::Caret;
@@ -112,6 +114,8 @@ struct Builder<'a> {
 	list: DisplayList,
 	/// The animation clock, when kinetic text should move.
 	time: Option<f32>,
+	/// Text fading into ink: see [`DisplayOptions::settling`].
+	settling: &'a [(BlockId, Range<u32>, f32)],
 	/// Decorations and slots, painted above all text.
 	foreground: Vec<DisplayItem>,
 }
@@ -119,7 +123,7 @@ struct Builder<'a> {
 impl<'a> Builder<'a> {
 	/// An empty list carrying `layout`'s fonts, bounded by the full document
 	/// width between `options.top` and `options.bottom`.
-	fn new(layout: &'a DocumentLayout, options: &DisplayOptions) -> Self {
+	fn new(layout: &'a DocumentLayout, options: &'a DisplayOptions) -> Self {
 		let height = options.bottom - options.top;
 		let bounds = Rect::new(0.0, options.top, layout.options().width, height);
 
@@ -133,6 +137,7 @@ impl<'a> Builder<'a> {
 				points: Vec::new(),
 			},
 			time: options.time,
+			settling: &options.settling,
 			foreground: Vec::new(),
 		}
 	}
@@ -318,10 +323,12 @@ impl Builder<'_> {
 			return;
 		};
 		let origin = layout.origin(index);
+		let (fades, animated) = fade::fades(row.block, text, self.settling, self.time);
+		self.list.animated |= animated;
 
 		for (index, line) in text.lines.iter().enumerate() {
 			for piece in &line.pieces {
-				self.piece(row.block, text, (index, line), piece, origin);
+				self.piece(row.block, text, (index, line), piece, origin, &fades);
 			}
 		}
 	}
@@ -335,6 +342,7 @@ impl Builder<'_> {
 		(line_index, line): (usize, &Line),
 		piece: &Piece,
 		origin: Origin,
+		fades: &[Fade],
 	) {
 		let item = &text.items[piece.item as usize];
 		let baseline = origin.y + line.top + line.baseline;
@@ -346,7 +354,7 @@ impl Builder<'_> {
 			self.foreground.push(DisplayItem::Slot {
 				kind: SlotKind::Embed(embed.kind),
 				block,
-				offset: Some(item.range.start),
+				offset: Some(text.in_document(item.range.start)),
 				rect: Rect::new(
 					x,
 					baseline - embed.ascent,
@@ -381,7 +389,7 @@ impl Builder<'_> {
 			}
 		}
 
-		self.list.items.push(DisplayItem::Text(TextRun {
+		let run = TextRun {
 			block,
 			source,
 			range,
@@ -393,7 +401,16 @@ impl Builder<'_> {
 			letter_spacing: style.style.letter_spacing,
 			rtl: piece.rtl,
 			bounds: Rect::new(x, origin.y + line.top, piece.width, line.height),
-		}));
+		};
+
+		if fades.is_empty() || !matches!(item.kind, ItemKind::Text { .. }) {
+			self.list.items.push(DisplayItem::Text(run));
+		} else {
+			let parts = fade::split(run, item, &text.text, fades);
+			self.list
+				.items
+				.extend(parts.into_iter().map(DisplayItem::Text));
+		}
 
 		self.decorations(block, style, x, baseline, piece.width);
 	}

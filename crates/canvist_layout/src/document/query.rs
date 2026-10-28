@@ -47,7 +47,7 @@ impl DocumentLayout {
 		let (offset, affinity) = layout.hit(line, x - origin.x);
 
 		Some(Caret::with_affinity(
-			Point::new(row.block, offset),
+			Point::new(row.block, layout.in_document(offset)),
 			affinity,
 		))
 	}
@@ -73,7 +73,7 @@ impl DocumentLayout {
 			return Some(Rect::new(origin.x - width / 2.0, origin.y, width, height));
 		};
 
-		let offset = caret.point.offset.min(layout.text.len() as u32);
+		let offset = layout.laid_out(caret.point.offset.min(layout.document_len()));
 		let line_index = layout.line_index(offset, caret.affinity);
 		let line = &layout.lines[line_index];
 		let x = layout.caret_x(line_index, offset, caret.affinity);
@@ -93,7 +93,7 @@ impl DocumentLayout {
 		let Some(layout) = &self.rows()[index].layout else {
 			return Some(origin.x);
 		};
-		let offset = caret.point.offset.min(layout.text.len() as u32);
+		let offset = layout.laid_out(caret.point.offset.min(layout.document_len()));
 		let line = layout.line_index(offset, caret.affinity);
 
 		Some(origin.x + layout.caret_x(line, offset, caret.affinity))
@@ -155,8 +155,16 @@ impl DocumentLayout {
 
 			return;
 		};
-		let from = if index == start.0 { start.1 } else { 0 };
-		let to = if index == end.0 { end.1 } else { u32::MAX };
+		let from = if index == start.0 {
+			layout.laid_out(start.1)
+		} else {
+			0
+		};
+		let to = if index == end.0 {
+			layout.laid_out(end.1)
+		} else {
+			u32::MAX
+		};
 
 		self.push_line_rects(rects, index, layout, from..to, index < end.0);
 	}
@@ -245,11 +253,12 @@ impl DocumentLayout {
 
 /// The caret at the end of a text row's last line.
 pub(crate) fn end_caret(row: &Row) -> Caret {
-	let offset = row
-		.layout
-		.as_ref()
-		.and_then(|layout| layout.lines.last())
-		.map_or(0, |line| line.caret_end);
+	let offset = row.layout.as_ref().map_or(0, |layout| {
+		layout
+			.lines
+			.last()
+			.map_or(0, |line| layout.in_document(line.caret_end))
+	});
 
 	Caret::new(Point::new(row.block, offset))
 }

@@ -175,7 +175,7 @@ impl LayoutNavigator<'_> {
 		let Some(layout) = self.layout.rows()[index].layout.as_ref() else {
 			return Ok(None);
 		};
-		let line = layout.line_index(from.point.offset, from.affinity);
+		let line = layout.line_index(layout.laid_out(from.point.offset), from.affinity);
 		let Some((row, line)) = self.adjacent_line(index, line, direction, goal_x)? else {
 			return Ok(None);
 		};
@@ -184,6 +184,7 @@ impl LayoutNavigator<'_> {
 			return Ok(None);
 		};
 		let (offset, affinity) = layout.hit(line, goal_x - origin.x);
+		let offset = layout.in_document(offset);
 		let block = self.layout.rows()[row].block;
 
 		Ok(Some(VerticalMotion {
@@ -198,7 +199,7 @@ impl LayoutNavigator<'_> {
 		let Some(layout) = self.layout.rows()[index].layout.as_ref() else {
 			return Ok(at);
 		};
-		let line = &layout.lines[layout.line_index(at.point.offset, at.affinity)];
+		let line = &layout.lines[layout.line_index(layout.laid_out(at.point.offset), at.affinity)];
 
 		let (offset, affinity) = match edge {
 			LineEdge::Start => (line.range.start, Affinity::Downstream),
@@ -207,7 +208,7 @@ impl LayoutNavigator<'_> {
 		};
 
 		Ok(Caret::with_affinity(
-			Point::new(at.point.block, offset),
+			Point::new(at.point.block, layout.in_document(offset)),
 			affinity,
 		))
 	}

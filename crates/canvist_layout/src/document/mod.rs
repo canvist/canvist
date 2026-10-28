@@ -17,6 +17,7 @@ pub(crate) use self::grid::table_cells;
 pub(crate) use self::grid::table_map;
 use self::heights::Heights;
 pub(crate) use self::ink::InkDrawing;
+pub use self::provisional::Provisional;
 pub(crate) use self::query::Origin;
 use self::rows::Flat;
 use self::rows::GridPart;
@@ -49,6 +50,7 @@ mod edits;
 mod grid;
 mod heights;
 mod ink;
+mod provisional;
 mod query;
 mod rows;
 mod splice;
@@ -57,6 +59,10 @@ mod tables;
 #[cfg(not(feature = "tables"))]
 #[path = "tables_off.rs"]
 mod tables;
+
+/// A row whose measurements are queued, with the bytes of provisional text
+/// laid out in it.
+type PreparedRow = (usize, text::Draft, Option<std::ops::Range<u32>>);
 
 /// Layout settings.
 #[derive(Clone, Copy, Debug)]
@@ -160,6 +166,8 @@ pub struct DocumentLayout {
 	options: LayoutOptions,
 	flat: Flat,
 	heights: Heights,
+	/// Text shown in the document that is not part of it yet.
+	provisional: Option<Provisional>,
 }
 
 impl DocumentLayout {
@@ -173,6 +181,7 @@ impl DocumentLayout {
 			options,
 			flat: Flat::default(),
 			heights: Heights::default(),
+			provisional: None,
 		};
 		layout.rebuild(doc);
 		layout
@@ -521,7 +530,11 @@ impl DocumentLayout {
 	pub fn line_ranges(&self, id: BlockId) -> Option<Vec<std::ops::Range<u32>>> {
 		let index = self.row_index(id)?;
 		let layout = self.flat.rows[index].layout.as_ref()?;
-		Some(layout.lines.iter().map(|line| line.range.clone()).collect())
+		let ranges = layout
+			.lines
+			.iter()
+			.map(|line| layout.in_document(line.range.start)..layout.in_document(line.range.end));
+		Some(ranges.collect())
 	}
 
 	/// Blocks with rows intersecting `top..bottom`, in document order.
@@ -573,7 +586,7 @@ impl DocumentLayout {
 		&mut self,
 		doc: &Document,
 		rows: &[usize],
-	) -> Result<Vec<(usize, text::Draft)>, LayoutError> {
+	) -> Result<Vec<PreparedRow>, LayoutError> {
 		let mut drafts = Vec::with_capacity(rows.len());
 		let mut context = ItemContext {
 			styles: &self.styles,
@@ -587,17 +600,29 @@ impl DocumentLayout {
 				.block(row.block)
 				.and_then(canvist_model::Block::inline)
 				.ok_or(LayoutError::OutOfSync(row.block))?;
+			let shown = self
+				.provisional
+				.as_ref()
+				.filter(|provisional| provisional.at.block == row.block)
+				.and_then(|provisional| provisional.insert_into(inline));
+			// An edit's offsets are in document terms, so a layout that held
+			// provisional text, or will, starts afresh.
+			let previous = row
+				.previous
+				.take()
+				.filter(|previous| shown.is_none() && previous.layout.provisional.is_none());
 			let style = self.styles.get(row.style);
 			let block = text::Block {
 				base: &style.text,
-				inline,
+				inline: shown.as_ref().map_or(inline, |(combined, _)| combined),
 				direction: row.direction,
 				align: row.align,
 				width: content_width(style, row.width),
-				previous: row.previous.take(),
+				previous,
 			};
+			let draft = text::prepare(&mut context, block);
 
-			drafts.push((index, text::prepare(&mut context, block)));
+			drafts.push((index, draft, shown.map(|(_, range)| range)));
 		}
 
 		Ok(drafts)
@@ -605,19 +630,17 @@ impl DocumentLayout {
 
 	/// Break the measured `drafts` into lines and store their layouts and
 	/// heights. Returns the top of the first row whose height changed.
-	fn finish_rows(
-		&mut self,
-		drafts: Vec<(usize, text::Draft)>,
-	) -> Result<Option<f32>, LayoutError> {
+	fn finish_rows(&mut self, drafts: Vec<PreparedRow>) -> Result<Option<f32>, LayoutError> {
 		let tab_size = self.theme().tab_size();
 		let mut moved = None;
 		let mut tables = Vec::new();
 
-		for (index, draft) in drafts {
+		for (index, draft, provisional) in drafts {
 			let style = self.styles.get(self.flat.rows[index].style);
 			let width = content_width(style, self.flat.rows[index].width);
 			let padding = style.padding.vertical();
-			let layout = text::finish(draft, &self.cache, width, tab_size)?;
+			let mut layout = text::finish(draft, &self.cache, width, tab_size)?;
+			layout.provisional = provisional;
 			let height = to_units(padding + layout.height);
 			let row = &mut self.flat.rows[index];
 			row.layout = Some(Arc::new(layout));
