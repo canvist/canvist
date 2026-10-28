@@ -1,0 +1,22 @@
+[package]
+name = "canvist_dictation"
+version.workspace = true
+authors.workspace = true
+categories = ["multimedia::audio", "network-programming", "text-editors"]
+documentation = "https://docs.rs/canvist_dictation"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["dictation", "speech-to-text", "websocket", "protocol", "text-editor"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "The canvist dictation wire protocol: the messages a client and a dictation relay exchange over one WebSocket"
+
+[dependencies]
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true
