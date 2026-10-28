@@ -30,6 +30,8 @@ canvist's rich-text editor for iOS: `CanvistView`, a native UIKit editor (with `
 - **Typed commands.** `StarterKit` and `Extensions` hand out typed handles (`kit.heading.toggleHeading(level: 2)`), generated from the extension metadata.
 - **VoiceOver** reads the document line by line, with a headings rotor.
 - **Collaboration** over Yjs updates or y-sync.
+- **Dictation.** `CanvistDictation` turns speech into text at the caret: words still being said show faint and rewrite themselves, then settle into ink. It streams the microphone to canvist's [dictation relay](../../services/dictation) (`RelayDictationSource`), or uses Apple's `SpeechAnalyzer` on iOS 26 (`OnDeviceDictationSource`). Drafts never enter the document. See the [dictation guide](../../docs/src/guides/dictation.md).
+- **Animated text.** Drafts, settling text, and kinetic text animate on a display link that runs only while something moves, and stay still with Reduce Motion on.
 - **Embeddable.** `CanvistView` is a plain `UIScrollView` with no view controller, so SwiftUI, React Native, and Lynx can host it. `CanvistHostView` and `HostedEditors` are what [`@canvist/react-native`](../../packages/canvist-react-native) builds on: a view started from a JavaScript element's props, and its editor reachable by id from JavaScript's thread. `CoreTextMeasurer` and `Editor` also work without the view.
 
 ```swift
@@ -46,6 +48,8 @@ _ = try view.editor.run(command: kit.bold.toggleBold())
 ./build.sh   # build the Rust core into Frameworks/CanvistFFI.xcframework and generate the Swift bindings
 ./test.sh    # the package's XCTests (editor and view), then the example app's UI tests on an iOS Simulator
 ```
+
+To try dictation through a relay in the example app, build it with `CANVIST_DICTATION_URL` and `CANVIST_DICTATION_TOKEN` set (as build settings or in the scheme's environment); without them it dictates on the device on iOS 26.
 
 `Sources/Canvist/Extensions.generated.swift` is generated from the extension metadata; regenerate it with `CANVIST_UPDATE_HANDLES=1 cargo test -p canvist_ffi --test handles`.
 

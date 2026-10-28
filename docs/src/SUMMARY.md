@@ -40,6 +40,7 @@
 - [Keyboard shortcuts](./guides/keyboard-shortcuts.md)
 - [Import and export](./guides/import-export.md)
 - [Collaboration](./guides/collaboration.md)
+- [Dictation](./guides/dictation.md)
 - [Server-side transforms](./guides/server-transforms.md)
 - [Theming and styling](./guides/theming.md)
 - [Fonts and text rendering](./guides/fonts.md)
