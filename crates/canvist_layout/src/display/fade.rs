@@ -113,16 +113,19 @@ pub(crate) fn split(run: TextRun, item: &Item, text: &str, fades: &[Fade]) -> Ve
 		return vec![run];
 	}
 
-	let mut cuts: Vec<u32> = fades
+	// A run meets a handful of fades at most, so cuts are inserted in order
+	// rather than sorted, which would bring a general sort into every build.
+	let mut cuts = vec![run.range.start, run.range.end];
+	for cut in fades
 		.iter()
 		.filter(touches)
 		.flat_map(|fade| [fade.range.start, fade.range.end])
 		.filter(|&cut| run.range.start < cut && cut < run.range.end)
-		.collect();
-	cuts.push(run.range.start);
-	cuts.push(run.range.end);
-	cuts.sort_unstable();
-	cuts.dedup();
+	{
+		if let Err(at) = cuts.binary_search(&cut) {
+			cuts.insert(at, cut);
+		}
+	}
 
 	// Measured advances can differ from the drawn width, as on justified
 	// lines, so parts share the run's width in proportion.

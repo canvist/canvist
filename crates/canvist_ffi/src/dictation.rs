@@ -166,18 +166,6 @@ impl Editor {
 		.to_json()
 	}
 
-	/// Up to [`MAX_CONTEXT_CHARS`] characters of the text before the caret.
-	fn text_before_caret(&self) -> String {
-		let session = self.lock();
-		let head = session.selection().head;
-		let window = (MAX_CONTEXT_CHARS * 2) as u32;
-		let range = OffsetRange::between(head.saturating_sub(window), head);
-		let text = session.text.text(session.doc.document(), range);
-		let skip = text.chars().count().saturating_sub(MAX_CONTEXT_CHARS);
-
-		text.chars().skip(skip).collect()
-	}
-
 	/// Stop dictating: forget every segment that is not final, so the next
 	/// session numbers segments from 0 again. Returns whether provisional
 	/// text was showing.
@@ -199,5 +187,19 @@ impl Editor {
 	/// default.
 	pub fn set_animations(&self, enabled: bool) {
 		self.lock().set_animations(enabled);
+	}
+}
+
+impl Editor {
+	/// Up to [`MAX_CONTEXT_CHARS`] characters of the text before the caret.
+	fn text_before_caret(&self) -> String {
+		let session = self.lock();
+		let head = session.selection().head;
+		let window = (MAX_CONTEXT_CHARS * 2) as u32;
+		let range = OffsetRange::between(head.saturating_sub(window), head);
+		let text = session.text.text(session.doc.document(), range);
+		let skip = text.chars().count().saturating_sub(MAX_CONTEXT_CHARS);
+
+		text.chars().skip(skip).collect()
 	}
 }

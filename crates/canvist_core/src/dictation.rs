@@ -377,7 +377,16 @@ fn space_between(before: Option<char>, next: char) -> bool {
 /// `text` with runs of white space, line breaks included, as single spaces,
 /// and none at either end.
 fn normalize(text: &str) -> String {
-	text.split_whitespace().collect::<Vec<_>>().join(" ")
+	let mut normal = String::with_capacity(text.len());
+
+	for word in text.split_whitespace() {
+		if !normal.is_empty() {
+			normal.push(' ');
+		}
+		normal.push_str(word);
+	}
+
+	normal
 }
 
 #[cfg(test)]
