@@ -1,0 +1,18 @@
+# Only what the relay builds from; the rest of the repository (apps,
+# packages, docs, caches) stays out of the build context.
+*
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!crates/
+!docs/Cargo.toml
+!docs/src/lib.rs
+!platforms/dart/rust/
+!services/dictation/
+# Workspace members outside crates/: Cargo reads their manifests even when
+# it builds only canvist_dictation_relay.
+!services/cloud/
+!examples/desktop/
+!tools/footage/
+**/target/
+**/node_modules/

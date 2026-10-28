@@ -13,4 +13,5 @@ doc-valid-idents = [
 	"YouTube",
 	"KaTeX",
 	"MathJax",
+	"OpenAI",
 ]

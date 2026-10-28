@@ -6,6 +6,7 @@ Design records, research, and plans for people working on canvist itself. These 
 - [Canvas](./canvas.md): the design of the canvas, canvist's design-tool sibling of the text editor, and its performance budgets.
 - [Roadmap](./roadmap.md): the milestones and what each one delivers.
 - [SSR CSS contract](./ssr-css-contract.md): what the server-rendered HTML pins so it wraps where the canvas does.
+- [Dictation](./dictation.md): speech to text with drafts that settle into the document, and the relay protocol.
 - [Native toolchain](./native-toolchain.md): building and testing the iOS, Android, and Flutter bindings.
 - [Business model](./business.md): products, pricing principles, and infrastructure. User-facing plans live in [`docs/src/cloud/billing.md`](../src/cloud/billing.md).
 - canvist Cloud operations: [Railway deployment](./cloud/railway.md), [the Stripe plan](./cloud/stripe-plan.md), and [billing operations](./cloud/billing-operations.md).

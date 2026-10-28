@@ -33,6 +33,7 @@ COPY docs/src/lib.rs docs/src/lib.rs
 COPY examples/desktop examples/desktop
 COPY platforms/dart/rust platforms/dart/rust
 COPY services/cloud services/cloud
+COPY services/dictation services/dictation
 COPY tools/footage tools/footage
 COPY packages/canvist-headless packages/canvist-headless
 COPY packages/canvist-web packages/canvist-web
