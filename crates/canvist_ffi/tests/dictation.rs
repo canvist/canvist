@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use canvist_ffi::CanvistError;
+use canvist_ffi::DictationErrorCode;
+use canvist_ffi::DictationEvent;
 use canvist_ffi::DisplayItem;
 use canvist_ffi::DocFormat;
 use canvist_ffi::Editor;
@@ -13,6 +15,7 @@ use canvist_ffi::EditorChange;
 use canvist_ffi::EditorObserver;
 use canvist_ffi::EditorOptions;
 use canvist_ffi::Frame;
+use canvist_ffi::dictation_stop_message;
 use canvist_ffi::testing::FixedPlatformMeasurer;
 
 type Result = std::result::Result<(), CanvistError>;
@@ -168,4 +171,92 @@ fn stopping_drops_provisional_text() -> Result {
 	assert!(!editor.stop_dictation());
 	assert_eq!(editor.plain_text(), "Hello");
 	Ok(())
+}
+
+#[test]
+fn relay_messages_show_drafts_and_insert_finals() -> Result {
+	let editor = at_end("Hello");
+
+	assert_eq!(
+		editor.receive_dictation(r#"{"type":"ready"}"#)?,
+		DictationEvent::Ready
+	);
+	assert_eq!(
+		editor.receive_dictation(r#"{"type":"partial","segment":0,"text":"world"}"#)?,
+		DictationEvent::Transcript {
+			segment: 0,
+			is_final: false,
+		}
+	);
+	assert_eq!(editor.dictation_draft().as_deref(), Some(" world"));
+
+	editor.receive_dictation(r#"{"type":"final","segment":0,"text":"world."}"#)?;
+	assert_eq!(editor.plain_text(), "Hello world.");
+	Ok(())
+}
+
+#[test]
+fn done_ends_the_session_so_the_next_numbers_from_zero() -> Result {
+	let editor = at_end("");
+	editor.receive_dictation(r#"{"type":"final","segment":0,"text":"One."}"#)?;
+
+	assert_eq!(
+		editor.receive_dictation(r#"{"type":"done"}"#)?,
+		DictationEvent::Done
+	);
+
+	editor.receive_dictation(r#"{"type":"final","segment":0,"text":"Two."}"#)?;
+	assert_eq!(editor.plain_text(), "One. Two.");
+	Ok(())
+}
+
+#[test]
+fn a_fatal_relay_error_drops_the_draft() -> Result {
+	let editor = at_end("Hello");
+	editor.receive_dictation(r#"{"type":"partial","segment":0,"text":"world"}"#)?;
+
+	let event = editor.receive_dictation(
+		r#"{"type":"error","code":"provider","message":"upstream closed","fatal":true}"#,
+	)?;
+
+	assert_eq!(
+		event,
+		DictationEvent::Error {
+			code: DictationErrorCode::Provider,
+			message: "upstream closed".to_owned(),
+			fatal: true,
+		}
+	);
+	assert_eq!(editor.dictation_draft(), None);
+	Ok(())
+}
+
+#[test]
+fn a_message_that_is_not_the_relays_is_refused() {
+	let editor = at_end("Hello");
+	let error = editor
+		.receive_dictation(r#"{"type":"partial"}"#)
+		.expect_err("a partial needs a segment and text");
+
+	assert_eq!(error.code(), "invalidArgs");
+	assert_eq!(editor.dictation_draft(), None);
+}
+
+#[test]
+fn the_start_message_carries_the_text_before_the_caret() {
+	let editor = at_end("Meet Ana at noon");
+	let start: serde_json::Value =
+		serde_json::from_str(&editor.dictation_start_message(Some("en".to_owned()), true))
+			.expect("JSON");
+
+	assert_eq!(
+		start,
+		serde_json::json!({
+			"type": "start",
+			"language": "en",
+			"context": "Meet Ana at noon",
+			"polish": true,
+		})
+	);
+	assert_eq!(dictation_stop_message(), r#"{"type":"stop"}"#);
 }
