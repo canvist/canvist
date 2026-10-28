@@ -6,3 +6,4 @@
 
 # Produced by `xcodegen` from `Example/project.yml`.
 /Example/*.xcodeproj/
+/Example/CanvistExample/Info.plist

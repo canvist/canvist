@@ -55,6 +55,15 @@ struct EditorScreen: View {
     NavigationStack {
       VStack(spacing: 0) {
         FormatBar(model: model)
+
+        if case .failed(let error) = model.dictation.state {
+          Text(error.localizedDescription)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(Metrics.barPadding)
+            .accessibilityIdentifier("dictation-error")
+        }
+
         Divider()
         CanvistEditor(model.view)
           .ignoresSafeArea(.container, edges: .bottom)
@@ -63,6 +72,7 @@ struct EditorScreen: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItemGroup(placement: .topBarTrailing) {
+          DictationButton(model: model)
           Button("Undo", systemImage: "arrow.uturn.backward", action: model.undo)
             .disabled(!model.canUndo)
             .accessibilityIdentifier("undo")
@@ -72,6 +82,28 @@ struct EditorScreen: View {
         }
       }
     }
+  }
+}
+
+/// Starts and stops dictation. It glows red and pulses while listening, and
+/// is disabled, saying why, when the app has no way to dictate.
+struct DictationButton: View {
+  let model: EditorModel
+
+  var body: some View {
+    let state = model.dictation.state
+    let reason = DictationSetup.current.unavailableReason
+
+    Button(
+      state.isActive ? "Stop dictating" : "Dictate",
+      systemImage: state.isActive ? "mic.fill" : "mic",
+      action: model.toggleDictation
+    )
+    .symbolEffect(.pulse, isActive: state == .listening)
+    .tint(state.isActive ? .red : .accentColor)
+    .disabled(reason != nil || state == .finishing)
+    .accessibilityIdentifier("dictate")
+    .accessibilityHint(reason ?? "")
   }
 }
 

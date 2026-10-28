@@ -74,6 +74,11 @@ final class CanvistExampleUITests: XCTestCase {
   }
 
   @MainActor
+  func testTheToolbarOffersDictation() {
+    XCTAssertTrue(app.buttons["dictate"].exists, "the mic button is in the toolbar")
+  }
+
+  @MainActor
   func testTwoEditorsCollaborate() {
     app.tabBars.buttons["Collaborate"].tap()
     let alice = editor("Alice")
