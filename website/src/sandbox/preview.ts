@@ -4,9 +4,10 @@ import { pageScheme } from "./host.ts";
 import type { DocSnapshot } from "./protocol.ts";
 
 /**
- * Shows a document the code made: painted by the real editor when it only
- * uses the StarterKit (all `@canvist/web` compiles in), and always as its
- * HTML, JSON, and Markdown exports.
+ * Shows a document the code made: in the real editor, which people can type
+ * in when the preview is editable, and as its HTML, JSON, and Markdown
+ * exports. Documents with extensions beyond the StarterKit load
+ * `@canvist/web/full`, a larger build; the rest load `@canvist/web`.
  */
 
 type View = "editor" | "html" | "json" | "markdown";
@@ -46,25 +47,44 @@ li[data-type="taskItem"] > p { display: inline; }
 [data-type="inline-math"], [data-type="block-math"] { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.875em; }
 </style>`;
 
+export interface PreviewOptions {
+	/**
+	 * Whether people can type in the Editor tab. The other tabs then show
+	 * the edited document, until the code runs again and replaces it.
+	 */
+	readonly editable?: boolean;
+}
+
 let nextPreview = 1;
 
 export class DocumentPreview {
 	readonly #root: HTMLElement;
 	readonly #tabs = new Map<View, HTMLButtonElement>();
 	readonly #panel: HTMLElement;
+	/** The editor stays here while another tab shows, so edits survive switching tabs. */
+	readonly #editorHost: HTMLElement;
+	readonly #viewHost: HTMLElement;
+	readonly #hint: HTMLElement;
 	readonly #picker: HTMLSelectElement;
 	readonly #pickerLabel: HTMLElement;
 	readonly #id = nextPreview++;
+	#editable: boolean;
 	#documents: readonly DocSnapshot[] = [];
 	#chosen: number | undefined;
 	#view: View = "editor";
+	/** The editor, and the snapshot it shows: the other tabs read the editor while it shows the chosen one. */
 	#editor:
-		| { readonly editor: Editor<Extensions>; readonly key: string }
+		| {
+			readonly editor: Editor<Extensions>;
+			readonly key: string;
+			snapshot: DocSnapshot;
+		}
 		| undefined;
 	#rendering = Promise.resolve();
 
-	constructor(root: HTMLElement) {
+	constructor(root: HTMLElement, options: PreviewOptions = {}) {
 		this.#root = root;
+		this.#editable = options.editable ?? false;
 		root.classList.add("sandbox-preview");
 		root.hidden = true;
 
@@ -98,8 +118,16 @@ export class DocumentPreview {
 		this.#panel = element("div", "sandbox-preview__panel");
 		this.#panel.id = `sandbox-preview-${this.#id}-panel`;
 		this.#panel.setAttribute("role", "tabpanel");
-		this.#panel.tabIndex = 0;
-		root.append(bar, this.#panel);
+		this.#editorHost = element("div", "sandbox-preview__editor");
+		this.#viewHost = element("div", "");
+		this.#panel.append(this.#editorHost, this.#viewHost);
+		this.#hint = element(
+			"p",
+			"sandbox-preview__hint",
+			"Click in to type: the HTML, JSON, and Markdown tabs follow your edits.",
+		);
+		this.#hint.hidden = true;
+		root.append(bar, this.#hint, this.#panel);
 	}
 
 	/** Shows the most recent of `documents`, or the one picked earlier if it's still there. */
@@ -127,6 +155,13 @@ export class DocumentPreview {
 		this.show([]);
 	}
 
+	/** Whether people can type in the Editor tab; see {@link PreviewOptions.editable}. */
+	setEditable(editable: boolean): void {
+		this.#editable = editable;
+		this.#editor?.editor.setEditable(editable);
+		this.#hint.hidden = !editable || this.#view !== "editor";
+	}
+
 	destroy(): void {
 		this.#editor?.editor.destroy();
 		this.#editor = undefined;
@@ -145,8 +180,7 @@ export class DocumentPreview {
 	}
 
 	#arrow(event: KeyboardEvent, from: View): void {
-		const enabled = VIEWS.filter(({ view }) => !this.#tabs.get(view)?.hidden);
-		const index = enabled.findIndex(({ view }) => view === from);
+		const index = VIEWS.findIndex(({ view }) => view === from);
 		const step = event.key === "ArrowRight"
 			? 1
 			: event.key === "ArrowLeft"
@@ -157,18 +191,16 @@ export class DocumentPreview {
 		const next = event.key === "Home"
 			? 0
 			: event.key === "End"
-			? enabled.length - 1
-			: (index + step + enabled.length) % enabled.length;
-		const view = enabled[next]?.view;
+			? VIEWS.length - 1
+			: (index + step + VIEWS.length) % VIEWS.length;
+		const view = VIEWS[next]?.view;
 		if (view) this.#select(view, true);
 	}
 
 	#render(): void {
 		const snapshot = this.#current();
 		if (snapshot === undefined) return;
-		const paintable = isStarterKit(snapshot.extensions);
-		this.#tabs.get("editor")!.hidden = !paintable;
-		const view = this.#view === "editor" && !paintable ? "html" : this.#view;
+		const view = this.#view;
 		for (const [name, tab] of this.#tabs) {
 			const selected = name === view;
 			tab.setAttribute("aria-selected", String(selected));
@@ -176,11 +208,16 @@ export class DocumentPreview {
 		}
 		this.#panel.setAttribute("aria-labelledby", this.#tabs.get(view)!.id);
 		this.#panel.dataset["view"] = view;
+		this.#hint.hidden = !this.#editable || view !== "editor";
+		// The editor takes focus itself; the other views need the panel to.
+		this.#panel.tabIndex = view === "editor" ? -1 : 0;
 		// One render at a time: the editor loads asynchronously the first time.
 		this.#rendering = this.#rendering.then(() =>
 			this.#renderView(view, snapshot)
 		).catch((error: unknown) => {
-			this.#panel.replaceChildren(
+			this.#editorHost.hidden = true;
+			this.#viewHost.hidden = false;
+			this.#viewHost.replaceChildren(
 				element(
 					"p",
 					"sandbox-preview__note",
@@ -191,57 +228,90 @@ export class DocumentPreview {
 	}
 
 	async #renderView(view: View, snapshot: DocSnapshot): Promise<void> {
-		if (view !== "editor") {
-			this.#editor?.editor.destroy();
-			this.#editor = undefined;
+		this.#editorHost.hidden = view !== "editor";
+		this.#viewHost.hidden = view === "editor";
+		if (view === "editor") {
+			this.#viewHost.replaceChildren();
+			await this.#paint(snapshot);
+			return;
 		}
+		const shown = this.#exports(snapshot);
 		switch (view) {
-			case "editor":
-				await this.#paint(snapshot);
-				return;
 			case "html":
-				this.#panel.replaceChildren(htmlFrame(snapshot.html));
+				this.#viewHost.replaceChildren(htmlFrame(shown.html));
 				return;
 			case "json":
-				this.#panel.replaceChildren(
-					source(JSON.stringify(snapshot.json, null, 2)),
+				this.#viewHost.replaceChildren(
+					source(JSON.stringify(shown.json, null, 2)),
 				);
 				return;
 			case "markdown":
-				this.#panel.replaceChildren(source(snapshot.markdown));
+				this.#viewHost.replaceChildren(source(shown.markdown));
 		}
 	}
 
+	/** The document as the editor has it, edits included, or as the code made it. */
+	#exports(
+		snapshot: DocSnapshot,
+	): Pick<DocSnapshot, "html" | "json" | "markdown"> {
+		const editor = this.#editor;
+		if (editor === undefined || editor.snapshot !== snapshot) return snapshot;
+		return {
+			html: editor.editor.export("html"),
+			json: editor.editor.toJson(),
+			markdown: editor.editor.export("markdown"),
+		};
+	}
+
 	async #paint(snapshot: DocSnapshot): Promise<void> {
+		const full = !isStarterKit(snapshot.extensions);
 		// Every editor has the core extensions; the rest are the ones the document used.
-		const extensions = starterKit.filter((extension) =>
-			snapshot.extensions.includes(extension.name)
-		);
-		const key = `${
-			extensions.map((extension) => extension.name).join(",")
+		const key = `${full ? "full" : "web"}|${
+			[...snapshot.extensions].sort().join(",")
 		}|${pageScheme()}`;
 		const content = snapshot.json as Parameters<
 			Editor<Extensions>["setContent"]
 		>[0];
-		if (
-			this.#editor?.key === key &&
-			this.#panel.contains(this.#editor.editor.canvas)
-		) {
-			this.#editor.editor.setContent(content);
+		const current = this.#editor;
+		if (current?.key === key) {
+			if (current.snapshot !== snapshot) {
+				current.editor.setContent(content);
+				current.snapshot = snapshot;
+			}
 			return;
 		}
-		this.#editor?.editor.destroy();
-		const host = element("div", "sandbox-preview__editor");
-		this.#panel.replaceChildren(host);
-		const { createEditor } = await import("@canvist/web");
+		current?.editor.destroy();
+		this.#editor = undefined;
+		const host = element("div", "");
+		this.#editorHost.replaceChildren(host);
+		// Extensions beyond the StarterKit need the full build, a larger download.
+		const [createEditor, available]: [
+			typeof import("@canvist/web").createEditor,
+			Extensions,
+		] = full
+			? await import("@canvist/web/full").then((web) => [
+				web.createEditor,
+				web.allExtensions,
+			])
+			: await import("@canvist/web").then((web) => [
+				web.createEditor,
+				web.starterKit,
+			]);
+		const extensions = available.filter((extension) =>
+			snapshot.extensions.includes(extension.name)
+		);
 		const editor = await createEditor(host, {
 			extensions,
 			content,
 			theme: { scheme: pageScheme() },
-			label: "Preview of the document",
-			editable: false,
+			label: "The document the code made",
+			editable: this.#editable,
 		});
-		this.#editor = { editor: editor as unknown as Editor<Extensions>, key };
+		this.#editor = {
+			editor: editor as unknown as Editor<Extensions>,
+			key,
+			snapshot,
+		};
 	}
 }
 
@@ -249,7 +319,7 @@ const STARTER_KIT_NAMES: ReadonlySet<string> = new Set(
 	[...core, ...starterKit].map((extension) => extension.name),
 );
 
-/** Whether a document with `extensions` paints in `@canvist/web`, which has the StarterKit only. */
+/** Whether a document with `extensions` paints in `@canvist/web`, which has the StarterKit only, rather than `@canvist/web/full`. */
 function isStarterKit(extensions: readonly string[]): boolean {
 	return extensions.every((name) => STARTER_KIT_NAMES.has(name));
 }

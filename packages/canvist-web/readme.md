@@ -45,7 +45,8 @@ Using React or Vue? See [`@canvist/react`](../canvist-react) and [`@canvist/vue`
 ## What it does
 
 - **Editing like TipTap:** typed commands and queries, `editable: false` for read-only, a `placeholder`, and menus that follow the selection from `@canvist/web/menus` (`bubbleMenu`, `floatingMenu`).
-- **Collaboration:** `@canvist/web/collab` joins a room on any y-websocket server with `connect(editor, { url, room })`, with per-person undo. Its Yjs build is a separate module, so editors that don't collaborate never download it.
+- **Collaboration:** `@canvist/web/collab` joins a room on any y-websocket server with `connect(editor, { url, room })`, with per-person undo. Its Yjs build is a separate module, so editors that don't collaborate never download it. `editor.caretRectAt(position)` places other people's carets.
+- **Every extension:** `createEditor` from `@canvist/web/full` takes every extension canvist ships, from tables to math, in a larger module that StarterKit editors never download.
 - **Server rendering:** an element holding canvist's server-rendered HTML hydrates without a layout shift.
 - **Small:** 349.6 KB gzipped for the editor and the StarterKit, with a 350 KB budget CI enforces.
 

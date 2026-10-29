@@ -26,6 +26,7 @@ export const SERVER_MODULES = [
 export const BROWSER_MODULES = [
 	"@canvist/web",
 	"@canvist/web/collab",
+	"@canvist/web/full",
 	"@canvist/web/menus",
 	"@canvist/headless",
 	"@canvist/headless/full",

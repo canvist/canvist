@@ -23,6 +23,10 @@
 			"types": "./dist/extensions.generated.d.ts",
 			"default": "./dist/extensions.generated.js"
 		},
+		"./extras": {
+			"types": "./dist/extras.generated.d.ts",
+			"default": "./dist/extras.generated.js"
+		},
 		"./full": {
 			"types": "./dist/full.d.ts",
 			"default": "./dist/full.js"

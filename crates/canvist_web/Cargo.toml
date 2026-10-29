@@ -18,7 +18,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 canvist_headless = { workspace = true, features = ["starter-kit"] }
-# No tables: the web editor's StarterKit schema has none to lay out.
+# No tables by default: the StarterKit schema has none to lay out. `full`
+# adds them.
 canvist_layout = { workspace = true, features = ["editor", "json"] }
 js-sys = { workspace = true, features = ["std"] }
 rustc-hash = { workspace = true, features = ["std"] }
@@ -31,6 +32,16 @@ web-sys = { workspace = true, features = ["std", "CanvasRenderingContext2d", "Co
 default = []
 # Collaborate over Yjs. Adds about 250 KB gzipped to the wasm module.
 collab = ["canvist_headless/collab"]
+# Every extension, for `@canvist/web/full`: their schema, commands, and
+# input rules, the emoji table, and the layout and theme for tables, ink,
+# kinetic text, and the other blocks and marks beyond the StarterKit.
+full = [
+	"canvist_headless/full",
+	"canvist_layout/ink",
+	"canvist_layout/kinetic",
+	"canvist_layout/tables",
+	"canvist_layout/theme-extensions",
+]
 
 [lints]
 workspace = true

@@ -29,6 +29,8 @@ export interface BrowserRun {
 	readonly html: string;
 	/** The frame's accessible name. */
 	readonly title: string;
+	/** Query parameters for the frame's URL, which the code can read from `location.search`. */
+	readonly params?: Readonly<Record<string, string>>;
 }
 
 /** A browser realm running in a frame. */
@@ -109,7 +111,9 @@ export class Sandbox {
 	/** Runs browser code in a new frame inside `container`. */
 	addBrowser(container: HTMLElement, run: BrowserRun): BrowserPeer {
 		const frame = document.createElement("iframe");
-		frame.src = FRAME_URL;
+		frame.src = run.params
+			? `${FRAME_URL}?${new URLSearchParams(run.params)}`
+			: FRAME_URL;
 		frame.title = run.title;
 		frame.className = "sandbox-frame";
 		const number = this.#nextPeer++;
@@ -143,7 +147,9 @@ export class Sandbox {
 					case "ready": {
 						const command: FrameCommand = {
 							type: "run",
-							...run,
+							file: run.file,
+							source: run.source,
+							html: run.html,
 							scheme: pageScheme(),
 						};
 						target.postMessage(command, location.origin);

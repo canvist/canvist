@@ -1,6 +1,6 @@
 # Browser API reference
 
-Use this page to look up every option and method of the browser packages: `@canvist/web` and its `/fonts`, `/menus`, and `/collab` entry points, `@canvist/headless/ssr`, and `@canvist/canvas`. Each one also carries these descriptions in its TypeScript declarations, so your editor shows them on hover.
+Use this page to look up every option and method of the browser packages: `@canvist/web` and its `/fonts`, `/menus`, `/collab`, and `/full` entry points, `@canvist/headless/ssr`, and `@canvist/canvas`. Each one also carries these descriptions in its TypeScript declarations, so your editor shows them on hover.
 
 ## API stability
 
@@ -8,7 +8,7 @@ The browser packages follow semantic versioning with the rest of the SDK. Every 
 
 ## `createEditor(element, options)`
 
-From `@canvist/web`. It returns a promise of an `Editor`. `@canvist/web/collab` exports a `createEditor` with the same options, and its editors can collaborate.
+From `@canvist/web`. It returns a promise of an `Editor`. `@canvist/web/collab` exports a `createEditor` with the same options, and its editors can collaborate. `@canvist/web/full` exports one whose editors take every extension, not only the StarterKit: it loads a larger WebAssembly module with every extension and the layout for their blocks, so StarterKit editors never download it. It also exports every extension beyond the StarterKit and `allExtensions`.
 
 | Option        | Type                                    | Default             | What it does                                                                                                                              |
 | ------------- | --------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,24 +28,25 @@ From `@canvist/web`. It returns a promise of an `Editor`. `@canvist/web/collab` 
 
 ## `Editor`
 
-| Member                                                 | What it does                                                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `commands.<name>(args)`, `can.<name>(args)`            | Run a registered command, or check whether it would apply. Both return `boolean`.                                   |
-| `query.<name>(args)`                                   | Answer a registered query.                                                                                          |
-| `run(name, args)`, `ask(name, args)`                   | The same, for names picked at runtime.                                                                              |
-| `select(anchor, head?)`, `selection`                   | Set or read the selection. Positions are `{ path, offset }`, with offsets in UTF-16 code units.                     |
-| `insertText(text)`, `undo()`, `redo()`                 | Type, undo, and redo, as the keyboard does. A shared editor undoes only its own changes.                            |
-| `setContent(content)`, `export(format)`, `toJson()`    | Replace the document, or read it as `json`, `html`, `markdown`, or `text`.                                          |
-| `toHtml()`, `toSvg()`                                  | Server-rendered HTML and CSS at the editor's width, or an SVG of the whole document.                                |
-| `editable`, `setEditable(editable)`                    | Read or change read-only mode.                                                                                      |
-| `setPlaceholder(text)`, `isEmpty`                      | Change the placeholder, or check for an empty document.                                                             |
-| `focus()`, `focused`                                   | Focus the editor without scrolling, or check whether it has focus.                                                  |
-| `subscribe(listener)`                                  | Call back after every change to the document, the selection, focus, or `editable`. Returns an unsubscribe function. |
-| `caretRect()`, `selectionRect()`, `toClientRect(rect)` | The caret's or selection's rectangle in document coordinates, and conversion to viewport coordinates.               |
-| `blockText()`                                          | The text of the block holding the selection's head.                                                                 |
-| `ready()`, `hydrating`                                 | Wait until fonts and plugins have settled and the canvas shows, or check whether server HTML still stands in.       |
-| `inputLatency()`, `stats()`, `fonts()`, `geometry()`   | Input-to-paint times, measurement cache statistics, used fonts, and laid-out geometry.                              |
-| `render()`, `destroy()`                                | Paint now, or remove the editor and release its memory.                                                             |
+| Member                                                 | What it does                                                                                                                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commands.<name>(args)`, `can.<name>(args)`            | Run a registered command, or check whether it would apply. Both return `boolean`.                                                                               |
+| `query.<name>(args)`                                   | Answer a registered query.                                                                                                                                      |
+| `run(name, args)`, `ask(name, args)`                   | The same, for names picked at runtime.                                                                                                                          |
+| `select(anchor, head?)`, `selection`                   | Set or read the selection. Positions are `{ path, offset }`, with offsets in UTF-16 code units.                                                                 |
+| `insertText(text)`, `undo()`, `redo()`                 | Type, undo, and redo, as the keyboard does. A shared editor undoes only its own changes.                                                                        |
+| `setContent(content)`, `export(format)`, `toJson()`    | Replace the document, or read it as `json`, `html`, `markdown`, or `text`.                                                                                      |
+| `toHtml()`, `toSvg()`                                  | Server-rendered HTML and CSS at the editor's width, or an SVG of the whole document.                                                                            |
+| `editable`, `setEditable(editable)`                    | Read or change read-only mode.                                                                                                                                  |
+| `setPlaceholder(text)`, `isEmpty`                      | Change the placeholder, or check for an empty document.                                                                                                         |
+| `focus()`, `focused`                                   | Focus the editor without scrolling, or check whether it has focus.                                                                                              |
+| `subscribe(listener)`                                  | Call back after every change to the document, the selection, focus, or `editable`. Returns an unsubscribe function.                                             |
+| `caretRect()`, `selectionRect()`, `toClientRect(rect)` | The caret's or selection's rectangle in document coordinates, and conversion to viewport coordinates.                                                           |
+| `caretRectAt(position)`                                | Where a caret at `position` is drawn, in document coordinates, or `null` when there's no such position or it isn't laid out. Use it for collaborators' cursors. |
+| `blockText()`                                          | The text of the block holding the selection's head.                                                                                                             |
+| `ready()`, `hydrating`                                 | Wait until fonts and plugins have settled and the canvas shows, or check whether server HTML still stands in.                                                   |
+| `inputLatency()`, `stats()`, `fonts()`, `geometry()`   | Input-to-paint times, measurement cache statistics, used fonts, and laid-out geometry.                                                                          |
+| `render()`, `destroy()`                                | Paint now, or remove the editor and release its memory.                                                                                                         |
 
 ## `@canvist/web/menus`
 

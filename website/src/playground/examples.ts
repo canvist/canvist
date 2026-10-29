@@ -38,7 +38,7 @@ export const EXAMPLES: readonly PlaygroundExample[] = [
 		id: "extensions",
 		title: "Every extension",
 		summary:
-			"One document using all 49 extensions, made on the server realm with @canvist/headless/full.",
+			"One document using all 49 extensions, made on the server realm, in an editor you can type in.",
 		server: extensionsServer,
 		peers: 0,
 	},

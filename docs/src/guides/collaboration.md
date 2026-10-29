@@ -34,7 +34,13 @@ if (element !== null) {
 - **It reconnects** with backoff when the connection drops, and catches up both ways. `connection.disconnect()` closes it for good. Call `connect` again to resume.
 - **JavaScript Yjs peers in the room see the same document.** Read it with `engine.fromYjs(Y.encodeStateAsUpdate(ydoc), clientId)` from `@canvist/headless`.
 
-The tests in `packages/canvist-web/tests/browser/collab.spec.ts` run two editors and a JavaScript `WebsocketProvider` peer against y-websocket's server in Chromium, Firefox, and WebKit. Presence (other people's carets) is coming soon.
+The tests in `packages/canvist-web/tests/browser/collab.spec.ts` run two editors and a JavaScript `WebsocketProvider` peer against y-websocket's server in Chromium, Firefox, and WebKit.
+
+### Show where everyone is
+
+Other people's carets aren't part of the document, so they travel beside it: each peer sends its name, colour, and `editor.selection` whenever `editor.subscribe` fires, and draws everyone else's with `editor.caretRectAt(position)`. That's where a caret at `position` would be drawn in this editor, in document coordinates, or `null` when this peer's copy of the document doesn't have that position yet. `editor.toClientRect(rect)` converts it to viewport coordinates for an element over the editor.
+
+[The collaboration example in the playground](/playground?example=collaboration) does this over a second WebSocket, with a server that passes each peer's position to the rest of the room.
 
 ## Share a document and merge edits
 

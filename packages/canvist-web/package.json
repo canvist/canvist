@@ -31,8 +31,13 @@
 			"types": "./dist/collab.d.ts",
 			"default": "./dist/collab.js"
 		},
+		"./full": {
+			"types": "./dist/full.d.ts",
+			"default": "./dist/full.js"
+		},
 		"./wasm/canvist_web_bg.wasm": "./wasm/canvist_web_bg.wasm",
-		"./wasm-collab/canvist_web_bg.wasm": "./wasm-collab/canvist_web_bg.wasm"
+		"./wasm-collab/canvist_web_bg.wasm": "./wasm-collab/canvist_web_bg.wasm",
+		"./wasm-full/canvist_web_bg.wasm": "./wasm-full/canvist_web_bg.wasm"
 	},
 	"files": [
 		"dist",
@@ -41,13 +46,17 @@
 		"wasm/*.wasm",
 		"wasm-collab/*.js",
 		"wasm-collab/*.d.ts",
-		"wasm-collab/*.wasm"
+		"wasm-collab/*.wasm",
+		"wasm-full/*.js",
+		"wasm-full/*.d.ts",
+		"wasm-full/*.wasm"
 	],
 	"sideEffects": false,
 	"scripts": {
-		"build:wasm": "npm run build:wasm:core && npm run build:wasm:collab",
+		"build:wasm": "npm run build:wasm:core && npm run build:wasm:collab && npm run build:wasm:full",
 		"build:wasm:core": "cd ../.. && RUSTFLAGS=\"--cfg canvist_omit_docs\" wasm-pack build crates/canvist_web --target web --profile wasm-web --no-opt --out-dir ../../packages/canvist-web/wasm --no-pack && rm packages/canvist-web/wasm/.gitignore && cd packages/canvist-web && node scripts/optimize-wasm.ts wasm/canvist_web_bg.wasm",
 		"build:wasm:collab": "cd ../.. && RUSTFLAGS=\"--cfg canvist_omit_docs\" wasm-pack build crates/canvist_web --target web --profile wasm-web --no-opt --out-dir ../../packages/canvist-web/wasm-collab --no-pack -- --features collab && rm packages/canvist-web/wasm-collab/.gitignore && cd packages/canvist-web && node scripts/optimize-wasm.ts wasm-collab/canvist_web_bg.wasm",
+		"build:wasm:full": "cd ../.. && RUSTFLAGS=\"--cfg canvist_omit_docs\" wasm-pack build crates/canvist_web --target web --profile wasm-web --no-opt --out-dir ../../packages/canvist-web/wasm-full --no-pack -- --features full && rm packages/canvist-web/wasm-full/.gitignore && cd packages/canvist-web && node scripts/optimize-wasm.ts wasm-full/canvist_web_bg.wasm",
 		"check:types": "tsc --noEmit",
 		"test": "node --test tests/*.test.ts",
 		"test:browser": "playwright test",

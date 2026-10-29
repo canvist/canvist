@@ -5,7 +5,6 @@ import {
 	type Language,
 } from "../sandbox/editor.ts";
 import {
-	allowsExtras,
 	type Catalog,
 	type ExtensionList,
 	readExtensionList,
@@ -48,8 +47,11 @@ const FILES: readonly {
 	{ name: "index.html", key: "html", language: "html" },
 ];
 
-/** The four presence colours from the landing page's Together room, one per peer. */
-const PEER_COLORS = ["#3B2CF5", "#E5484D", "#0E9384", "#C07A00"];
+/**
+ * One colour per peer: the landing page's Together room hues, dark enough
+ * for white text, which collaborative examples put on cursor name tags.
+ */
+const PEER_COLORS = ["#3B2CF5", "#CE2C31", "#0B7468", "#9A5B00"];
 const MAX_PEERS = PEER_COLORS.length;
 const RERUN_DELAY_MS = 700;
 /** How long browser peers wait for the server to start listening. */
@@ -235,6 +237,8 @@ export function mountPlayground(root: HTMLElement): void {
 		select(files[0]?.name ?? "client.ts");
 		peerCount = next.client === undefined ? 0 : next.peers;
 		peersSection.hidden = next.client === undefined;
+		// Browser peers keep the server's document; without them it's the one to type in.
+		preview.setEditable(next.client === undefined);
 		const radio = examplePicker.querySelector<HTMLInputElement>(
 			`input[value="${next.id}"]`,
 		);
@@ -355,12 +359,10 @@ export function mountPlayground(root: HTMLElement): void {
 		}
 		const index = peers.length;
 		const label = `peer ${index + 1}`;
+		const color = PEER_COLORS[index % PEER_COLORS.length] ?? PEER_COLORS[0]!;
 		const element = document.createElement("div");
 		element.className = "pg-peer";
-		element.style.setProperty(
-			"--peer",
-			PEER_COLORS[index % PEER_COLORS.length] ?? PEER_COLORS[0]!,
-		);
+		element.style.setProperty("--peer", color);
 		const head = document.createElement("div");
 		head.className = "pg-peer__head";
 		const name = document.createElement("span");
@@ -377,6 +379,7 @@ export function mountPlayground(root: HTMLElement): void {
 			source: client.editor.value,
 			html: file("index.html")?.editor.value ?? "",
 			title: `Peer ${index + 1}: client.ts running`,
+			params: { name: `Peer ${index + 1}`, color },
 		});
 		const entry: Peer = { peer, element, label };
 		peers.push(entry);
@@ -389,13 +392,20 @@ export function mountPlayground(root: HTMLElement): void {
 		return peer;
 	}
 
+	/** Peers share what a server keeps; without one, another peer is the same page again. */
 	function updatePeerButton(): void {
+		addPeerButton.hidden = file("server.ts") === undefined;
 		addPeerButton.disabled = file("client.ts") === undefined ||
 			peers.length >= MAX_PEERS;
 	}
 
 	addPeerButton.addEventListener("click", () => {
-		if (peers.length < MAX_PEERS) startPeer();
+		if (peers.length < MAX_PEERS) {
+			startPeer().frame.scrollIntoView({
+				block: "nearest",
+				behavior: "smooth",
+			});
+		}
 		updatePeerButton();
 	});
 	find<HTMLButtonElement>("[data-run]").addEventListener(
@@ -506,22 +516,16 @@ export function mountPlayground(root: HTMLElement): void {
 	function syncExtensions(): void {
 		const { managed, reason } = managedFiles();
 		const enabled = new Set(managed[0]?.list.names ?? []);
-		const extrasAllowed = managed.length > 0 &&
-			managed.every(({ list }) => allowsExtras(list.module));
-		const extras = new Set(catalog.extras);
 		for (const checkbox of checkboxes) {
 			checkbox.checked = enabled.has(checkbox.value);
-			checkbox.disabled = managed.length === 0 ||
-				(extras.has(checkbox.value) && !extrasAllowed);
+			checkbox.disabled = managed.length === 0;
 		}
 		extensionCount.textContent = managed.length === 0
 			? ""
 			: `${enabled.size} on`;
 		extensionNote.textContent = managed.length === 0
 			? `${reason} This example uses the StarterKit.`
-			: extrasAllowed
-			? "Switching one rewrites the extension list and the import, and runs the code again."
-			: "@canvist/web compiles in the StarterKit, so the rest run on the server realm: try Every extension.";
+			: "Switching one rewrites the extension list and the import, and runs the code again.";
 	}
 
 	function setExtensions(names: readonly string[]): boolean {

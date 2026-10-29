@@ -56,7 +56,7 @@ export function mountLiveSample(options: LiveSampleOptions): void {
 	pre.after(editorHost, bar, output);
 
 	const sandbox = new Sandbox(onEvent, { fitFrames: true });
-	const preview = new DocumentPreview(previewHost);
+	const preview = new DocumentPreview(previewHost, { editable: true });
 	const log = new ConsoleView(consoleHost, (line) => {
 		editor.markLine(line);
 		editor.view.focus();
