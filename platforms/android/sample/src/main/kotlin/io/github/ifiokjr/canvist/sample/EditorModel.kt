@@ -8,9 +8,12 @@ import androidx.compose.runtime.setValue
 import io.github.ifiokjr.canvist.CanvistException
 import io.github.ifiokjr.canvist.CanvistView
 import io.github.ifiokjr.canvist.Command
+import io.github.ifiokjr.canvist.DictationSource
 import io.github.ifiokjr.canvist.DocFormat
 import io.github.ifiokjr.canvist.Editor
 import io.github.ifiokjr.canvist.EditorChange
+import io.github.ifiokjr.canvist.OnDeviceDictationSource
+import io.github.ifiokjr.canvist.RelayDictationSource
 import io.github.ifiokjr.canvist.StarterKit
 import io.github.ifiokjr.canvist.query
 
@@ -70,6 +73,50 @@ class EditorModel(
 
     private companion object {
         const val TAG = "CanvistSample"
+    }
+}
+
+/**
+ * Where the sample's dictation comes from: a relay when the app is built with
+ * one (see `build.gradle.kts`), otherwise the device's own recognizer when it
+ * has one.
+ */
+sealed interface DictationSetup {
+    data class Relay(
+        val url: String,
+        val token: String,
+    ) : DictationSetup
+
+    data object OnDevice : DictationSetup
+
+    data class Unavailable(
+        val reason: String,
+    ) : DictationSetup
+
+    /** A new source for a session, or `null` when dictation is unavailable. */
+    fun source(context: Context): DictationSource? =
+        when (this) {
+            is Relay -> RelayDictationSource(context, url, token)
+            OnDevice -> OnDeviceDictationSource(context)
+            is Unavailable -> null
+        }
+
+    companion object {
+        /** The setup this build and device allow. */
+        fun current(context: Context): DictationSetup =
+            when {
+                BuildConfig.DICTATION_URL.isNotEmpty() && BuildConfig.DICTATION_TOKEN.isNotEmpty() -> {
+                    Relay(BuildConfig.DICTATION_URL, BuildConfig.DICTATION_TOKEN)
+                }
+
+                OnDeviceDictationSource.isAvailable(context) -> {
+                    OnDevice
+                }
+
+                else -> {
+                    Unavailable("Dictation needs a relay or a speech recognizer on this device.")
+                }
+            }
     }
 }
 

@@ -1,6 +1,6 @@
 # Dictation
 
-In this guide you let people talk into the editor: run the dictation relay, give your app tokens for it, and start dictating from iOS. Android and the browser are coming.
+In this guide you let people talk into the editor: run the dictation relay, give your app tokens for it, and start dictating from iOS and Android. The browser is coming.
 
 ## What people see
 
@@ -92,6 +92,67 @@ if #available(iOS 26, *), OnDeviceDictationSource.isAvailable {
 
 There's no polish pass on the device, so fillers and spoken corrections ("Tuesday, no, Wednesday") stay in the text. The first session in a language may download its model. Prefer the relay when you have one, and fall back to the device when you don't.
 
+## Dictate on Android
+
+On Android, `CanvistDictation` works the same way. It takes a `CoroutineScope` too: sessions run in it, so pass your screen's scope and a session never outlives the screen.
+
+```kotlin
+import io.github.ifiokjr.canvist.CanvistDictation
+import io.github.ifiokjr.canvist.CanvistView
+import io.github.ifiokjr.canvist.RelayDictationSource
+
+/**
+ * `relay` is such as `wss://dictation.example.com/v1/dictation`, and
+ * `token` comes from your server.
+ */
+@Composable
+fun NoteScreen(view: CanvistView, relay: String, token: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val dictation = remember { CanvistDictation(view, scope) }
+    val state by dictation.state.collectAsState()
+
+    Column {
+        TextButton(
+            onClick = {
+                if (state.isActive) {
+                    dictation.stop()
+                } else {
+                    dictation.start(RelayDictationSource(context, relay, token))
+                }
+            },
+        ) {
+            Text(if (state.isActive) "Stop" else "Dictate")
+        }
+        AndroidView(factory = { view })
+    }
+}
+```
+
+- **`state`** is a `StateFlow` of `Idle`, `Connecting`, `Listening`, `Finishing`, or `Failed(error)`. Outside Compose, collect it in your lifecycle's scope. `error` is a `DictationException`; `error.describe(context)` gives a sentence you can show.
+- **`RelayDictationSource(context, url, token, language, polish)`** captures the microphone at 16 kHz and streams it to the relay. `language` and `polish` mean what they do on iOS.
+- **`cancel()`** ends a session at once and drops the words that aren't final. So does the scope ending.
+- **Permissions.** The library asks for none of its own. Add `RECORD_AUDIO` to your manifest, and `INTERNET` for the relay, then ask for `RECORD_AUDIO` before starting a session, for example with `ActivityResultContracts.RequestPermission`. Without it, the session fails with `DictationException.MicrophoneDenied`.
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+- **Calls and headsets.** A session holds audio focus while it listens, so music pauses. A phone call or another app recording takes focus away, and that finishes the session as `stop()` does: the words already said still land. Connecting or disconnecting a microphone, such as a headset's, moves capture to it without ending the session, or finishes it cleanly when capture can't restart.
+
+### On the device
+
+`OnDeviceDictationSource` uses Android's `SpeechRecognizer` instead of a relay. On Android 12 and newer it uses the recognizer on the device where there is one, so speech stays on the phone; otherwise it uses the system's recognition service, which may send audio to its provider.
+
+```kotlin
+if (OnDeviceDictationSource.isAvailable(context)) {
+    dictation.start(OnDeviceDictationSource(context))
+}
+```
+
+`SpeechRecognizer` stops listening after each pause. The source starts it again until the session stops, and each pause closes a segment. As on iOS, there's no polish pass, so prefer the relay when you have one.
+
 ## Reduced motion
 
-Drafts breathe gently and final text fades into ink. When someone turns on **Reduce Motion**, `CanvistView` turns animations off: drafts show at a steady faint opacity, and final text appears in full ink at once. The view follows the setting as it changes, and only asks for frames while text is animating.
+Drafts breathe gently and final text fades into ink. When someone turns on **Reduce Motion** on iOS, or **Remove animations** on Android, `CanvistView` turns animations off: drafts show at a steady faint opacity, and final text appears in full ink at once. The view follows the setting as it changes, and only asks for frames while text is animating.

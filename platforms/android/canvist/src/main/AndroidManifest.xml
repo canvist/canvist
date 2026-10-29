@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The library asks for no permissions: an app that dictates adds
+  RECORD_AUDIO, and INTERNET for the relay. Android 11 and newer hide other
+  apps' services, so the library declares the speech recognition service it
+  looks up for OnDeviceDictationSource.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+</manifest>

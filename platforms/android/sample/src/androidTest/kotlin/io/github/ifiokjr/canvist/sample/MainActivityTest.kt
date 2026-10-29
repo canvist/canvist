@@ -3,10 +3,15 @@ package io.github.ifiokjr.canvist.sample
 import android.content.Intent
 import android.os.SystemClock
 import android.view.WindowInsets
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
@@ -105,6 +110,19 @@ class MainActivityTest {
 
         assertEquals("## Title", markdown())
         compose.onNodeWithContentDescription("Heading").assertIsSelected()
+    }
+
+    @Test
+    fun theToolbarOffersDictation() {
+        val button = compose.onNodeWithTag("dictate")
+        button.assertContentDescriptionEquals("Dictate")
+
+        // With no relay and no recognizer the button is off, and says why on
+        // screen; a reason shows exactly when it is off.
+        val enabled = SemanticsProperties.Disabled !in button.fetchSemanticsNode().config
+        val notes = if (enabled) 0 else 1
+
+        compose.onAllNodesWithTag("dictation-note").assertCountEquals(notes)
     }
 
     @Test

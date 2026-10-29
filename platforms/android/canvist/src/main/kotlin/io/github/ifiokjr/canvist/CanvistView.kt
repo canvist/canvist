@@ -1,5 +1,6 @@
 package io.github.ifiokjr.canvist
 
+import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -10,6 +11,7 @@ import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.AttributeSet
 import android.util.Log
 import android.view.KeyEvent
@@ -109,6 +111,16 @@ open class CanvistView(
     private var contentHeight = 0
     private var revealCaret = false
 
+    /** Whether the person prefers reduced motion, as last applied to the editor. */
+    private var reducedMotion: Boolean? = null
+
+    /**
+     * Whether the view repaints on every display refresh: while the last
+     * frame was animating and the view is on screen.
+     */
+    internal var animating = false
+        private set
+
     init {
         isFocusable = true
         isFocusableInTouchMode = true
@@ -129,6 +141,7 @@ open class CanvistView(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         observer = editor.addObserver(ChangeRelay(this))
+        applyMotionPreference(reduced = systemReducesMotion())
     }
 
     override fun onDetachedFromWindow() {
@@ -136,7 +149,16 @@ open class CanvistView(
         observer = null
         blink.removeCallbacks(blinkCaret)
         selection.dismiss()
+        animating = false
         super.onDetachedFromWindow()
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+
+        // Changing the animation scale means leaving the app, for Settings or
+        // the quick settings shade: read it again on the way back.
+        if (hasWindowFocus) applyMotionPreference(reduced = systemReducesMotion())
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -190,6 +212,7 @@ open class CanvistView(
             originY = paddingTop.toFloat(),
         )
         selection.drawHandles(canvas)
+        animate(frame.animated)
 
         if (frame.shift != 0f) {
             // Blocks above the viewport were measured: keep the content still.
@@ -200,6 +223,37 @@ open class CanvistView(
             revealCaret = false
             post(::scrollCaretIntoView)
         }
+    }
+
+    // Animation
+
+    /**
+     * Turn animations off when motion is [reduced]: dictation drafts then show
+     * at a steady faint opacity, and final text in full ink at once.
+     */
+    internal fun applyMotionPreference(reduced: Boolean) {
+        if (reduced == reducedMotion) return
+
+        reducedMotion = reduced
+        editor.setAnimations(!reduced)
+        invalidate()
+    }
+
+    /** Whether the system's animator duration scale is off ("Remove animations"). */
+    private fun systemReducesMotion(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) return !ValueAnimator.areAnimatorsEnabled()
+
+        return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+
+    /**
+     * Ask for the next frame on the display's refresh while [animated], so an
+     * idle editor costs no frames: the first still frame ends the loop.
+     */
+    private fun animate(animated: Boolean) {
+        animating = animated && isAttachedToWindow
+
+        if (animating) postInvalidateOnAnimation()
     }
 
     // Scrolling
@@ -281,7 +335,10 @@ open class CanvistView(
 
     // Changes
 
-    /** The editor changed: repaint, and tell the input method and TalkBack. */
+    /**
+     * The editor changed: repaint, and tell the input method and TalkBack.
+     * Typed and dictated text keep the caret in view.
+     */
     internal fun editorChanged(change: EditorChange) {
         if (!input.inBatch) reportToInputMethod()
 
@@ -289,6 +346,8 @@ open class CanvistView(
             revealCaret = input.calls > 0 || revealCaret
             restartBlink()
         }
+
+        if (change.dictation) revealCaret = true
 
         accessibility.changed(change)
         selection.editorChanged(change)

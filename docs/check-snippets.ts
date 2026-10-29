@@ -50,6 +50,7 @@ const SHOWN = new Set([
 	"kotlin",
 	"ruby",
 	"groovy",
+	"xml",
 	"tsx",
 	"vue",
 	"markdown",

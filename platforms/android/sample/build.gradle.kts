@@ -3,6 +3,19 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/** The Gradle property [property], else the environment variable [variable], else empty. */
+fun setting(
+    property: String,
+    variable: String,
+): String =
+    providers
+        .gradleProperty(property)
+        .orElse(providers.environmentVariable(variable))
+        .getOrElse("")
+
+/** [value] as a Java string literal. */
+fun quoted(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
     namespace = "io.github.ifiokjr.canvist.sample"
     compileSdk = 37
@@ -21,9 +34,20 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+
+        // Dictation goes through a relay when both are set, as Gradle
+        // properties (`-PcanvistDictationUrl=wss://… -PcanvistDictationToken=…`)
+        // or as `CANVIST_DICTATION_URL` and `CANVIST_DICTATION_TOKEN` in the
+        // environment. The token is for trying a relay out; a real app fetches a
+        // short-lived one from its own server.
+        val dictationUrl = setting("canvistDictationUrl", "CANVIST_DICTATION_URL")
+        val dictationToken = setting("canvistDictationToken", "CANVIST_DICTATION_TOKEN")
+        buildConfigField("String", "DICTATION_URL", quoted(dictationUrl))
+        buildConfigField("String", "DICTATION_TOKEN", quoted(dictationToken))
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 

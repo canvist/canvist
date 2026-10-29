@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Why dictation failed, as `DictationException.describe` tells people. -->
+<resources>
+    <string name="canvist_dictation_microphone_denied">Allow microphone access in Settings to dictate.</string>
+    <string name="canvist_dictation_unsupported_language">Dictation doesn\'t support this language on this device.</string>
+    <string name="canvist_dictation_recognizer_unavailable">Dictation isn\'t available on this device.</string>
+    <string name="canvist_dictation_audio">The microphone couldn\'t start.</string>
+    <string name="canvist_dictation_unauthorized">Dictation isn\'t authorized. Try again.</string>
+    <string name="canvist_dictation_limit">Dictation reached its limit.</string>
+    <string name="canvist_dictation_connection">Dictation lost its connection.</string>
+</resources>
