@@ -193,6 +193,16 @@
 	overflow-wrap: anywhere;
 }
 
+.sandbox-preview__hint {
+	margin: var(--s-2) var(--s-3) 0;
+	color: var(--text-muted);
+	font-size: var(--t-small);
+}
+
+.sandbox-preview__hint[hidden] {
+	display: none;
+}
+
 .sandbox-preview__note {
 	margin: 0;
 	color: var(--text-muted);

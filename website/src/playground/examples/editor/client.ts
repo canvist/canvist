@@ -15,7 +15,8 @@ const toolbar = document.querySelector<HTMLElement>("#toolbar")!;
 
 // Switch extensions on the left: the list below changes, and so does what
 // the document can hold. Strike, task lists, and code blocks are off, so
-// their Markdown arrives as plain text until you switch them on.
+// their Markdown arrives as plain text until you switch them on. Switching
+// on one beyond the StarterKit moves the import to @canvist/web/full.
 const editor = await createEditor(element, {
 	extensions: [
 		heading,

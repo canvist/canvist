@@ -1,6 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
 import {
-	allowsExtras,
 	type Catalog,
 	mask,
 	readExtensionList,
@@ -38,7 +37,7 @@ Deno.test("reads an editor's `extensions` option", () => {
 	const code =
 		`import { bold, createEditor } from "@canvist/web";\nconst editor = await createEditor(element, { extensions: [bold], content });\n`;
 	assertEquals(read(code).names, ["bold"]);
-	assertEquals(allowsExtras(read(code).module), false);
+	assertEquals(read(code).module, "@canvist/web");
 });
 
 Deno.test("brackets and names in strings and comments don't count", () => {
@@ -97,6 +96,15 @@ Deno.test("the whole StarterKit becomes a spread, and extras move the import to 
 	assertEquals(
 		toggle(code, [...catalog.starterKit, ...catalog.extras]),
 		`import { allExtensions, createEngine } from "@canvist/headless/full";\nconst engine = await createEngine([...allExtensions]);\n`,
+	);
+});
+
+Deno.test("an editor with extras moves to @canvist/web/full", () => {
+	const code =
+		`import { bold, createEditor } from "@canvist/web";\nconst editor = await createEditor(element, { extensions: [bold] });\n`;
+	assertEquals(
+		toggle(code, ["bold", "highlight"]),
+		`import { bold, createEditor, highlight } from "@canvist/web/full";\nconst editor = await createEditor(element, { extensions: [bold, highlight] });\n`,
 	);
 });
 

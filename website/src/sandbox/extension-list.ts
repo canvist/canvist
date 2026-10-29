@@ -7,8 +7,9 @@
  * `extensions: [...]` option. It may name extensions and spread the
  * groups (`...starterKit`); anything else in it, and the switches leave the
  * code alone. The import the factory comes from gains and loses the
- * extensions the list names, and moves to `@canvist/headless/full` when
- * the list needs extensions beyond the StarterKit.
+ * extensions the list names, and moves to the module's `/full` entry
+ * (`@canvist/headless/full`, `@canvist/web/full`) when the list needs
+ * extensions beyond the StarterKit.
  */
 
 export interface Catalog {
@@ -40,13 +41,9 @@ const FACTORY_MODULES = [
 	"@canvist/headless",
 	"@canvist/headless/full",
 	"@canvist/web",
+	"@canvist/web/full",
 ];
 const LINE_WIDTH = 80;
-
-/** Whether code importing the factory from `module` can register extensions beyond the StarterKit. */
-export function allowsExtras(module: string): boolean {
-	return !module.startsWith("@canvist/web");
-}
 
 export function readExtensionList(code: string, catalog: Catalog): ReadResult {
 	const masked = mask(code);
@@ -134,8 +131,8 @@ export function writeExtensionList(
 		code.slice(list.close + 1);
 
 	const needs = items.map((item) => item.replace(/^\.\.\./, ""));
-	const module = extras.length > 0 && list.module === "@canvist/headless"
-		? "@canvist/headless/full"
+	const module = extras.length > 0 && !list.module.endsWith("/full")
+		? `${list.module}/full`
 		: list.module;
 	return rewriteImport(withList, catalog, needs, module);
 }

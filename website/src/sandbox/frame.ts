@@ -39,6 +39,7 @@ Object.assign(window, {
 const LOADERS: Record<BrowserModule, () => Promise<unknown>> = {
 	"@canvist/web": () => import("@canvist/web"),
 	"@canvist/web/collab": () => import("@canvist/web/collab"),
+	"@canvist/web/full": () => import("@canvist/web/full"),
 	"@canvist/web/menus": () => import("@canvist/web/menus"),
 	"@canvist/headless": () => import("@canvist/headless"),
 	"@canvist/headless/full": () => import("@canvist/headless/full"),

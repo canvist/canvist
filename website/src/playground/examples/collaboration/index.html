@@ -1,2 +1,46 @@
 <p id="status" role="status">Connecting…</p>
-<div id="editor"></div>
+<div class="page">
+	<div id="editor"></div>
+	<div id="cursors" aria-hidden="true"></div>
+</div>
+
+<style>
+	.page {
+		position: relative;
+	}
+
+	/* Other peers' carets, over the editor: a bar in their colour, and a tag with their name. */
+	#cursors {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 2px;
+		margin-left: -1px;
+		background: var(--color);
+		transition: translate 80ms ease-out;
+	}
+
+	.cursor span {
+		position: absolute;
+		bottom: 100%;
+		left: 0;
+		padding: 1px 6px;
+		border-radius: 4px 4px 4px 0;
+		background: var(--color);
+		color: #fff;
+		font: 600 11px/1.4 system-ui, sans-serif;
+		white-space: nowrap;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cursor {
+			transition: none;
+		}
+	}
+</style>

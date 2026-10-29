@@ -1,7 +1,8 @@
 import { allExtensions, createEngine } from "@canvist/headless/full";
 
 // Every extension canvist ships. Switch some off on the left, and their
-// syntax below turns back into plain text in the preview.
+// syntax below turns back into plain text in the preview, which is the
+// editor from @canvist/web/full: type in it.
 const engine = await createEngine([...allExtensions]);
 
 // The preview loads nothing from the network, so the image is inline.

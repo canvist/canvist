@@ -557,6 +557,20 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 	}
 
 	/**
+	 * The rectangle of a caret at `position` in document coordinates, or
+	 * `null` when the document has no such position or it is scrolled too far
+	 * away to be laid out. Collaborators' carets are drawn with it: positions
+	 * from another peer may not exist here yet.
+	 */
+	caretRectAt(position: Position): DOMRect | null {
+		this.#settle();
+
+		return domRect(
+			this.#wasm.caretRectAt(Uint32Array.from(position.path), position.offset),
+		);
+	}
+
+	/**
 	 * The smallest rectangle around the selection in document coordinates:
 	 * the caret's for a caret, or `null` while the selection is scrolled too
 	 * far away to be laid out. Pass it to {@link Editor.toClientRect} to

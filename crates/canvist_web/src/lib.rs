@@ -483,6 +483,17 @@ impl WebEditor {
 		rect_array(self.caret().and_then(|caret| self.layout.caret_rect(caret)))
 	}
 
+	/// The rectangle of a caret at `path` and `offset` (UTF-16 code units),
+	/// in document coordinates as `[x, y, width, height]`, or an empty array
+	/// when the document has no such position or it is not laid out. Hosts
+	/// draw collaborators' carets with it.
+	#[wasm_bindgen(js_name = caretRectAt)]
+	pub fn caret_rect_at(&self, path: &[u32], offset: u32) -> Vec<f32> {
+		let point = self.doc.point(&Position::new(path.to_vec(), offset)).ok();
+
+		rect_array(point.and_then(|point| self.layout.caret_rect(Caret::new(point))))
+	}
+
 	/// The smallest rectangle around the selection in document coordinates,
 	/// as `[x, y, width, height]`: the caret's rectangle for a caret, and
 	/// empty while the selection is not laid out. Hosts anchor menus to it.
