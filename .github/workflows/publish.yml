@@ -500,11 +500,11 @@ jobs:
           (cd platforms/dart && dart pub publish "$flag")
           (cd platforms/flutter && flutter pub publish "$flag")
 
-  # Railway deploys the app itself: every commit on `main` reaches staging at
-  # once and production after CI passes, so the `app/v*` release commit is
-  # live before its tag exists. The dry run builds the images Railway would
+  # Railway deploys the app itself: staging follows `main`, and production
+  # follows the `production` branch, which the `release` job moves once an
+  # `app/v*` tag has shipped. The dry run builds the images Railway would
   # build: the website, and canvist Cloud's one image for `sync` and
-  # `convert`. A real run has nothing to deploy and skips this job.
+  # `convert`. A real run has nothing to build and skips this job.
   deploy:
     name: build the ${{ matrix.service }} image
     needs: plan
@@ -529,7 +529,8 @@ jobs:
       - name: build the image
         run: docker build --file "${{ matrix.dockerfile }}" --tag "canvist-${{ matrix.service }}:dry-run" .
 
-  # Publish the drafted GitHub release once everything for its tag shipped.
+  # Publish the drafted GitHub release once everything for its tag shipped,
+  # and for an `app/v*` tag, deploy it to production first.
   release:
     name: publish the GitHub release
     needs: [plan, packages, apple, apple-release, android, pub, deploy]
@@ -545,6 +546,39 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Railway deploys production from the `production` branch, so moving it
+      # to the release commit is the production deploy. It runs only after
+      # every other job for the tag succeeded, and before the draft is
+      # published, so a failed deploy leaves the release a draft. Only
+      # fast-forwards: an older release run after a newer one leaves the
+      # branch alone, and a branch that has diverged fails the release
+      # instead of being overwritten.
+      - name: move production to the release
+        if: needs.plan.outputs.app == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          api="repos/$GITHUB_REPOSITORY"
+          if ! gh api "$api/git/ref/heads/production" > /dev/null 2>&1; then
+            gh api -X POST "$api/git/refs" -f ref=refs/heads/production -f sha="$SHA" > /dev/null
+            echo "Created production at $SHA"
+            exit 0
+          fi
+          status="$(gh api "$api/compare/production...$SHA" --jq .status)"
+          case "$status" in
+            ahead)
+              gh api -X PATCH "$api/git/refs/heads/production" -f sha="$SHA" -F force=false > /dev/null
+              echo "Moved production to $SHA"
+              ;;
+            identical | behind) echo "production already contains $SHA" ;;
+            *)
+              echo "::error::production has diverged from $SHA ($status); fix the branch, then re-run this job." >&2
+              exit 1
+              ;;
+          esac
+
       - name: publish the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
