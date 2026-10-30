@@ -1,12 +1,12 @@
 {
 	"name": "@canvist/website",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"dependencies": {
 		"@astrojs/markdown-remark": "7.3.2",
-		"@canvist/headless": "file:../packages/canvist-headless",
-		"@canvist/web": "file:../packages/canvist-web",
+		"@canvist/headless": "^0.2.0",
+		"@canvist/web": "^0.2.0",
 		"@codemirror/autocomplete": "6.20.4",
 		"@codemirror/commands": "6.11.1",
 		"@codemirror/lang-html": "6.4.12",
