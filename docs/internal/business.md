@@ -32,4 +32,4 @@ These prices are **not final**. They are published only after canvist Cloud meas
 
 ## Infrastructure
 
-Every hosted service runs on Railway. Each service has a `railway.json` and a Dockerfile in the repo, so a deploy is a git push and nobody runs their own instance by hand. The marketing site, docs, Sync, and Convert are separate Railway services in one project, with free dev and staging environments.
+Every hosted service runs on Railway. Each service builds from a Dockerfile in the repo: staging deploys every push to `main` and production deploys each app release, so nobody runs their own instance by hand. The marketing site, docs, Sync, and Convert are separate Railway services in one project, with staging and production environments.

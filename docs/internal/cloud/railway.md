@@ -1,6 +1,6 @@
 # canvist Cloud on Railway
 
-canvist Cloud runs on [Railway](https://railway.com) as one project, `canvist`, with two environments, `production` and `staging`. Every service builds from this repository, so a deploy is a merge to `main`; nobody builds or runs an instance by hand.
+canvist Cloud runs on [Railway](https://railway.com) as one project, `canvist`, with two environments, `production` and `staging`. Every service builds from this repository. Staging follows `main`, so every push deploys it. Production follows the `production` branch, which only a release moves, so ordinary pushes never reach it. Nobody builds or runs an instance by hand.
 
 ## Live
 
@@ -28,7 +28,7 @@ railway run --service sync --environment staging -- \
 
 `sync` and `convert` are the same image; only `CANVIST_ROLE` differs. Both use:
 
-- **Build:** the Dockerfile at `services/cloud/Dockerfile`, with the repository root as the context (`RAILWAY_DOCKERFILE_PATH`). Pushes that touch nothing under `services/cloud`, `crates`, `Cargo.toml`, `Cargo.lock`, or `rust-toolchain.toml` do not rebuild.
+- **Build:** the Dockerfile at `services/cloud/Dockerfile`, with the repository root as the context (`RAILWAY_DOCKERFILE_PATH`). The services have no watch paths, so every push to `main` rebuilds them on staging.
 - **Health:** Railway waits for `GET /readyz` before switching traffic, up to 120 seconds.
 - **Shutdown:** 30 seconds of draining after `SIGTERM`, which covers the server's graceful shutdown (close sockets with `1012`, persist and compact every document, send queued webhooks).
 - **Restarts:** on failure, up to five times.
@@ -58,11 +58,11 @@ Read the admin token from the Railway dashboard (service, Variables) when you ne
 ## How changes ship
 
 - **Staging** deploys every push to `main` as soon as it lands.
-- **Production** deploys the same `main` commits once GitHub's checks pass on them.
+- **Production** deploys each app release. When a release pull request merges, `release-pr.yml` tags it and dispatches `publish.yml` for each tag. Once everything for an `app/v<version>` tag has shipped, `publish.yml` fast-forwards the `production` branch to the tagged commit and then publishes the GitHub release, so production gets everything that release shipped and nothing merged after it. A release that fails anywhere never reaches production, and a release that is only `v<version>` (the SDK) leaves it alone.
 
-Both environments watch `main`, so staging runs each commit first and production follows when CI is green. To gate production harder, point its services at a release branch.
+Every service has a GitHub deploy trigger: on `canvist/canvist@main` in staging and on `canvist/canvist@production` in production, both with **Wait for CI** off. The release pull request is production's gate, and its dry-run publish has already built both images; waiting for CI would also hit Railway's two-hour limit, which the macOS suites can exceed. The [Railway GitHub app](https://github.com/apps/railway-app) is installed on that repository, so no Railway token lives in GitHub.
 
-Every service has a GitHub deploy trigger on `canvist/canvist@main`; production's has **Wait for CI** on. The [Railway GitHub app](https://github.com/apps/railway-app) is installed on that repository only. Until the cloud stack merges, `main` has no `services/cloud/Dockerfile`, so pushes there fail to build and the running deployments stay up; deploy a branch by hand with `railway up --service sync --environment staging --ci` (and likewise for `convert` and `production`).
+Only `publish.yml` should move `production`. It never force-pushes: if the branch has diverged from `main`, the app release stays a draft and the job fails, so reset the branch to the last release commit and re-run the job. Deploy by hand with `railway up --ci --service sync --environment production` (and likewise for `convert`, `website`, and `staging`) when you need to bypass the trigger.
 
 ## Why there is no `railway.json`
 
