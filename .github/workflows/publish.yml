@@ -41,7 +41,7 @@ on:
       - "packages/canvist-headless/deno.json"
       - "platforms/dart/pubspec.yaml"
       - "platforms/flutter/pubspec.yaml"
-      - "tools/release/check_npm_pack.ts"
+      - "tools/release/**"
       - "platforms/android/**/*.gradle.kts"
       - "platforms/android/gradle.properties"
       - "platforms/android/gradle/libs.versions.toml"
@@ -176,51 +176,19 @@ jobs:
       - name: install wasm-pack
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
-          tool: wasm-pack
+          tool: wasm-pack@0.15.0
 
       # Each npm package ships its build output, and publishing runs with
       # `NPM_CONFIG_IGNORE_SCRIPTS`, so no `prepack` builds them: build here,
       # in dependency order. The local `file:` links in the lockfiles satisfy
       # the release's `^<version>` ranges, so `npm ci` needs nothing that isn't
       # published yet.
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
-        run: |
-          set -euo pipefail
-          npm ci --no-audit --no-fund
-          npm run build:wasm
-          npm run build
+      - name: build and validate the web SDK
+        run: bash tools/release/build_web.sh
 
-      - name: build @canvist/web
-        working-directory: packages/canvist-web
-        run: |
-          set -euo pipefail
-          npm ci --no-audit --no-fund
-          npm run build:wasm
-          npm run build
-
-      - name: build @canvist/react and @canvist/vue
-        run: |
-          set -euo pipefail
-          for package in packages/canvist-react packages/canvist-vue; do
-            (cd "$package" && npm ci --no-audit --no-fund && npm run build)
-          done
-
-      - name: build @canvist/canvas
-        working-directory: packages/canvist-canvas
-        run: |
-          set -euo pipefail
-          npm ci --no-audit --no-fund
-          npm run build:wasm
-          npm run build
-
-      - name: check every npm tarball has what its exports name
-        run: |
-          node tools/release/check_npm_pack.ts \
-            packages/canvist-headless packages/canvist-web packages/canvist-react packages/canvist-vue packages/canvist-canvas
-
-      # Readiness reads the release record: every package must be publishable,
-      # with its registry's trusted publishing set up. The Dart packages are
+      # Readiness checks package availability and dry-run planning, not proof
+      # of registry-side trust: manual_verification_required still needs an
+      # owner check (docs/internal/first-release.md). The Dart packages are
       # monochange `external` (the `pub` job publishes them once crates.io has
       # the crates they build from), so they report `unsupported` and are left
       # out.

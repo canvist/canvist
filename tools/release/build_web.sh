@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Build the web SDK from a checkout, in the same order used for publication.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+# wasm-pack may compile its matching wasm-bindgen CLI outside this workspace,
+# where Cargo.toml's host-tool override does not apply.
+if [ "$(uname -s)" = "Darwin" ]; then
+	export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=none
+fi
+
+for package in canvist-headless canvist-web canvist-react canvist-vue canvist-canvas; do
+	(
+		cd "packages/$package"
+		npm ci --no-audit --no-fund
+		case "$package" in
+		canvist-headless | canvist-web | canvist-canvas) npm run build:wasm ;;
+		esac
+		npm run build
+	)
+done
+
+node tools/release/check_npm_pack.ts \
+	packages/canvist-headless packages/canvist-web packages/canvist-react \
+	packages/canvist-vue packages/canvist-canvas

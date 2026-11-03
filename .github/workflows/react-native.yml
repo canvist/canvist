@@ -169,6 +169,13 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Rust, Gradle and node dependencies leave too little room for API 35's
+      # userdata partition. Keep the Android SDK; this job needs it below.
+      - name: free disk space for the emulator
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h .
+
       - name: enable kvm
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
