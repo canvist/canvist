@@ -264,7 +264,7 @@ pub(crate) struct Shared {
 	/// runner's state.
 	generation: u64,
 	/// Woken when the queue grows, a session ends, or an agent exits.
-	notify: Notify,
+	notify: Arc<Notify>,
 	/// When work last existed, and when the daemon last served anything.
 	last_busy: Instant,
 	last_served: Instant,
@@ -280,7 +280,7 @@ impl Shared {
 			next_id: 0,
 			agent_live: false,
 			generation: 0,
-			notify: Notify::new(),
+			notify: Arc::new(Notify::new()),
 			last_busy: Instant::now(),
 			last_served: Instant::now(),
 		}
@@ -478,8 +478,13 @@ async fn next(context: &Arc<Context>, query: &[(String, String)]) -> Option<Json
 		.find(|(name, _)| name == "agent")
 		.map_or_else(|| "agent".to_owned(), |(_, value)| value.clone());
 	let _ = &agent;
+	let notify = Arc::clone(&context.state.lock().await.notify);
 
 	loop {
+		// Register before checking the queue, then wait without holding its lock.
+		let notified = notify.notified();
+		tokio::pin!(notified);
+		notified.as_mut().enable();
 		{
 			let mut shared = context.state.lock().await;
 
@@ -499,9 +504,6 @@ async fn next(context: &Arc<Context>, query: &[(String, String)]) -> Option<Json
 				return Some(json!({ "kind": "done" }));
 			}
 		}
-
-		let shared = context.state.lock().await;
-		let notified = shared.notify.notified();
 
 		tokio::select! {
 			() = notified => {}
@@ -835,5 +837,47 @@ cd "{root}/platforms/android"
 			"-c".to_owned(),
 			script,
 		]
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn idle_agent_does_not_block_health_checks_or_new_work() {
+		let context = Arc::new(Context {
+			target: Target::Loopback,
+			root: PathBuf::new(),
+			port: 0,
+			state: Arc::new(Mutex::new(Shared::new())),
+			idle: Duration::from_mins(10),
+		});
+		let poll_context = Arc::clone(&context);
+		let poll = tokio::spawn(async move { next(&poll_context, &[]).await });
+		// Let the agent enter its idle long poll before a harness arrives.
+		tokio::task::yield_now().await;
+		let ping = httpio::Served {
+			method: "GET".to_owned(),
+			path: "/ping".to_owned(),
+			query: vec![],
+			body: None,
+		};
+		let response = tokio::time::timeout(Duration::from_secs(1), route(&context, ping))
+			.await
+			.expect("an idle agent must not block the daemon health check");
+		assert_eq!(response, Some(json!({ "target": "loopback" })));
+
+		let _reply = context
+			.state
+			.lock()
+			.await
+			.queue_instruction(Instruction::Close { id: 42, session: 0 });
+		let instruction = tokio::time::timeout(Duration::from_secs(1), poll)
+			.await
+			.expect("new work must wake the idle agent immediately")
+			.expect("agent task should succeed")
+			.expect("agent should return an instruction");
+		assert_eq!(instruction["id"], 42);
 	}
 }

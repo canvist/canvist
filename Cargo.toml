@@ -179,6 +179,12 @@ wildcard_imports = "allow"
 lto = true
 codegen-units = 1
 
+# macOS 27's strip can remove metadata from host proc-macro dylibs with
+# Rust 1.96. Keep host build tools intact; WASM optimization is unchanged.
+# https://github.com/rust-lang/rust/issues/157750
+[profile.release.build-override]
+strip = "none"
+
 [profile.release.package.canvist_headless_wasm]
 opt-level = "s"
 
