@@ -133,8 +133,10 @@ runs:
 
         printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' |
           sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
-        sudo grep -rl 'azure.archive.ubuntu.com' /etc/apt/sources.list /etc/apt/sources.list.d/ /etc/apt/apt-mirrors.txt 2>/dev/null |
-          sudo xargs -r sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g'
+        # Some images already use the canonical mirror and omit sources.list.
+        # Operate on existing source files so no-match grep cannot trip bash -e.
+        sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
+          -exec sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' {} +
         for attempt in 1 2 3; do
           # shellcheck disable=SC2086 # `command` and `browsers` split into words
           if ${{ inputs.command }} install-deps ${{ inputs.browsers }}; then
