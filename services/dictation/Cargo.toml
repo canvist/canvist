@@ -8,7 +8,6 @@ homepage.workspace = true
 include = ["src/**/*.rs", "Cargo.toml", "readme.md", "license"]
 keywords = ["dictation", "speech-to-text", "websocket", "relay", "text-editor"]
 license.workspace = true
-publish = false
 readme = "readme.md"
 repository.workspace = true
 rust-version.workspace = true

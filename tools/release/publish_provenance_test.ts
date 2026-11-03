@@ -261,3 +261,34 @@ Deno.test("every build consumes the plan SHA without persisting credentials", ()
 	assert(typeof releaseCondition === "string");
 	assertStringIncludes(releaseCondition, "needs.plan.result == 'success'");
 });
+
+Deno.test("missing native credentials stop publication before any packages ship", async () => {
+	const script = field(
+		step("configuration", "require every native publishing credential"),
+		"run",
+	);
+	assert(typeof script === "string");
+	const names = [
+		"MAVEN_CENTRAL_USERNAME",
+		"MAVEN_CENTRAL_PASSWORD",
+		"MAVEN_SIGNING_KEY",
+		"MAVEN_SIGNING_KEY_PASSWORD",
+		"SWIFTPM_GITHUB_TOKEN",
+		"COCOAPODS_TRUNK_TOKEN",
+	];
+	const env = Object.fromEntries(names.map((name) => [name, "fixture"]));
+	const ready = await run("bash", ["-c", script], ROOT, env);
+	assert(ready.success, ready.stderr);
+	for (const name of names) {
+		const missing = await run("bash", ["-c", script], ROOT, {
+			...env,
+			[name]: "",
+		});
+		assert(!missing.success, `${name} must be required`);
+		assertStringIncludes(missing.stderr, name);
+	}
+	for (const job of ["packages", "apple", "android"]) {
+		const needs = field(workflow, "jobs", job, "needs");
+		assert(Array.isArray(needs) && needs.includes("configuration"));
+	}
+});
