@@ -43,7 +43,7 @@ Generate a Central Portal user token and configure these `publisher` environment
 | `MAVEN_SIGNING_KEY`          | ASCII-armored OpenPGP secret key. Publish its public key to a Maven Central-supported keyserver before releasing. |
 | `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for that signing key.                                                                                  |
 
-A dedicated RSA-4096 signing key has been generated and its encrypted secret key and passphrase are stored in the protected GitHub environment. The public key is checked in as [maven-signing-key.asc](maven-signing-key.asc), fingerprint `37EE0A86DAB3CDA38D147FA94DC451D073A0E983`, expiring 2028-11-02. The Ubuntu keyserver accepted its upload; independent retrieval still needs verification before publishing.
+A dedicated RSA-4096 signing key has been generated and its encrypted secret key and passphrase are stored in the protected GitHub environment. The public key is checked in as [maven-signing-key.asc](maven-signing-key.asc), fingerprint `37EE0A86DAB3CDA38D147FA94DC451D073A0E983`, expiring 2028-11-02. The Ubuntu keyserver accepted its upload, and independent retrieval into a fresh keyring succeeded.
 
 The Gradle Maven Publish plugin creates the POM, sources and documentation artifacts. CI builds the Rust native libraries first. Dry runs publish to Maven Local; real releases always run `publishAndReleaseToMavenCentral`. There is no enable flag that silently falls back to Maven Local.
 
