@@ -2,7 +2,7 @@
 
 # monochange plans canvist's releases. Two release units move independently:
 #
-# - `sdk`: every library canvist ships (Rust crates, the npm/JSR package, the
+# - `sdk`: every library canvist ships (Rust crates, the npm package, the
 #   Dart and Flutter packages, and the Swift and Android bindings). They share
 #   one Cargo workspace version and one conformance suite, so they release in
 #   lockstep under tags like `v0.2.0`.
@@ -208,9 +208,7 @@ path = "crates/canvist_web"
 publish = { enabled = false }
 changelog = false
 
-# npm owns `packages/canvist-headless` (one owner per path); the release
-# workflow publishes the same version to JSR with `deno publish`, and the
-# `deno.json` version moves with it through the group's versioned files.
+# The headless TypeScript package is published to npm.
 [package."@canvist/headless"]
 path = "packages/canvist-headless"
 type = "npm"
@@ -299,8 +297,6 @@ version_format = "primary"
 release_title = "canvist {{ version }}"
 versioned_files = [
 	{ path = "Cargo.toml", type = "cargo", fields = ["workspace.package.version"] },
-	# JSR reads its version from deno.json.
-	{ path = "packages/canvist-headless/deno.json", format = "json", fields = ["version"] },
 	# The Swift package is versioned by its git tag; the Android library by
 	# `VERSION_NAME`, which the Maven Central publication reads.
 	{ path = "platforms/android/gradle.properties", format = "env", fields = ["VERSION_NAME"] },

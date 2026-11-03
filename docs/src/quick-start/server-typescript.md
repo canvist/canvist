@@ -4,7 +4,7 @@ In this guide you add canvist to a Node, Deno, Bun, or Workers project, then loa
 
 `@canvist/headless` is canvist's engine compiled to WebAssembly, with no DOM. Use it in API routes, build scripts, CLIs, tests, and background jobs.
 
-**Status: available.** The package works today. It goes to npm and JSR with the first release; until then, build it from source.
+**Status: available.** The package works today. It goes to npm with the first release; until then, build it from source.
 
 ## 1. Install
 
@@ -12,7 +12,7 @@ After the first release:
 
 ```sh
 npm install @canvist/headless      # Node and Bun
-deno add jsr:@canvist/headless     # Deno
+deno add npm:@canvist/headless     # Deno
 ```
 
 Until then, build the package once and install the tarball. You need Node 22 or newer, Rust, and [wasm-pack](https://rustwasm.github.io/wasm-pack/):
