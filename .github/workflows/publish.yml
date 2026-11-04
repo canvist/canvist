@@ -462,12 +462,12 @@ jobs:
   # its Rust crate from the crates.io release it pins, so that release must
   # exist first. monochange marks both Dart packages `external` and this job
   # publishes them. `dart.yml` proves on every pull request that both archives
-  # validate and that `canvist` builds outside the workspace. Turn the job on
-  # by setting the `CANVIST_PUBLISH_PUB_DEV` repository variable to `true`.
+  # validate and that `canvist` builds outside the workspace. Every SDK release
+  # includes both Dart and Flutter packages.
   pub:
     name: pub.dev
     needs: [plan, packages]
-    if: needs.plan.outputs.sdk == 'true' && vars.CANVIST_PUBLISH_PUB_DEV == 'true'
+    if: needs.plan.outputs.sdk == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ needs.plan.outputs.dry_run != 'true' && 'publisher' || '' }}
