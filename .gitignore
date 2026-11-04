@@ -34,3 +34,6 @@ devenv.local.nix
 
 # benchmark and bundle-size measurements (tools/bench)
 /.bench/
+
+# Python release-tool bytecode.
+__pycache__/

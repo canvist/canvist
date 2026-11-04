@@ -107,7 +107,7 @@ See [the business model](./business.md).
 - **Documentation website:** interactive examples on every page, with a live editor running in the docs themselves.
 - **AI skill:** a `canvist` agent skill that teaches coding agents to add canvist to any app on any platform, with an eval suite that scores agents on real integration tasks.
 - **Final logo** (choose from the alternatives) and brand.
-- **Release:** crates.io, npm/JSR, pub.dev, Swift Package, and Maven.
+- **Release:** crates.io, npm, pub.dev, Swift Package, and Maven.
 
 ## Headless libraries (servers, scripts, tests)
 

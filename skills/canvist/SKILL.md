@@ -11,7 +11,7 @@ Full docs for agents: `/llms-full.txt` on the docs site, or `docs/src` in https:
 
 ## 1. Check the platform exists
 
-canvist has not had its first release. Nothing is on crates.io, npm, JSR, or pub.dev yet: install from GitHub.
+canvist has not had its first release. Registry packages are placeholders until that release: install from GitHub.
 
 | Target                   | Package                 | Install                                                                                                                                                                                     |
 | ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
