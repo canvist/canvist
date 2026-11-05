@@ -36,7 +36,8 @@ defaults:
 jobs:
   demo:
     timeout-minutes: 40
-    runs-on: ubuntu-latest
+    # Playwright 1.58 does not support Ubuntu 26.04, now selected by ubuntu-latest.
+    runs-on: ubuntu-24.04
     env:
       # Shared runners are slower and noisier than a developer machine, and
       # have no GPU: the WebGPU run falls back to the CPU and says so.

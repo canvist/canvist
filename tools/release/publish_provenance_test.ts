@@ -274,7 +274,6 @@ Deno.test("missing native credentials stop publication before any packages ship"
 		"MAVEN_SIGNING_KEY",
 		"MAVEN_SIGNING_KEY_PASSWORD",
 		"SWIFTPM_GITHUB_TOKEN",
-		"COCOAPODS_TRUNK_TOKEN",
 	];
 	const env = Object.fromEntries(names.map((name) => [name, "fixture"]));
 	const ready = await run("bash", ["-c", script], ROOT, env);
