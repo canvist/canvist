@@ -226,7 +226,12 @@ jobs:
         run: |
           set -euo pipefail
           result="$RUNNER_TEMP/publish-readiness.json"
-          mc step publish-readiness --from HEAD --output "$result" --format json
+          # pub.dev packages are `external`: monochange does not publish them
+          # and reports them as unsupported, but that still exits non-zero.
+          # The jq filter below is the authority for every registry this
+          # workflow publishes, so keep the report and let it decide.
+          mc step publish-readiness --from HEAD --output "$result" --format json ||
+            echo "::warning::publish-readiness reported unsupported external packages; validating the report"
           jq -e '
             [.packages[] | select(.registry != "pub_dev")] as $packages
             | ($packages | length > 0) and all($packages[]; .status == "ready")
