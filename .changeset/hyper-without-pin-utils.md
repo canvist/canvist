@@ -1,6 +1,6 @@
 ---
-"canvist_cloud": security
-"canvist_dictation_relay": security
+"canvist_cloud": fix
+"canvist_dictation_relay": fix
 ---
 
 # Remove the unmaintained pin-utils dependency from the HTTP stack
