@@ -1,4 +1,4 @@
-"""Prepare installable SwiftPM and CocoaPods artifacts from an Apple SDK build."""
+"""Prepare installable SwiftPM artifacts from an Apple SDK build."""
 import argparse
 import hashlib
 import json
@@ -73,29 +73,6 @@ Add the `Canvist` product to your app target. This package includes the Swift
 bindings and downloads a checksum-verified XCFramework (iOS and arm64 simulator).
 ''')
 
-    pod = output / "cocoapods"
-    shutil.copytree(apple / "Sources", pod / "Sources")
-    shutil.copytree(apple / "Frameworks", pod / "Frameworks")
-    shutil.copyfile(root / "license", pod / "license")
-    pod_checksum = archive(pod, assets / f"Canvist-{version}.zip")
-    (assets / "Canvist.podspec").write_text(f'''Pod::Spec.new do |s|
-  s.name = "Canvist"
-  s.version = "{version}"
-  s.summary = "Native rich-text editor with a Rust core."
-  s.homepage = "https://github.com/canvist/canvist"
-  s.license = {{ type: "Unlicense", file: "license" }}
-  s.author = {{ "Ifiok Jr." => "support@canvist.dev" }}
-  s.source = {{ http: "{url}/Canvist-{version}.zip", sha256: "{pod_checksum}" }}
-  s.platforms = {{ ios: "17.0" }}
-  s.swift_version = "6.0"
-  s.source_files = "Sources/Canvist/**/*.swift"
-  s.vendored_frameworks = "Frameworks/CanvistFFI.xcframework"
-  s.frameworks = "UIKit", "CoreText", "UniformTypeIdentifiers"
-  s.pod_target_xcconfig = {{ "EXCLUDED_ARCHS[sdk=iphonesimulator*]" => "x86_64" }}
-  s.user_target_xcconfig = {{ "EXCLUDED_ARCHS[sdk=iphonesimulator*]" => "x86_64" }}
-end
-''')
-    shutil.copyfile(assets / "Canvist.podspec", pod / "Canvist.podspec")
 
 
 if __name__ == "__main__":

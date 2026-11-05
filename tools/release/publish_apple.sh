@@ -3,7 +3,6 @@
 set -euo pipefail
 : "${GH_TOKEN:?GitHub release access is required}"
 : "${SWIFTPM_GITHUB_TOKEN:?A token scoped to the SwiftPM repository is required}"
-: "${COCOAPODS_TRUNK_TOKEN:?A CocoaPods Trunk session token is required}"
 artifacts="${1:?Path to the staged Apple package}"
 version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$artifacts/swift-package/.canvist-release.json")"
 source_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$artifacts/swift-package/.canvist-release.json")"
@@ -12,7 +11,7 @@ asset_tag="apple/$tag"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
-# Binary assets have their own public release so SwiftPM and CocoaPods can
+# Binary assets have their own public release so SwiftPM can
 # download them before the overall SDK release leaves draft status.
 if gh release view "$asset_tag" --repo canvist/canvist >/dev/null 2>&1; then
 	published_sha="$(gh api "repos/canvist/canvist/commits/$asset_tag" --jq .sha)"
@@ -25,8 +24,8 @@ else
 		--title "Canvist Apple $version" --notes "Apple binaries built from canvist/canvist@$source_sha." --latest=false
 fi
 # Never replace an existing binary: tagged Swift packages pin its checksum.
-for file in "$artifacts"/assets/*; do
-	name="$(basename "$file")"
+for name in CanvistFFI.xcframework.zip CanvistFFI.xcframework.zip.checksum; do
+	file="$artifacts/assets/$name"
 	if gh release download "$asset_tag" --repo canvist/canvist --pattern "$name" --dir "$scratch" >/dev/null 2>&1; then
 		cmp "$file" "$scratch/$name" || {
 			echo "Existing Apple artifact differs: $name" >&2
@@ -66,17 +65,4 @@ else
 	git commit -m "Release Canvist $version from $source_sha"
 	git tag "$tag"
 	git push --atomic origin HEAD:main "refs/tags/$tag"
-fi
-
-# Trunk rejects already-published versions; on retry, accept an identical spec.
-if curl -fsS "https://trunk.cocoapods.org/api/v1/pods/Canvist/specs/$version" -o "$scratch/published-spec.json"; then
-	pod ipc spec "$artifacts/assets/Canvist.podspec" >"$scratch/local-spec.json"
-	python3 - "$scratch/published-spec.json" "$scratch/local-spec.json" <<'PY'
-import json
-import sys
-if json.load(open(sys.argv[1])) != json.load(open(sys.argv[2])):
-    raise SystemExit("An existing CocoaPods version has a different spec")
-PY
-else
-	pod trunk push "$artifacts/assets/Canvist.podspec" --allow-warnings --synchronous
 fi

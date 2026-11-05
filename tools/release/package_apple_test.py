@@ -32,12 +32,15 @@ class ApplePackageTest(unittest.TestCase):
             self.assertIn("apple%2Fv0.2.0/CanvistFFI.xcframework.zip", manifest)
             metadata = json.loads((output / "swift-package/.canvist-release.json").read_text())
             self.assertEqual(metadata["source_sha"], "a" * 40)
-            with zipfile.ZipFile(assets / "Canvist-0.2.0.zip") as source:
-                self.assertIn("Sources/Canvist/Canvist.swift", source.namelist())
-                self.assertIn("Frameworks/CanvistFFI.xcframework/Info.plist", source.namelist())
-                self.assertIn("license", source.namelist())
-            pod_hash = hashlib.sha256((assets / "Canvist-0.2.0.zip").read_bytes()).hexdigest()
-            self.assertIn(pod_hash, (assets / "Canvist.podspec").read_text())
+            with zipfile.ZipFile(binary) as source:
+                self.assertIn("CanvistFFI.xcframework/Info.plist", source.namelist())
+            self.assertTrue((output / "swift-package/Sources/Canvist/Canvist.swift").is_file())
+            self.assertTrue((output / "swift-package/license").is_file())
+            self.assertEqual(
+                {path.name for path in assets.iterdir()},
+                {"CanvistFFI.xcframework.zip", "CanvistFFI.xcframework.zip.checksum"},
+            )
+            self.assertFalse((output / "cocoapods").exists())
             self.assertEqual(archive(apple / "Frameworks", root / "again.zip"), checksum)
 
     def test_missing_generated_bindings_fail_before_creating_output(self):

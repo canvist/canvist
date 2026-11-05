@@ -7,9 +7,8 @@ Every SDK release includes `@canvist/react-native`, `@canvist/lynx`, `canvist_de
 The source checkout keeps its local `platforms/apple/Package.swift` and podspec for development. `tools/release/package_apple.py` creates release-specific consumer packages after `platforms/apple/build.sh` generates the bindings and XCFramework:
 
 - A SwiftPM package containing **all** Swift sources, including the generated UniFFI bindings, plus a binary target pinned to its ZIP's SHA-256.
-- A CocoaPods archive containing the Swift sources, XCFramework and license, and a standalone versioned podspec pinned to the archive's SHA-256.
 
-The public distribution repository is [canvist/canvist-swift](https://github.com/canvist/canvist-swift). On real releases, `tools/release/publish_apple.sh` publishes binaries in a public `apple/v<version>` release in the main repository, commits the SwiftPM sources/manifest to the distribution repository, tags that commit `v<version>`, then submits the podspec to Trunk. The separate Apple asset release makes download URLs available to SwiftPM and CocoaPods while the overall SDK release remains a draft. Existing binaries and SwiftPM tags cannot be overwritten with different artifacts.
+The public distribution repository is [canvist/canvist-swift](https://github.com/canvist/canvist-swift). On real releases, `tools/release/publish_apple.sh` publishes binaries in a public `apple/v<version>` release in the main repository, commits the SwiftPM sources/manifest to the distribution repository, tags that commit `v<version>`. The separate Apple asset release makes download URLs available to SwiftPM while the overall SDK release remains a draft. Existing binaries and SwiftPM tags cannot be overwritten with different artifacts.
 
 Consumer installation after publication:
 
@@ -17,18 +16,13 @@ Consumer installation after publication:
 .package(url: "https://github.com/canvist/canvist-swift.git", exact: "0.2.0")
 ```
 
-```ruby
-pod "Canvist", "0.2.0"
-```
-
-The supported platforms remain iOS 17+ on device and arm64 simulators. React Native and Lynx's podspecs depend on the matching `Canvist` version.
+The supported platforms remain iOS 17+ on device and arm64 simulators. CocoaPods publication is discontinued: releases do not generate pod archives, upload podspecs or submit to Trunk. Local development podspecs remain in the source checkout. React Native and Lynx's current podspecs reference `Canvist`; consumers must supply that dependency locally until those integrations migrate to a distribution that does not depend on Trunk.
 
 The `publisher` environment needs:
 
-| Secret                  | Purpose                                                                                                                                                                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SWIFTPM_GITHUB_TOKEN`  | Fine-grained GitHub token granting **Contents: read and write** to **only** `canvist/canvist-swift`. The organization's policy rejects deploy keys, so the workflow uses a scoped token through Git askpass. Never use a broad personal token or embed credentials in git URLs. |
-| `COCOAPODS_TRUNK_TOKEN` | An active Trunk session owned by a maintainer of the `Canvist` pod. Create/confirm the account and email with `pod trunk register`, then supply the token through the private secret card.                                                                                      |
+| Secret                 | Purpose                                                                                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SWIFTPM_GITHUB_TOKEN` | Fine-grained GitHub token granting **Contents: read and write** to **only** `canvist/canvist-swift`. The organization's policy rejects deploy keys, so the workflow uses a scoped token through Git askpass. Never use a broad personal token or embed credentials in git URLs. |
 
 ## Maven Central
 
@@ -49,7 +43,7 @@ The Gradle Maven Publish plugin creates the POM, sources and documentation artif
 
 ## Preflight and validation
 
-Before **any** SDK package is published, a protected preflight job requires all six native secrets. Dry runs require no secrets and perform no native publication. Missing credentials fail the release rather than allowing npm/crates.io to publish first.
+Before **any** SDK package is published, a protected preflight job requires all five native secrets. Dry runs require no secrets and perform no native publication. Missing credentials fail the release rather than allowing npm/crates.io to publish first.
 
 Local checks:
 
@@ -59,6 +53,6 @@ python3 -m unittest discover -s tools/release -p 'package_apple_test.py' -v
 deno test --allow-read --allow-write --allow-run=git,bash tools/release/publish_provenance_test.ts
 ```
 
-The mobile npm build needs `@canvist/headless` built first (`bash tools/release/build_web.sh`). macOS CI additionally builds the actual XCFramework, parses the generated SwiftPM manifest, checks its binary checksum with SwiftPM, and validates the podspec. The local Xcode installation on mini03 currently cannot load CoreSimulator; fixture tests are not a replacement for that full CI build.
+The mobile npm build needs `@canvist/headless` built first (`bash tools/release/build_web.sh`). macOS CI additionally builds the actual XCFramework, parses the generated SwiftPM manifest, checks its binary checksum with SwiftPM. The local Xcode installation on mini03 currently cannot load CoreSimulator; fixture tests are not a replacement for that full CI build.
 
-Account-side setup is complete only after Central namespace ownership, public signing-key retrieval, the scoped SwiftPM token and the CocoaPods session have been verified. Repository configuration and passing dry runs alone do not prove those external credentials.
+Account-side setup is complete only after Central namespace ownership, public signing-key retrieval, the scoped SwiftPM token have been verified. Repository configuration and passing dry runs alone do not prove those external credentials.
