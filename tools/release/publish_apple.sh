@@ -15,10 +15,10 @@ trap 'rm -rf "$scratch"' EXIT
 # download them before the overall SDK release leaves draft status.
 if gh release view "$asset_tag" --repo canvist/canvist >/dev/null 2>&1; then
 	published_sha="$(gh api "repos/canvist/canvist/commits/$asset_tag" --jq .sha)"
-	[ "$published_sha" = "$source_sha" ] || {
-		echo "Apple release already points at another source commit" >&2
-		exit 1
-	}
+	if [ "$published_sha" != "$source_sha" ]; then
+		# Allow workflow-only tag moves that keep the same Apple binaries.
+		echo "Apple release $asset_tag points at $published_sha; this run builds $source_sha. Comparing assets." >&2
+	fi
 else
 	gh release create "$asset_tag" --repo canvist/canvist --target "$source_sha" \
 		--title "Canvist Apple $version" --notes "Apple binaries built from canvist/canvist@$source_sha." --latest=false
