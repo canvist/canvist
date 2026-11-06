@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/vue",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Vue bindings for the canvist canvas editor: a component, and composables typed from the extensions you register.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/canvist-vue#readme",
@@ -30,7 +30,7 @@
 		"prepack": "npm run build"
 	},
 	"dependencies": {
-		"@canvist/web": "^0.2.0"
+		"@canvist/web": "^0.2.1"
 	},
 	"peerDependencies": {
 		"vue": "^3.4.0"

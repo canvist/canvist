@@ -1,0 +1,1152 @@
+{
+	"schema_version": "0.10",
+	"kind": "monochange.releaseRecord",
+	"created_at": "2026-11-06T09:26:23Z",
+	"command": "release",
+	"version": null,
+	"versions": {
+		"app": "0.1.2",
+		"sdk": "0.2.1"
+	},
+	"release_targets": [
+		{
+			"id": "app",
+			"kind": "group",
+			"version": "0.1.2",
+			"version_format": "namespaced",
+			"tag": true,
+			"release": true,
+			"tag_name": "app/v0.1.2",
+			"rendered_title": "canvist app 0.1.2",
+			"rendered_changelog_title": "0.1.2 (2026-11-06)",
+			"members": [
+				"canvist_cloud",
+				"website"
+			]
+		},
+		{
+			"id": "sdk",
+			"kind": "group",
+			"version": "0.2.1",
+			"version_format": "primary",
+			"tag": true,
+			"release": true,
+			"tag_name": "v0.2.1",
+			"rendered_title": "canvist 0.2.1",
+			"rendered_changelog_title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+			"members": [
+				"@canvist/canvas",
+				"@canvist/headless",
+				"@canvist/lynx",
+				"@canvist/react",
+				"@canvist/react-native",
+				"@canvist/vue",
+				"@canvist/web",
+				"canvist-dart",
+				"canvist-rust",
+				"canvist_canvas",
+				"canvist_canvas_wasm",
+				"canvist_collab",
+				"canvist_core",
+				"canvist_desktop",
+				"canvist_dictation",
+				"canvist_dictation_relay",
+				"canvist_extensions",
+				"canvist_ffi",
+				"canvist_flutter",
+				"canvist_headless",
+				"canvist_headless_wasm",
+				"canvist_layout",
+				"canvist_model",
+				"canvist_paint",
+				"canvist_scene",
+				"canvist_web"
+			]
+		}
+	],
+	"released_packages": [
+		"@canvist/canvas",
+		"@canvist/headless",
+		"@canvist/lynx",
+		"@canvist/react",
+		"@canvist/react-native",
+		"@canvist/vue",
+		"@canvist/web",
+		"@canvist/website",
+		"canvist",
+		"canvist_canvas",
+		"canvist_canvas_wasm",
+		"canvist_cloud",
+		"canvist_collab",
+		"canvist_core",
+		"canvist_desktop",
+		"canvist_dictation",
+		"canvist_dictation_relay",
+		"canvist_extensions",
+		"canvist_ffi",
+		"canvist_flutter",
+		"canvist_headless",
+		"canvist_headless_wasm",
+		"canvist_layout",
+		"canvist_model",
+		"canvist_paint",
+		"canvist_scene",
+		"canvist_web"
+	],
+	"changed_files": [
+		"Cargo.lock",
+		"Cargo.toml",
+		"changelog.md",
+		"crates/canvist/Cargo.toml",
+		"crates/canvist/changelog.md",
+		"crates/canvist_canvas/Cargo.toml",
+		"crates/canvist_canvas/changelog.md",
+		"crates/canvist_canvas_wasm/Cargo.toml",
+		"crates/canvist_collab/Cargo.toml",
+		"crates/canvist_collab/changelog.md",
+		"crates/canvist_core/Cargo.toml",
+		"crates/canvist_core/changelog.md",
+		"crates/canvist_desktop/Cargo.toml",
+		"crates/canvist_desktop/changelog.md",
+		"crates/canvist_dictation/Cargo.toml",
+		"crates/canvist_dictation/changelog.md",
+		"crates/canvist_extensions/Cargo.toml",
+		"crates/canvist_extensions/changelog.md",
+		"crates/canvist_ffi/Cargo.toml",
+		"crates/canvist_headless/Cargo.toml",
+		"crates/canvist_headless/changelog.md",
+		"crates/canvist_headless_wasm/Cargo.toml",
+		"crates/canvist_layout/Cargo.toml",
+		"crates/canvist_layout/changelog.md",
+		"crates/canvist_model/Cargo.toml",
+		"crates/canvist_model/changelog.md",
+		"crates/canvist_paint/Cargo.toml",
+		"crates/canvist_paint/changelog.md",
+		"crates/canvist_scene/Cargo.toml",
+		"crates/canvist_scene/changelog.md",
+		"crates/canvist_web/Cargo.toml",
+		"packages/canvist-canvas/changelog.md",
+		"packages/canvist-canvas/package-lock.json",
+		"packages/canvist-canvas/package.json",
+		"packages/canvist-headless/changelog.md",
+		"packages/canvist-headless/package-lock.json",
+		"packages/canvist-headless/package.json",
+		"packages/canvist-lynx/changelog.md",
+		"packages/canvist-lynx/package-lock.json",
+		"packages/canvist-lynx/package.json",
+		"packages/canvist-react/changelog.md",
+		"packages/canvist-react/package-lock.json",
+		"packages/canvist-react/package.json",
+		"packages/canvist-react-native/changelog.md",
+		"packages/canvist-react-native/package-lock.json",
+		"packages/canvist-react-native/package.json",
+		"packages/canvist-vue/changelog.md",
+		"packages/canvist-vue/package-lock.json",
+		"packages/canvist-vue/package.json",
+		"packages/canvist-web/changelog.md",
+		"packages/canvist-web/package-lock.json",
+		"packages/canvist-web/package.json",
+		"platforms/android/gradle.properties",
+		"platforms/dart/CHANGELOG.md",
+		"platforms/dart/pubspec.yaml",
+		"platforms/dart/rust/Cargo.toml",
+		"platforms/flutter/CHANGELOG.md",
+		"platforms/flutter/pubspec.yaml",
+		"services/cloud/Cargo.toml",
+		"services/dictation/Cargo.toml",
+		"website/developer-changelog.md",
+		"website/package.json"
+	],
+	"package_publications": [
+		{
+			"package": "@canvist/canvas",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/headless",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/lynx",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/react",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/react-native",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/vue",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "@canvist/web",
+			"ecosystem": "npm",
+			"registry": "npm",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			},
+			"attestations": {
+				"require_registry_provenance": true
+			}
+		},
+		{
+			"package": "canvist-dart",
+			"ecosystem": "dart",
+			"registry": "pub_dev",
+			"version": "0.2.1",
+			"mode": "external",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist-rust",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_canvas",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_collab",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_core",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_desktop",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_dictation",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_dictation_relay",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_extensions",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_flutter",
+			"ecosystem": "dart",
+			"registry": "pub_dev",
+			"version": "0.2.1",
+			"mode": "external",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_headless",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_layout",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_model",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_paint",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		},
+		{
+			"package": "canvist_scene",
+			"ecosystem": "cargo",
+			"registry": "crates_io",
+			"version": "0.2.1",
+			"mode": "builtin",
+			"trusted_publishing": {
+				"enabled": true,
+				"mode": "required",
+				"repository": "canvist/canvist",
+				"workflow": "publish.yml",
+				"environment": "publisher"
+			}
+		}
+	],
+	"updated_changelogs": [
+		"changelog.md",
+		"crates/canvist/changelog.md",
+		"crates/canvist_canvas/changelog.md",
+		"crates/canvist_collab/changelog.md",
+		"crates/canvist_core/changelog.md",
+		"crates/canvist_desktop/changelog.md",
+		"crates/canvist_dictation/changelog.md",
+		"crates/canvist_extensions/changelog.md",
+		"crates/canvist_headless/changelog.md",
+		"crates/canvist_layout/changelog.md",
+		"crates/canvist_model/changelog.md",
+		"crates/canvist_paint/changelog.md",
+		"crates/canvist_scene/changelog.md",
+		"packages/canvist-canvas/changelog.md",
+		"packages/canvist-headless/changelog.md",
+		"packages/canvist-lynx/changelog.md",
+		"packages/canvist-react/changelog.md",
+		"packages/canvist-react-native/changelog.md",
+		"packages/canvist-vue/changelog.md",
+		"packages/canvist-web/changelog.md",
+		"platforms/dart/CHANGELOG.md",
+		"platforms/flutter/CHANGELOG.md",
+		"website/developer-changelog.md"
+	],
+	"deleted_changesets": [
+		".changeset/hyper-without-pin-utils.md"
+	],
+	"changesets": [
+		{
+			"path": ".changeset/hyper-without-pin-utils.md",
+			"summary": "Remove the unmaintained pin-utils dependency from the HTTP stack",
+			"details": "Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception.",
+			"targets": [
+				{
+					"id": "canvist_cloud",
+					"kind": "package",
+					"bump": "patch",
+					"origin": "direct-change",
+					"evidence_refs": [],
+					"change_type": "fix"
+				},
+				{
+					"id": "canvist_dictation_relay",
+					"kind": "package",
+					"bump": "patch",
+					"origin": "direct-change",
+					"evidence_refs": [],
+					"change_type": "fix"
+				}
+			],
+			"context": {
+				"provider": "github",
+				"host": "github.com",
+				"capabilities": {
+					"commit_web_urls": true,
+					"actor_profiles": true,
+					"review_request_lookup": true,
+					"related_issues": true,
+					"issue_comments": true
+				},
+				"introduced": {
+					"actor": {
+						"provider": "github",
+						"host": "github.com",
+						"id": null,
+						"login": "ifiokjr",
+						"display_name": "ifiokjr",
+						"url": "https://github.com/ifiokjr",
+						"source": "review_request_author"
+					},
+					"commit": {
+						"provider": "github",
+						"host": "github.com",
+						"sha": "460c9b0888900c9f2f973b567dcb89ce080ee980",
+						"short_sha": "460c9b0",
+						"url": "https://github.com/canvist/canvist/commit/460c9b0888900c9f2f973b567dcb89ce080ee980",
+						"authored_at": "2026-11-05T11:06:42Z",
+						"committed_at": "2026-11-05T11:06:42Z",
+						"author_name": "Ifiok Jr.",
+						"author_email": "1160934+ifiokjr@users.noreply.github.com"
+					},
+					"review_request": {
+						"provider": "github",
+						"host": "github.com",
+						"kind": "pull_request",
+						"id": "#241",
+						"title": "Remove CocoaPods from SDK publishing",
+						"url": "https://github.com/canvist/canvist/pull/241",
+						"author": {
+							"provider": "github",
+							"host": "github.com",
+							"id": null,
+							"login": "ifiokjr",
+							"display_name": "ifiokjr",
+							"url": "https://github.com/ifiokjr",
+							"source": "review_request_author"
+						}
+					}
+				},
+				"last_updated": {
+					"actor": {
+						"provider": "github",
+						"host": "github.com",
+						"id": null,
+						"login": "ifiokjr",
+						"display_name": "ifiokjr",
+						"url": "https://github.com/ifiokjr",
+						"source": "review_request_author"
+					},
+					"commit": {
+						"provider": "github",
+						"host": "github.com",
+						"sha": "460c9b0888900c9f2f973b567dcb89ce080ee980",
+						"short_sha": "460c9b0",
+						"url": "https://github.com/canvist/canvist/commit/460c9b0888900c9f2f973b567dcb89ce080ee980",
+						"authored_at": "2026-11-05T11:06:42Z",
+						"committed_at": "2026-11-05T11:06:42Z",
+						"author_name": "Ifiok Jr.",
+						"author_email": "1160934+ifiokjr@users.noreply.github.com"
+					},
+					"review_request": {
+						"provider": "github",
+						"host": "github.com",
+						"kind": "pull_request",
+						"id": "#241",
+						"title": "Remove CocoaPods from SDK publishing",
+						"url": "https://github.com/canvist/canvist/pull/241",
+						"author": {
+							"provider": "github",
+							"host": "github.com",
+							"id": null,
+							"login": "ifiokjr",
+							"display_name": "ifiokjr",
+							"url": "https://github.com/ifiokjr",
+							"source": "review_request_author"
+						}
+					}
+				},
+				"related_issues": []
+			}
+		}
+	],
+	"changelogs": [
+		{
+			"owner_id": "sdk",
+			"owner_kind": "group",
+			"output": "default",
+			"stream": "default",
+			"path": "changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [
+					"Grouped release for `sdk`."
+				],
+				"sections": [
+					{
+						"title": "🐛 Fixed",
+						"collapsed": false,
+						"entries": [
+							"- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception.\n  _Packages:_ 🟢 _canvist_dictation_relay_\n  _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\nGrouped release for `sdk`.\n\n### 🐛 Fixed\n\n- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception.\n  _Packages:_ 🟢 _canvist_dictation_relay_\n  _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)"
+		},
+		{
+			"owner_id": "canvist-rust",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_canvas",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_canvas/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_canvas` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_canvas` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_collab",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_collab/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_collab` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_collab` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_core",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_core/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_core` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_core` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_desktop",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_desktop/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_desktop` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_desktop` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_dictation",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_dictation/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_dictation` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_dictation` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_extensions",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_extensions/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_extensions` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_extensions` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_headless",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_headless/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_headless` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_headless` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_layout",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_layout/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_layout` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_layout` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_model",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_model/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_model` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_model` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_paint",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_paint/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_paint` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_paint` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_scene",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "crates/canvist_scene/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_scene` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_scene` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/canvas",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-canvas/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/canvas` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/canvas` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/headless",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-headless/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/headless` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/headless` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/lynx",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-lynx/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/lynx` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/lynx` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/react",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-react/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/react` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/react` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/react-native",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-react-native/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/react-native` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/react-native` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/vue",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-vue/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/vue` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/vue` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "@canvist/web",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "packages/canvist-web/changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `@canvist/web` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `@canvist/web` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist-dart",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "platforms/dart/CHANGELOG.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "canvist_flutter",
+			"owner_kind": "package",
+			"output": "default",
+			"stream": "default",
+			"path": "platforms/flutter/CHANGELOG.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "[0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)",
+				"summary": [],
+				"sections": [
+					{
+						"title": "Changed",
+						"collapsed": false,
+						"entries": [
+							"- **No package-specific changes were recorded; `canvist_flutter` was updated to 0.2.1 as part of group `sdk`.**"
+						]
+					}
+				]
+			},
+			"rendered": "## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `canvist_flutter` was updated to 0.2.1 as part of group `sdk`.**"
+		},
+		{
+			"owner_id": "app",
+			"owner_kind": "group",
+			"output": "app_developer",
+			"stream": "default",
+			"path": "website/developer-changelog.md",
+			"format": "keep_a_changelog",
+			"notes": {
+				"title": "0.1.2 (2026-11-06)",
+				"summary": [
+					"Grouped release for `app`."
+				],
+				"sections": [
+					{
+						"title": "🐛 Fixed",
+						"collapsed": false,
+						"entries": [
+							"- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception.\n  _Packages:_ 🟢 _canvist_cloud_\n  _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)"
+						]
+					}
+				]
+			},
+			"rendered": "## 0.1.2 (2026-11-06)\n\nGrouped release for `app`.\n\n### 🐛 Fixed\n\n- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception.\n  _Packages:_ 🟢 _canvist_cloud_\n  _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)"
+		}
+	],
+	"provider": {
+		"kind": "github",
+		"owner": "canvist",
+		"repo": "canvist",
+		"host": null
+	}
+}
