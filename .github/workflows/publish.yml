@@ -148,10 +148,133 @@ jobs:
             fi
           done
 
-  # crates.io and npm through monochange, both with OIDC trusted
-  # publishing: no registry token is stored anywhere.
-  packages:
-    name: crates.io and npm
+  # crates.io through monochange OIDC trusted publishing. Split from npm so
+  # pub.dev can start as soon as crates exist (the Dart archive pins crates.io,
+  # not npm). Android/Apple/npm stay parallel after configuration.
+  crates:
+    name: crates.io
+    needs: [plan, configuration]
+    if: needs.plan.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ needs.plan.outputs.dry_run != 'true' && 'publisher' || '' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: checkout release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: setup
+        uses: ./.github/actions/devenv
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: simulate the release commit
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mc run release --commit --no-verify=true --format text
+        shell: devenv shell -- bash -e {0}
+
+      # Readiness for crates only. `already_published` is fine on resume.
+      - name: check crates.io publish readiness
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/publish-readiness.json"
+          mc step publish-readiness --from HEAD --output "$result" --format json ||
+            echo "::warning::publish-readiness reported unsupported external packages; validating the report"
+          jq -e '
+            [.packages[] | select(.registry == "crates_io")] as $packages
+            | ($packages | length > 0)
+              and all($packages[]; .status == "ready" or .status == "already_published")
+          ' "$result" >/dev/null || {
+            echo "::error::Not every crate is ready to publish." >&2
+            jq -r '.packages[] | select(.registry == "crates_io") | "\(.status)\t\(.package)"' "$result" >&2
+            exit 1
+          }
+          already=$(jq -r '.packages[] | select(.registry == "crates_io" and .status == "already_published") | "\(.package)\t\(.version)"' "$result")
+          if [ -n "$already" ]; then
+            echo "::notice::Resuming crates.io publish; already-published crates will be skipped:"
+            printf '%s\n' "$already"
+          fi
+        shell: devenv shell -- bash -e {0}
+
+      - name: package every crate together
+        if: needs.plan.outputs.dry_run == 'true'
+        run: |
+          set -euo pipefail
+          metadata=$(cargo metadata --no-deps --format-version 1)
+          crates=()
+          for id in $(jq -r '.packages[] | select(.registry == "crates_io") | .package' "$RUNNER_TEMP/publish-readiness.json"); do
+            crate_path=$(awk -v id="$id" '
+              $0 == "[package." id "]" || $0 == "[package.\"" id "\"]" { found = 1; next }
+              found && /^path *=/ { gsub(/^path *= *"|"$/, ""); print; exit }
+              found && /^\[/ { exit }
+            ' monochange.toml)
+            name=$(jq -r --arg manifest "$PWD/$crate_path/Cargo.toml" '.packages[] | select(.manifest_path == $manifest) | .name' <<<"$metadata")
+            [ -n "$name" ] || { echo "::error::no crate found for monochange package $id" >&2; exit 1; }
+            crates+=(-p "$name")
+          done
+          cargo publish --dry-run --locked "${crates[@]}"
+        shell: devenv shell -- bash -e {0}
+
+      - name: get a crates.io token through OIDC
+        if: needs.plan.outputs.dry_run != 'true'
+        id: crates
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: publish crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(step publish-packages --all --ecosystem cargo --output "$RUNNER_TEMP/publish-result.json" --format json)
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          else
+            export MONOCHANGE_TRUSTED_PUBLISHING_ENVIRONMENT=publisher
+          fi
+          mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
+        shell: devenv shell -- bash -e {0}
+
+      - name: check the crates dry run covers every package
+        if: needs.plan.outputs.dry_run == 'true'
+        run: |
+          set -euo pipefail
+          jq -s -e '
+            ([.[0].packages[]
+              | select(.registry == "crates_io" and .status != "already_published")
+              | .package] | sort) ==
+              ([.[1].package_publish.packages[]
+                | select(.status != "skipped_external" and .status != "skipped_existing")
+                | .package] | sort)
+            and .[1].package_publish.summary.failed == 0
+            and .[1].package_publish.summary.blocked == 0
+          ' "$RUNNER_TEMP/publish-readiness.json" "$RUNNER_TEMP/publish-packages.json" >/dev/null || {
+            echo "::error::The crates dry run does not match readiness, or a package failed." >&2
+            jq '.package_publish.summary' "$RUNNER_TEMP/publish-packages.json" >&2
+            exit 1
+          }
+
+      - name: keep crates publish reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: publish-reports-crates
+          path: ${{ runner.temp }}/publish-*.json
+          if-no-files-found: ignore
+
+  # npm through monochange OIDC trusted publishing. Parallel with crates,
+  # Android, and Apple after configuration; pub.dev does not wait on this job.
+  npm:
+    name: npm
     needs: [plan, configuration]
     if: needs.plan.outputs.sdk == 'true'
     runs-on: ubuntu-latest
@@ -181,9 +304,6 @@ jobs:
         with:
           node-version: 24
 
-      # A pull request has no release commit yet: make one locally, exactly
-      # as the release pull request would, so the dry run checks the versions
-      # and manifests that would ship.
       - name: simulate the release commit
         if: github.event_name == 'pull_request'
         run: |
@@ -193,8 +313,6 @@ jobs:
           mc run release --commit --no-verify=true --format text
         shell: devenv shell -- bash -e {0}
 
-      # The same toolchain as `headless-js.yml`: the build uses `wasm-pack
-      # --profile`, which devenv's wasm-pack is too old for.
       - name: install the wasm target
         run: |
           rustup toolchain install
@@ -205,116 +323,57 @@ jobs:
         with:
           tool: wasm-pack@0.15.0
 
-      # Each npm package ships its build output, and publishing runs with
-      # `NPM_CONFIG_IGNORE_SCRIPTS`, so no `prepack` builds them: build here,
-      # in dependency order. The local `file:` links in the lockfiles satisfy
-      # the release's `^<version>` ranges, so `npm ci` needs nothing that isn't
-      # published yet.
       - name: build and validate the web SDK
         run: bash tools/release/build_web.sh
 
       - name: build and validate React Native and Lynx packages
         run: bash tools/release/build_native_js.sh
 
-      # Readiness checks package availability and dry-run planning, not proof
-      # of registry-side trust: manual_verification_required still needs an
-      # owner check (docs/internal/first-release.md). The Dart packages are
-      # monochange `external` (the `pub` job publishes them once crates.io has
-      # the crates they build from), so they report `unsupported` and are left
-      # out. `already_published` is also fine: a partial publish leaves some
-      # versions live, and monochange skips those when publishing resumes.
-      - name: check publish readiness
+      - name: check npm publish readiness
         run: |
           set -euo pipefail
           result="$RUNNER_TEMP/publish-readiness.json"
-          # pub.dev packages are `external`: monochange does not publish them
-          # and reports them as unsupported, but that still exits non-zero.
-          # The jq filter below is the authority for every registry this
-          # workflow publishes, so keep the report and let it decide.
           mc step publish-readiness --from HEAD --output "$result" --format json ||
             echo "::warning::publish-readiness reported unsupported external packages; validating the report"
           jq -e '
-            [.packages[] | select(.registry != "pub_dev")] as $packages
+            [.packages[] | select(.registry == "npm")] as $packages
             | ($packages | length > 0)
               and all($packages[]; .status == "ready" or .status == "already_published")
           ' "$result" >/dev/null || {
-            echo "::error::Not every package is ready to publish." >&2
-            jq -r '.packages[] | "\(.status)\t\(.registry)\t\(.package)"' "$result" >&2
+            echo "::error::Not every npm package is ready to publish." >&2
+            jq -r '.packages[] | select(.registry == "npm") | "\(.status)\t\(.package)"' "$result" >&2
             exit 1
           }
-          already=$(jq -r '.packages[] | select(.status == "already_published") | "\(.registry)\t\(.package)\t\(.version)"' "$result")
+          already=$(jq -r '.packages[] | select(.registry == "npm" and .status == "already_published") | "\(.package)\t\(.version)"' "$result")
           if [ -n "$already" ]; then
-            echo "::notice::Resuming publish; already-published packages will be skipped:"
+            echo "::notice::Resuming npm publish; already-published packages will be skipped:"
             printf '%s\n' "$already"
           fi
         shell: devenv shell -- bash -e {0}
 
-      # monochange's own dry run cannot resolve a crate whose workspace
-      # dependency is unpublished at the release version, so it only plans
-      # those. Cargo packages the release crates together against a local registry, which
-      # proves each crate builds from its packaged sources.
-      - name: package every crate together
-        if: needs.plan.outputs.dry_run == 'true'
-        run: |
-          set -euo pipefail
-          # Readiness names packages by their monochange id, which is not
-          # always the crate name (`canvist-rust` publishes `canvist`), so
-          # resolve each id through its `path` in monochange.toml.
-          metadata=$(cargo metadata --no-deps --format-version 1)
-          crates=()
-          for id in $(jq -r '.packages[] | select(.registry == "crates_io") | .package' "$RUNNER_TEMP/publish-readiness.json"); do
-            crate_path=$(awk -v id="$id" '
-              $0 == "[package." id "]" || $0 == "[package.\"" id "\"]" { found = 1; next }
-              found && /^path *=/ { gsub(/^path *= *"|"$/, ""); print; exit }
-              found && /^\[/ { exit }
-            ' monochange.toml)
-            name=$(jq -r --arg manifest "$PWD/$crate_path/Cargo.toml" '.packages[] | select(.manifest_path == $manifest) | .name' <<<"$metadata")
-            [ -n "$name" ] || { echo "::error::no crate found for monochange package $id" >&2; exit 1; }
-            crates+=(-p "$name")
-          done
-          cargo publish --dry-run --locked "${crates[@]}"
-        shell: devenv shell -- bash -e {0}
-
-      # Fetched last, right before publishing: the token lasts 30 minutes.
-      - name: get a crates.io token through OIDC
-        if: needs.plan.outputs.dry_run != 'true'
-        id: crates
-        uses: rust-lang/crates-io-auth-action@v1
-
-      - name: publish crates and npm packages
+      - name: publish npm packages
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
           NPM_CONFIG_PROVENANCE: "true"
           NPM_CONFIG_IGNORE_SCRIPTS: "true"
         run: |
           set -euo pipefail
-          # Trusted publishing refuses a long-lived npm token.
           unset NODE_AUTH_TOKEN
-          args=(step publish-packages --all --output "$RUNNER_TEMP/publish-result.json" --format json)
+          args=(step publish-packages --all --ecosystem npm --output "$RUNNER_TEMP/publish-result.json" --format json)
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
           else
-            # monochange checks the job runs in the `publisher` environment the
-            # registries trust. Actions does not expose the environment name,
-            # and the job's `environment:` is an expression monochange cannot
-            # evaluate from the workflow file, so name it here.
             export MONOCHANGE_TRUSTED_PUBLISHING_ENVIRONMENT=publisher
           fi
           mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
         shell: devenv shell -- bash -e {0}
 
-      # The dry run must cover exactly the packages readiness still needs to
-      # publish, and none may fail. Already-published versions are skipped on
-      # both sides so a resume after a partial publish still validates. Workspace
-      # crates whose dependencies are not published yet stay `planned`; the real
-      # publish orders them.
-      - name: check the dry run covers every package
+      - name: check the npm dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
         run: |
           set -euo pipefail
           jq -s -e '
             ([.[0].packages[]
-              | select(.registry != "pub_dev" and .status != "already_published")
+              | select(.registry == "npm" and .status != "already_published")
               | .package] | sort) ==
               ([.[1].package_publish.packages[]
                 | select(.status != "skipped_external" and .status != "skipped_existing")
@@ -322,16 +381,16 @@ jobs:
             and .[1].package_publish.summary.failed == 0
             and .[1].package_publish.summary.blocked == 0
           ' "$RUNNER_TEMP/publish-readiness.json" "$RUNNER_TEMP/publish-packages.json" >/dev/null || {
-            echo "::error::The publish dry run does not match readiness, or a package failed." >&2
+            echo "::error::The npm dry run does not match readiness, or a package failed." >&2
             jq '.package_publish.summary' "$RUNNER_TEMP/publish-packages.json" >&2
             exit 1
           }
 
-      - name: keep publish reports
+      - name: keep npm publish reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: publish-reports
+          name: publish-reports-npm
           path: ${{ runner.temp }}/publish-*.json
           if-no-files-found: ignore
 
@@ -483,15 +542,12 @@ jobs:
           fi
           ./gradlew :canvist:publishAndReleaseToMavenCentral --no-configuration-cache
 
-  # pub.dev, after crates.io: the `canvist` archive's build hook compiles
-  # its Rust crate from the crates.io release it pins, so that release must
-  # exist first. monochange marks both Dart packages `external` and this job
-  # publishes them. `dart.yml` proves on every pull request that both archives
-  # validate and that `canvist` builds outside the workspace. Every SDK release
-  # includes both Dart and Flutter packages.
+  # pub.dev, after crates.io only: the `canvist` archive's build hook compiles
+  # its Rust crate from the crates.io release it pins. It does not need npm,
+  # so this job no longer waits on the wasm/npm publish path.
   pub:
     name: pub.dev
-    needs: [plan, packages]
+    needs: [plan, crates]
     if: needs.plan.outputs.sdk == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -559,7 +615,8 @@ jobs:
     needs: [
       plan,
       configuration,
-      packages,
+      crates,
+      npm,
       apple,
       apple-release,
       android,
