@@ -40,9 +40,21 @@ use canvist_model::Value;
 
 const MARKDOWN_REVEAL: &str = "markdownReveal";
 
-/// Shows the Markdown syntax of the formatting at the caret, and lets you
-/// edit it: see the [module documentation](self). Register it with the
-/// formatting it reveals: bold, italic, strike, code, links, and headings.
+/// Shows the Markdown of the formatting at the caret, as Typora and
+/// Obsidian do, and lets you edit it.
+///
+/// The `**` around bold text, a heading's `##`, and a link's `[` and
+/// `](address)` are [`Adornment`]s: drawn faint while the caret touches the
+/// formatting, gone when it leaves, and never part of the document.
+///
+/// - The arrow keys stop on both sides of the syntax. Typing just inside
+///   `**` is bold; typing just outside it is not.
+/// - Backspace or Delete over it deletes one of its characters: `**`
+///   becomes `*`, so bold turns italic; `*`, `~~`, `` ` ``, and a link's `[`
+///   remove their formatting; a heading's `##` becomes `#`, then a paragraph.
+///
+/// Register it with the formatting it reveals: bold, italic, strike, code,
+/// links, and headings.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MarkdownReveal;
 
@@ -384,8 +396,7 @@ fn select(state: &mut EditorState, point: Point, affinity: Affinity) -> CommandR
 }
 
 /// Delete one character of the syntax on `side` of the caret, when the
-/// caret is on the far side of it from the text it formats: see the
-/// [module documentation](self).
+/// caret is on the far side of it from the text it formats.
 fn erase(side: Side) -> Command {
 	command(move |state| {
 		let Some((point, affinity)) = caret(state) else {
