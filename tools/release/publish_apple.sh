@@ -11,6 +11,14 @@ asset_tag="apple/$tag"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
+# Resume / tag-move: if SwiftPM already shipped this version, keep its pinned
+# binaries. Rebuilds are not bit-identical, so comparing a new xcframework
+# against the published zip would false-fail an otherwise finished release.
+if gh api "repos/canvist/canvist-swift/git/refs/tags/$tag" >/dev/null 2>&1; then
+	echo "SwiftPM $tag already published; leaving apple/$tag binaries unchanged." >&2
+	exit 0
+fi
+
 # Binary assets have their own public release so SwiftPM can
 # download them before the overall SDK release leaves draft status.
 if gh release view "$asset_tag" --repo canvist/canvist >/dev/null 2>&1; then
