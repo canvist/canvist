@@ -221,7 +221,8 @@ jobs:
       # owner check (docs/internal/first-release.md). The Dart packages are
       # monochange `external` (the `pub` job publishes them once crates.io has
       # the crates they build from), so they report `unsupported` and are left
-      # out.
+      # out. `already_published` is also fine: a partial publish leaves some
+      # versions live, and monochange skips those when publishing resumes.
       - name: check publish readiness
         run: |
           set -euo pipefail
@@ -234,12 +235,18 @@ jobs:
             echo "::warning::publish-readiness reported unsupported external packages; validating the report"
           jq -e '
             [.packages[] | select(.registry != "pub_dev")] as $packages
-            | ($packages | length > 0) and all($packages[]; .status == "ready")
+            | ($packages | length > 0)
+              and all($packages[]; .status == "ready" or .status == "already_published")
           ' "$result" >/dev/null || {
             echo "::error::Not every package is ready to publish." >&2
             jq -r '.packages[] | "\(.status)\t\(.registry)\t\(.package)"' "$result" >&2
             exit 1
           }
+          already=$(jq -r '.packages[] | select(.status == "already_published") | "\(.registry)\t\(.package)\t\(.version)"' "$result")
+          if [ -n "$already" ]; then
+            echo "::notice::Resuming publish; already-published packages will be skipped:"
+            printf '%s\n' "$already"
+          fi
         shell: devenv shell -- bash -e {0}
 
       # monochange's own dry run cannot resolve a crate whose workspace
@@ -296,15 +303,19 @@ jobs:
           mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
         shell: devenv shell -- bash -e {0}
 
-      # The dry run must cover exactly the packages readiness approved, and
-      # none may fail. Workspace crates whose dependencies are not published
-      # yet stay `planned`; the real publish orders them.
+      # The dry run must cover exactly the packages readiness still needs to
+      # publish, and none may fail. Already-published versions are skipped on
+      # both sides so a resume after a partial publish still validates. Workspace
+      # crates whose dependencies are not published yet stay `planned`; the real
+      # publish orders them.
       - name: check the dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
         run: |
           set -euo pipefail
           jq -s -e '
-            ([.[0].packages[] | select(.registry != "pub_dev") | .package] | sort) ==
+            ([.[0].packages[]
+              | select(.registry != "pub_dev" and .status != "already_published")
+              | .package] | sort) ==
               ([.[1].package_publish.packages[]
                 | select(.status != "skipped_external" and .status != "skipped_existing")
                 | .package] | sort)
@@ -458,6 +469,15 @@ jobs:
           : "${ORG_GRADLE_PROJECT_mavenCentralPassword:?Maven Central password is required}"
           : "${ORG_GRADLE_PROJECT_signingInMemoryKey:?Maven signing key is required}"
           : "${ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:?Maven signing password is required}"
+          # Maven Central rejects re-uploads of an existing version. Skip when
+          # this tag is already live so a resume after a partial publish can
+          # finish the remaining registries.
+          version="${RELEASE_TAG#v}"
+          pom="https://repo1.maven.org/maven2/io/github/ifiokjr/canvist-android/${version}/canvist-android-${version}.pom"
+          if curl -fsSIL --retry 3 --retry-delay 2 "$pom" >/dev/null; then
+            echo "::notice::io.github.ifiokjr:canvist-android:${version} already exists on Maven Central; skipping upload"
+            exit 0
+          fi
           ./gradlew :canvist:publishAndReleaseToMavenCentral --no-configuration-cache
 
   # pub.dev, after crates.io: the `canvist` archive's build hook compiles
