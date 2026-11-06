@@ -393,10 +393,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Publishing scripts come from the workflow revision, not the release
+      # tag: post-tag fixes (for example dropping CocoaPods) must apply to
+      # already-cut tags. Built Apple assets still come from the tag job.
       - name: checkout publishing scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: download release assets
