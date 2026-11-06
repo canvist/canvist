@@ -16,14 +16,14 @@
 		"node": ">=22.18"
 	},
 	"dependencies": {
-		"@remotion/bundler": "4.0.533",
-		"@remotion/cli": "4.0.533",
-		"@remotion/fonts": "4.0.533",
-		"@remotion/google-fonts": "4.0.533",
-		"@remotion/renderer": "4.0.533",
+		"@remotion/bundler": "4.0.541",
+		"@remotion/cli": "4.0.541",
+		"@remotion/fonts": "4.0.541",
+		"@remotion/google-fonts": "4.0.541",
+		"@remotion/renderer": "4.0.541",
 		"react": "19.3.0",
 		"react-dom": "19.3.0",
-		"remotion": "4.0.533"
+		"remotion": "4.0.541"
 	},
 	"devDependencies": {
 		"@types/node": "24.19.2",
