@@ -51,6 +51,7 @@ use canvist_extensions::KineticEffect;
 use canvist_extensions::KineticHandle;
 use canvist_extensions::LineHeight;
 use canvist_extensions::MarkHandle;
+use canvist_extensions::MarkdownReveal;
 use canvist_extensions::Mathematics;
 use canvist_extensions::MathematicsHandle;
 use canvist_extensions::MediaHandle;
@@ -152,6 +153,7 @@ fn full() -> (Editor, Extras) {
 		kinetic: builder.add(Kinetic),
 	};
 	builder.add(Typography::default());
+	builder.add(MarkdownReveal);
 
 	(builder.build().expect("every extension builds"), extras)
 }

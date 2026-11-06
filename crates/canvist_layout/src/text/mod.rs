@@ -146,10 +146,23 @@ pub(crate) struct TextLayout {
 	pub(crate) bidi: bool,
 	/// How lines sit in the content box.
 	pub(crate) align: Align,
-	/// The bytes of provisional text laid out with the block, which is not
-	/// part of the document. Offsets in `text`, lines, and items include it;
-	/// [`TextLayout::laid_out`] and [`TextLayout::in_document`] convert.
-	pub(crate) provisional: Option<Range<u32>>,
+	/// Text laid out with the block that is not part of the document:
+	/// provisional text and adornments, in order. Offsets in `text`, lines,
+	/// and items include it; [`TextLayout::laid_out`] and
+	/// [`TextLayout::in_document`] convert.
+	pub(crate) inserted: Vec<Inserted>,
+}
+
+/// Text laid out in a block without being part of the document.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Inserted {
+	/// The document offset it shows at.
+	pub(crate) at: u32,
+	/// The bytes it takes in the laid-out text.
+	pub(crate) range: Range<u32>,
+	/// An adornment shows between the upstream and downstream carets at
+	/// `at`; provisional text shows before both, as it will once final.
+	pub(crate) adornment: bool,
 }
 
 /// A block whose measurements have been queued.
@@ -250,7 +263,7 @@ pub(crate) fn finish(
 		rtl,
 		bidi,
 		align,
-		provisional: None,
+		inserted: Vec::new(),
 	};
 
 	layout.stack_lines(raw, bidi);

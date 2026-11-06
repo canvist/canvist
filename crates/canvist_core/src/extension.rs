@@ -6,6 +6,7 @@ use canvist_model::MarkTypeId;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
 
+use crate::Adornment;
 use crate::Command;
 use crate::CommandResult;
 use crate::CommandSpec;
@@ -101,6 +102,20 @@ pub trait Extension: Send + Sync {
 	/// nothing per update.
 	fn update_filters(&self, _schema: &Schema) -> Result<Vec<UpdateFilter>, EditorError> {
 		Ok(Vec::new())
+	}
+
+	/// Text to show in the document without it being part of it, for
+	/// `state`: see [`Adornment`]. Hosts ask after every update, through
+	/// [`Editor::adornments`](crate::Editor::adornments), and lay the text
+	/// out where it goes.
+	fn adornments(&self, _state: &EditorState) -> Vec<Adornment> {
+		Vec::new()
+	}
+
+	/// Whether [`Extension::adornments`] can return any, so editors whose
+	/// extensions never adorn skip asking after every update.
+	fn adorns(&self) -> bool {
+		false
 	}
 }
 

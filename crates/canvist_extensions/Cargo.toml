@@ -60,6 +60,7 @@ extras = [
 	"highlight",
 	"ink",
 	"kinetic",
+	"markdown-reveal",
 	"mathematics",
 	"media",
 	"mention",
@@ -107,6 +108,8 @@ italic = []
 line-height = ["text-style"]
 link = []
 list-item = []
+# The Markdown syntax of the formatting at the caret, shown and editable.
+markdown-reveal = []
 mathematics = []
 table = []
 table-of-contents = []
