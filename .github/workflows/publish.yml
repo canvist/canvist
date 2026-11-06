@@ -139,10 +139,9 @@ jobs:
           MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
           MAVEN_SIGNING_KEY_PASSWORD: ${{ secrets.MAVEN_SIGNING_KEY_PASSWORD }}
           SWIFTPM_GITHUB_TOKEN: ${{ secrets.SWIFTPM_GITHUB_TOKEN }}
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
           set -euo pipefail
-          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD MAVEN_SIGNING_KEY MAVEN_SIGNING_KEY_PASSWORD SWIFTPM_GITHUB_TOKEN COCOAPODS_TRUNK_TOKEN; do
+          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD MAVEN_SIGNING_KEY MAVEN_SIGNING_KEY_PASSWORD SWIFTPM_GITHUB_TOKEN; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Configure $name in the publisher environment before releasing the SDK." >&2
               exit 1
@@ -222,20 +221,32 @@ jobs:
       # owner check (docs/internal/first-release.md). The Dart packages are
       # monochange `external` (the `pub` job publishes them once crates.io has
       # the crates they build from), so they report `unsupported` and are left
-      # out.
+      # out. `already_published` is also fine: a partial publish leaves some
+      # versions live, and monochange skips those when publishing resumes.
       - name: check publish readiness
         run: |
           set -euo pipefail
           result="$RUNNER_TEMP/publish-readiness.json"
-          mc step publish-readiness --from HEAD --output "$result" --format json
+          # pub.dev packages are `external`: monochange does not publish them
+          # and reports them as unsupported, but that still exits non-zero.
+          # The jq filter below is the authority for every registry this
+          # workflow publishes, so keep the report and let it decide.
+          mc step publish-readiness --from HEAD --output "$result" --format json ||
+            echo "::warning::publish-readiness reported unsupported external packages; validating the report"
           jq -e '
             [.packages[] | select(.registry != "pub_dev")] as $packages
-            | ($packages | length > 0) and all($packages[]; .status == "ready")
+            | ($packages | length > 0)
+              and all($packages[]; .status == "ready" or .status == "already_published")
           ' "$result" >/dev/null || {
             echo "::error::Not every package is ready to publish." >&2
             jq -r '.packages[] | "\(.status)\t\(.registry)\t\(.package)"' "$result" >&2
             exit 1
           }
+          already=$(jq -r '.packages[] | select(.status == "already_published") | "\(.registry)\t\(.package)\t\(.version)"' "$result")
+          if [ -n "$already" ]; then
+            echo "::notice::Resuming publish; already-published packages will be skipped:"
+            printf '%s\n' "$already"
+          fi
         shell: devenv shell -- bash -e {0}
 
       # monochange's own dry run cannot resolve a crate whose workspace
@@ -292,15 +303,19 @@ jobs:
           mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
         shell: devenv shell -- bash -e {0}
 
-      # The dry run must cover exactly the packages readiness approved, and
-      # none may fail. Workspace crates whose dependencies are not published
-      # yet stay `planned`; the real publish orders them.
+      # The dry run must cover exactly the packages readiness still needs to
+      # publish, and none may fail. Already-published versions are skipped on
+      # both sides so a resume after a partial publish still validates. Workspace
+      # crates whose dependencies are not published yet stay `planned`; the real
+      # publish orders them.
       - name: check the dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
         run: |
           set -euo pipefail
           jq -s -e '
-            ([.[0].packages[] | select(.registry != "pub_dev") | .package] | sort) ==
+            ([.[0].packages[]
+              | select(.registry != "pub_dev" and .status != "already_published")
+              | .package] | sort) ==
               ([.[1].package_publish.packages[]
                 | select(.status != "skipped_external" and .status != "skipped_existing")
                 | .package] | sort)
@@ -348,7 +363,7 @@ jobs:
       - name: build CanvistFFI.xcframework
         run: platforms/apple/build.sh
 
-      - name: prepare installable SwiftPM and CocoaPods packages
+      - name: prepare installable SwiftPM package
         env:
           SOURCE_SHA: ${{ needs.plan.outputs.sha }}
         run: |
@@ -357,7 +372,6 @@ jobs:
           python3 tools/release/package_apple.py --output "$RUNNER_TEMP/apple" --version "$version" --source-sha "$SOURCE_SHA"
           swift package dump-package --package-path "$RUNNER_TEMP/apple/swift-package" > /dev/null
           test "$(swift package compute-checksum "$RUNNER_TEMP/apple/assets/CanvistFFI.xcframework.zip")" = "$(cat "$RUNNER_TEMP/apple/assets/CanvistFFI.xcframework.zip.checksum")"
-          pod lib lint "$RUNNER_TEMP/apple/cocoapods/Canvist.podspec" --quick --allow-warnings
 
       - name: stage release assets
         if: needs.plan.outputs.dry_run != 'true'
@@ -370,7 +384,7 @@ jobs:
 
   # Grant release write access only after the verified source has been built.
   apple-release:
-    name: publish SwiftPM and CocoaPods
+    name: publish SwiftPM
     needs: [plan, apple]
     if: needs.plan.outputs.dry_run != 'true'
     runs-on: macos-latest
@@ -379,10 +393,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Publishing scripts come from the workflow revision, not the release
+      # tag: post-tag fixes (for example dropping CocoaPods) must apply to
+      # already-cut tags. Built Apple assets still come from the tag job.
       - name: checkout publishing scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: download release assets
@@ -395,7 +412,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SWIFTPM_GITHUB_TOKEN: ${{ secrets.SWIFTPM_GITHUB_TOKEN }}
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: bash tools/release/publish_apple.sh "$RUNNER_TEMP/apple"
 
   # The Android library on Maven Central as `io.github.ifiokjr:canvist-android`.
@@ -456,6 +472,15 @@ jobs:
           : "${ORG_GRADLE_PROJECT_mavenCentralPassword:?Maven Central password is required}"
           : "${ORG_GRADLE_PROJECT_signingInMemoryKey:?Maven signing key is required}"
           : "${ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:?Maven signing password is required}"
+          # Maven Central rejects re-uploads of an existing version. Skip when
+          # this tag is already live so a resume after a partial publish can
+          # finish the remaining registries.
+          version="${RELEASE_TAG#v}"
+          pom="https://repo1.maven.org/maven2/io/github/ifiokjr/canvist-android/${version}/canvist-android-${version}.pom"
+          if curl -fsSIL --retry 3 --retry-delay 2 "$pom" >/dev/null; then
+            echo "::notice::io.github.ifiokjr:canvist-android:${version} already exists on Maven Central; skipping upload"
+            exit 0
+          fi
           ./gradlew :canvist:publishAndReleaseToMavenCentral --no-configuration-cache
 
   # pub.dev, after crates.io: the `canvist` archive's build hook compiles
