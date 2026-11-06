@@ -618,11 +618,17 @@ impl WebEditor {
 		}
 	}
 
-	/// Let layout account for `commit`.
+	/// Let layout account for `commit`, and for the adornments the
+	/// extensions show after it, such as revealed Markdown syntax.
 	fn lay_out(&mut self, commit: &Commit) {
 		let damage = self.layout.apply(self.doc.document(), commit);
+		let adornments = self.doc.editor().adornments();
+		let adorned = (!adornments.is_empty() || !self.layout.adornments().is_empty())
+			&& self
+				.layout
+				.set_adornments(adornments.into_iter().map(Into::into).collect());
 
-		if damage.from_y.is_some() {
+		if damage.from_y.is_some() || adorned {
 			self.full_repaint = true;
 		}
 

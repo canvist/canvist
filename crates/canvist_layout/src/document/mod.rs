@@ -6,6 +6,8 @@ use std::sync::Arc;
 use canvist_model::BlockId;
 use canvist_model::Commit;
 use canvist_model::Document;
+use canvist_model::InlineText;
+use canvist_model::MarkSet;
 
 pub(crate) use self::grid::GridStep;
 #[cfg(feature = "tables")]
@@ -17,6 +19,8 @@ pub(crate) use self::grid::table_cells;
 pub(crate) use self::grid::table_map;
 use self::heights::Heights;
 pub(crate) use self::ink::InkDrawing;
+pub use self::provisional::Adornment;
+use self::provisional::Insertion;
 pub use self::provisional::Provisional;
 pub(crate) use self::query::Origin;
 use self::rows::Flat;
@@ -60,9 +64,9 @@ mod tables;
 #[path = "tables_off.rs"]
 mod tables;
 
-/// A row whose measurements are queued, with the bytes of provisional text
+/// A row whose measurements are queued, with the text laid out in it
 /// laid out in it.
-type PreparedRow = (usize, text::Draft, Option<std::ops::Range<u32>>);
+type PreparedRow = (usize, text::Draft, Vec<text::Inserted>);
 
 /// Layout settings.
 #[derive(Clone, Copy, Debug)]
@@ -168,6 +172,8 @@ pub struct DocumentLayout {
 	heights: Heights,
 	/// Text shown in the document that is not part of it yet.
 	provisional: Option<Provisional>,
+	/// Text shown in the document that never becomes part of it.
+	adornments: Vec<Adornment>,
 }
 
 impl DocumentLayout {
@@ -182,6 +188,7 @@ impl DocumentLayout {
 			flat: Flat::default(),
 			heights: Heights::default(),
 			provisional: None,
+			adornments: Vec::new(),
 		};
 		layout.rebuild(doc);
 		layout
@@ -600,19 +607,35 @@ impl DocumentLayout {
 				.block(row.block)
 				.and_then(canvist_model::Block::inline)
 				.ok_or(LayoutError::OutOfSync(row.block))?;
-			let shown = self
+			let insertions: Vec<Insertion> = self
 				.provisional
-				.as_ref()
+				.iter()
 				.filter(|provisional| {
 					cfg!(feature = "provisional") && provisional.at.block == row.block
 				})
-				.and_then(|provisional| provisional.insert_into(inline));
+				.map(|provisional| provisional.insertion(inline))
+				.chain(
+					self.adornments
+						.iter()
+						.filter(|adornment| adornment.at.block == row.block)
+						.map(|adornment| {
+							Insertion {
+								at: adornment.at.offset,
+								text: InlineText::plain(&adornment.text, MarkSet::empty()),
+								adornment: true,
+							}
+						}),
+				)
+				.collect();
+			let shown = (!insertions.is_empty())
+				.then(|| provisional::insert_all(inline, insertions))
+				.flatten();
 			// An edit's offsets are in document terms, so a layout that held
-			// provisional text, or will, starts afresh.
+			// inserted text, or will, starts afresh.
 			let previous = row
 				.previous
 				.take()
-				.filter(|previous| shown.is_none() && previous.layout.provisional.is_none());
+				.filter(|previous| shown.is_none() && previous.layout.inserted.is_empty());
 			let style = self.styles.get(row.style);
 			let block = text::Block {
 				base: &style.text,
@@ -624,7 +647,11 @@ impl DocumentLayout {
 			};
 			let draft = text::prepare(&mut context, block);
 
-			drafts.push((index, draft, shown.map(|(_, range)| range)));
+			drafts.push((
+				index,
+				draft,
+				shown.map(|(_, inserted)| inserted).unwrap_or_default(),
+			));
 		}
 
 		Ok(drafts)
@@ -637,12 +664,12 @@ impl DocumentLayout {
 		let mut moved = None;
 		let mut tables = Vec::new();
 
-		for (index, draft, provisional) in drafts {
+		for (index, draft, inserted) in drafts {
 			let style = self.styles.get(self.flat.rows[index].style);
 			let width = content_width(style, self.flat.rows[index].width);
 			let padding = style.padding.vertical();
 			let mut layout = text::finish(draft, &self.cache, width, tab_size)?;
-			layout.provisional = provisional;
+			layout.inserted = inserted;
 			let height = to_units(padding + layout.height);
 			let row = &mut self.flat.rows[index];
 			row.layout = Some(Arc::new(layout));

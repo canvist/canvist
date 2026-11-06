@@ -59,7 +59,7 @@ const STARTER_KIT: [&str; 17] = [
 
 /// Extensions beyond the StarterKit, compiled with the `extras` feature.
 #[cfg(feature = "extras")]
-const EXTRA: [&str; 33] = [
+const EXTRA: [&str; 34] = [
 	"subscript",
 	"superscript",
 	"highlight",
@@ -92,6 +92,7 @@ const EXTRA: [&str; 33] = [
 	"clearFormatting",
 	"ink",
 	"kinetic",
+	"markdownReveal",
 	"conditional",
 ];
 
@@ -253,6 +254,7 @@ fn register_extra(builder: &mut EditorBuilder, name: &str) {
 	use canvist_extensions::Ink;
 	use canvist_extensions::Kinetic;
 	use canvist_extensions::LineHeight;
+	use canvist_extensions::MarkdownReveal;
 	use canvist_extensions::Mathematics;
 	use canvist_extensions::Mention;
 	use canvist_extensions::Placeholder;
@@ -362,6 +364,9 @@ fn register_extra(builder: &mut EditorBuilder, name: &str) {
 		}
 		"kinetic" => {
 			builder.add(Kinetic);
+		}
+		"markdownReveal" => {
+			builder.add(MarkdownReveal);
 		}
 		"conditional" => {
 			builder.add(Conditional);

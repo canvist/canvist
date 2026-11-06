@@ -85,6 +85,7 @@ pub use display::DisplayOptions;
 pub use display::RectKind;
 pub use display::SlotKind;
 pub use display::TextRun;
+pub use document::Adornment;
 pub use document::Damage;
 pub use document::DocumentLayout;
 pub use document::FontInvalidation;

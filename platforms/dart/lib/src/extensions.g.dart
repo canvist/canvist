@@ -772,6 +772,11 @@ final class ListItemHandle extends ExtensionHandle {
   Command liftListItem() => _command('liftListItem', const {});
 }
 
+/// The commands and queries of `markdownReveal`.
+final class MarkdownRevealHandle extends ExtensionHandle {
+  MarkdownRevealHandle._(super.registration) : super._();
+}
+
 /// The commands and queries of `mathematics`.
 final class MathematicsHandle extends ExtensionHandle {
   MathematicsHandle._(super.registration) : super._();
@@ -1454,6 +1459,14 @@ final class ListItemExtension extends Extension<ListItemHandle> {
       ListItemHandle._(registration);
 }
 
+/// Registers `markdownReveal`.
+final class MarkdownRevealExtension extends Extension<MarkdownRevealHandle> {
+  const MarkdownRevealExtension._() : super('markdownReveal');
+  @override
+  MarkdownRevealHandle _handle(Registration registration) =>
+      MarkdownRevealHandle._(registration);
+}
+
 /// Registers `mathematics`.
 final class MathematicsExtension extends Extension<MathematicsHandle> {
   const MathematicsExtension._() : super('mathematics');
@@ -1690,6 +1703,9 @@ abstract final class Extensions {
   /// The `listItem` extension.
   static const listItem = ListItemExtension._();
 
+  /// The `markdownReveal` extension.
+  static const markdownReveal = MarkdownRevealExtension._();
+
   /// The `mathematics` extension.
   static const mathematics = MathematicsExtension._();
 
@@ -1797,6 +1813,7 @@ abstract final class Extensions {
     lineHeight,
     link,
     listItem,
+    markdownReveal,
     mathematics,
     mention,
     orderedList,

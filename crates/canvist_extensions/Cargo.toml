@@ -54,6 +54,7 @@ extras = [
 	"highlight",
 	"ink",
 	"kinetic",
+	"markdown-reveal",
 	"mathematics",
 	"media",
 	"mention",
@@ -101,6 +102,8 @@ italic = ["dep:canvist_extension_italic"]
 line-height = ["text-style"]
 link = ["dep:canvist_extension_link"]
 list-item = ["dep:canvist_extension_list"]
+# The Markdown syntax of the formatting at the caret, shown and editable.
+markdown-reveal = ["dep:canvist_extension_markdown_reveal"]
 mathematics = ["dep:canvist_extension_mathematics", "canvist_extension_clipboard?/mathematics"]
 table = ["dep:canvist_extension_table", "canvist_extension_clipboard?/table"]
 table-of-contents = ["dep:canvist_extension_table_of_contents"]
@@ -162,6 +165,7 @@ canvist_extension_italic = { workspace = true, optional = true }
 canvist_extension_kinetic = { workspace = true, optional = true }
 canvist_extension_link = { workspace = true, optional = true }
 canvist_extension_list = { workspace = true, optional = true }
+canvist_extension_markdown_reveal = { workspace = true, optional = true }
 canvist_extension_mathematics = { workspace = true, optional = true }
 canvist_extension_media = { workspace = true, optional = true }
 canvist_extension_mention = { workspace = true, optional = true }

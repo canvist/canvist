@@ -77,6 +77,8 @@ export 'package:canvist/canvist.dart'
         LinkHandle,
         ListItemExtension,
         ListItemHandle,
+        MarkdownRevealExtension,
+        MarkdownRevealHandle,
         MathematicsExtension,
         MathematicsHandle,
         MentionExtension,
@@ -210,6 +212,9 @@ const link = Extensions.link;
 
 /// The `listItem` extension: register it with [EngineBuilder.add].
 const listItem = Extensions.listItem;
+
+/// The `markdownReveal` extension: register it with [EngineBuilder.add].
+const markdownReveal = Extensions.markdownReveal;
 
 /// The `mathematics` extension: register it with [EngineBuilder.add].
 const mathematics = Extensions.mathematics;

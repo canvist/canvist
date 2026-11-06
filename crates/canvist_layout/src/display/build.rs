@@ -323,11 +323,7 @@ impl Builder<'_> {
 			return;
 		};
 		let origin = layout.origin(index);
-		let (fades, animated) = if cfg!(feature = "provisional") {
-			fade::fades(row.block, text, self.settling, self.time)
-		} else {
-			(Vec::new(), false)
-		};
+		let (fades, animated) = fade::fades(row.block, text, self.settling, self.time);
 		self.list.animated |= animated;
 
 		for (index, line) in text.lines.iter().enumerate() {
