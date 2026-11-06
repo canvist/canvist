@@ -72,6 +72,7 @@ impl InlineParser<'_, '_> {
 				'`' => self.code_span(rest),
 				'*' | '_' | '~' | '=' => self.emphasis(rest, source),
 				'[' => self.link(rest),
+				'h' | 'H' | 'w' | 'W' => self.url(rest, source),
 				'<' if cfg!(any(feature = "subscript", feature = "superscript")) => self.tag(rest),
 				'$' if cfg!(feature = "mathematics") => self.math(rest),
 				_ => None,
@@ -115,15 +116,37 @@ impl InlineParser<'_, '_> {
 	}
 
 	fn newline(&mut self) -> usize {
-		if self.buffer.ends_with("  ") {
-			let trimmed = self.buffer.trim_end_matches(' ').len();
-			self.buffer.truncate(trimmed);
+		let hard = self.buffer.ends_with("  ");
+		let trimmed = self.buffer.trim_end_matches([' ', '\t']).len();
+		self.buffer.truncate(trimmed);
+
+		if hard {
 			self.hard_break();
 		} else {
 			self.buffer.push(' ');
 		}
 
 		1
+	}
+
+	/// A bare URL is text, as in GitHub's Markdown: `_` and `~` inside it
+	/// never format it. Escapes still read as the character they escape.
+	fn url(&mut self, rest: &str, source: &str) -> Option<usize> {
+		let index = source.len() - rest.len();
+		let length = super::markdown_write::url_length(source, index)?;
+		let mut characters = rest[..length].chars().peekable();
+
+		while let Some(character) = characters.next() {
+			match characters.peek() {
+				Some(&next) if character == '\\' && next.is_ascii_punctuation() => {
+					self.buffer.push(next);
+					characters.next();
+				}
+				_ => self.buffer.push(character),
+			}
+		}
+
+		Some(length)
 	}
 
 	fn code_span(&mut self, rest: &str) -> Option<usize> {
