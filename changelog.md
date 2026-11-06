@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-06)
+
+Grouped release for `sdk`.
+
+### 🐛 Fixed
+
+- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception. _Packages:_ 🟢 _canvist_dictation_relay_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)
+
 ## [0.2.0](https://github.com/canvist/canvist/releases/tag/v0.2.0) (2026-11-04)
 
 Grouped release for `sdk`.

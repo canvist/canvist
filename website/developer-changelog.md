@@ -2,6 +2,14 @@
 
 Deployment, infrastructure, and implementation notes for the website and canvist Cloud. The user-facing changelog lives at `/changelog` on the website.
 
+## 0.1.2 (2026-11-06)
+
+Grouped release for `app`.
+
+### 🐛 Fixed
+
+- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception. _Packages:_ 🟢 _canvist_cloud_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)
+
 ## 0.1.1 (2026-11-04)
 
 Grouped release for `app`.
