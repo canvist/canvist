@@ -229,7 +229,8 @@ fn blocks(build: &mut Builder<'_>, lines: &[&str]) -> Vec<BlockTree> {
 		}
 
 		if !starts_block(line) {
-			paragraph.push(line.trim());
+			// Trailing spaces stay: two of them before a line end make a hard break.
+			paragraph.push(line.trim_start());
 			index += 1;
 			continue;
 		}
@@ -250,13 +251,15 @@ fn flush_paragraph(build: &mut Builder<'_>, paragraph: &mut Vec<&str>, trees: &m
 		return;
 	}
 
-	let source = paragraph.join("\n");
+	let joined = paragraph.join("\n");
+	// A hard break can't end a paragraph, so its last line's spaces go.
+	let source = joined.trim_end();
 	let image = cfg!(feature = "image")
-		.then(|| image(&source))
+		.then(|| image(source))
 		.flatten()
 		.and_then(|attrs| build.leaf("image", &attrs));
 	let tree = image.unwrap_or_else(|| {
-		let inline = parse_inline(build, &source);
+		let inline = parse_inline(build, source);
 		build.text("paragraph", Attrs::new(), inline)
 	});
 
