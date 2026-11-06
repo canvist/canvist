@@ -230,7 +230,7 @@ Deno.test("every build consumes the plan SHA without persisting credentials", ()
 		false,
 	);
 
-	for (const job of ["packages", "apple", "android", "pub", "deploy"]) {
+	for (const job of ["crates", "npm", "apple", "android", "pub", "deploy"]) {
 		const needs = field(workflow, "jobs", job, "needs");
 		assert(
 			needs === "plan" || (Array.isArray(needs) && needs.includes("plan")),
@@ -240,6 +240,23 @@ Deno.test("every build consumes the plan SHA without persisting credentials", ()
 		assertEquals(field(checkout, "ref"), "${{ needs.plan.outputs.sha }}", job);
 		assertEquals(field(checkout, "persist-credentials"), false, job);
 	}
+
+	// pub.dev pins crates.io, not npm — it must not wait on the wasm path.
+	assertEquals(field(workflow, "jobs", "pub", "needs"), ["plan", "crates"]);
+	assertEquals(
+		field(workflow, "jobs", "release", "needs"),
+		[
+			"plan",
+			"configuration",
+			"crates",
+			"npm",
+			"apple",
+			"apple-release",
+			"android",
+			"pub",
+			"deploy",
+		],
+	);
 
 	assertEquals(
 		field(workflow, "jobs", "apple", "permissions", "contents"),
@@ -286,7 +303,7 @@ Deno.test("missing native credentials stop publication before any packages ship"
 		assert(!missing.success, `${name} must be required`);
 		assertStringIncludes(missing.stderr, name);
 	}
-	for (const job of ["packages", "apple", "android"]) {
+	for (const job of ["crates", "npm", "apple", "android"]) {
 		const needs = field(workflow, "jobs", job, "needs");
 		assert(Array.isArray(needs) && needs.includes("configuration"));
 	}
