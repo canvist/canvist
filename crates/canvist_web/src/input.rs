@@ -193,9 +193,10 @@ impl WebEditor {
 	/// that unit.
 	#[wasm_bindgen(js_name = pointerDown)]
 	pub fn pointer_down(&mut self, x: f32, y: f32, extend: bool, clicks: u32) -> JsResult<bool> {
-		let Some(point) = self.point_at(x, y) else {
+		let Some(caret) = self.layout.hit_test(x, y) else {
 			return Ok(false);
 		};
+		let point = caret.point;
 		let unit = match clicks {
 			0 | 1 => Unit::Character,
 			WORD_CLICKS => Unit::Word,
@@ -214,6 +215,16 @@ impl WebEditor {
 		}
 
 		self.drag = Some(Drag { unit, from, to });
+
+		// One click keeps the side of the point it landed on: the end of a
+		// wrapped line, or before revealed Markdown syntax rather than after.
+		if unit == Unit::Character {
+			let affinity = caret.affinity.into();
+			return self.edit(|editor, env| {
+				editor.select_with_affinity(Selection::text(from, to), affinity, env)
+			});
+		}
+
 		self.edit(|editor, env| editor.select(Selection::text(from, to), env))
 	}
 

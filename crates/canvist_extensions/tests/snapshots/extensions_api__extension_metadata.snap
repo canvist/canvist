@@ -37,6 +37,12 @@ expression: editor.metadata_json()
     ]
   },
   {
+    "commands": [],
+    "name": "markdownReveal",
+    "nodes": [],
+    "queries": []
+  },
+  {
     "commands": [
       {
         "args": [],

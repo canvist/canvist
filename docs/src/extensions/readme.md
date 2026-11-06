@@ -660,6 +660,32 @@ console.log(doc.query.placeholder());
 // Tell a story
 ```
 
+### Markdown reveal
+
+Shows the Markdown of the formatting at the caret, as Typora and Obsidian do: put the caret in bold text and `**` appears, faint, around it; in a heading, its `##`; in a link, `[` and `](address)`. The syntax isn't part of the document, so undo, collaboration, and export never see it, and it goes when the caret leaves. Register it with the formatting it reveals: bold, italic, strike, code, links, and headings.
+
+The syntax works like text you can edit:
+
+- The arrow keys stop on both sides of it. Typing just inside `**` is bold, and just outside it isn't.
+- Backspace or Delete over it deletes one character of it: `**` becomes `*`, so bold turns italic, and `*`, `~~`, `` ` ``, or a link's `[` remove their formatting. A heading's `##` becomes `#`, then a paragraph.
+
+It has no commands. It shows its syntax through adornments, text an extension shows without it being part of the document: `Editor::adornments` lists them after every update, and the browser editor lays them out. The headless engine has no canvas, so there it only changes how the keys behave.
+
+```ts
+import {
+	bold,
+	createEditor,
+	heading,
+	italic,
+	markdownReveal,
+} from "@canvist/web/full";
+
+const editor = await createEditor(element, {
+	extensions: [bold, italic, heading, markdownReveal],
+	content: { format: "markdown", input: "## Notes\n\nSome **bold** words" },
+});
+```
+
 ## Document tools
 
 Tools that work across the whole document rather than on one block.

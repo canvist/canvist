@@ -27,6 +27,27 @@ pub fn set_selection(state: &mut EditorState, selection: Selection) -> CommandRe
 	})
 }
 
+/// Replace the selection as [`set_selection`] does, with the caret on the
+/// `affinity` side of its point: at a soft line wrap, the end of one line or
+/// the start of the next; at an adornment, before or after it.
+pub fn set_selection_with_affinity(
+	state: &mut EditorState,
+	selection: Selection,
+	affinity: crate::Affinity,
+) -> CommandResult {
+	let selection = position::valid_selection(state.doc(), selection);
+
+	if selection == state.selection() && affinity == state.affinity() {
+		return Ok(None);
+	}
+
+	state.change(EditKind::Selection, |tr| {
+		tr.set_selection(selection);
+		tr.set_affinity(affinity);
+		Ok(true)
+	})
+}
+
 /// Select the whole document: a text range when it starts and ends with
 /// text, otherwise every top-level block.
 pub fn select_all(state: &mut EditorState) -> CommandResult {

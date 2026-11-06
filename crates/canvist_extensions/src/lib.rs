@@ -71,6 +71,7 @@
 //! | [`Ink`]             | `ink`              | `ink`, freehand strokes the canvas draws |
 //! | [`Kinetic`]         | `kinetic`          | `kinetic`, text that moves               |
 //! | [`ClearFormatting`] | `clearFormatting`  | marks off, blocks to paragraphs, `Mod-\` |
+//! | [`MarkdownReveal`]  | `markdownReveal`   | the Markdown at the caret, editable      |
 //!
 //! `docs/src/extensions/parity.md` compares the whole set with Remirror and
 //! TipTap.
@@ -133,6 +134,8 @@ mod history;
 mod horizontal_rule;
 #[cfg(feature = "link")]
 mod link;
+#[cfg(feature = "markdown-reveal")]
+mod markdown_reveal;
 
 #[cfg(feature = "list-item")]
 mod list_item;
@@ -295,6 +298,8 @@ pub use link::LinkHandle;
 pub use list_item::ListItem;
 #[cfg(feature = "list-item")]
 pub use list_item::ListItemHandle;
+#[cfg(feature = "markdown-reveal")]
+pub use markdown_reveal::MarkdownReveal;
 #[cfg(feature = "bold")]
 pub use marks::Bold;
 #[cfg(feature = "code")]
