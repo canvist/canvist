@@ -2333,6 +2333,101 @@ export const kinetic = {
 	]
 } as const satisfies ExtensionDescriptor;
 
+/** The `conditional` extension. */
+export const conditional = {
+	"commands": [
+		/** Make the selected text conditional: kept only in the versions `when` names. */
+		{
+			"args": [
+				/** Which versions of the document keep the text, in the host's own terms, such as `instagram threads`. */
+				{
+					"name": "when",
+					"type": {
+						"type": "string"
+					}
+				}
+			],
+			"name": "setConditional"
+		},
+		/** Write text, kept only in the versions `when` names, over the selection. */
+		{
+			"args": [
+				/** Which versions of the document keep the text, in the host's own terms, such as `instagram threads`. */
+				{
+					"name": "when",
+					"type": {
+						"type": "string"
+					}
+				},
+				/** The conditional text. */
+				{
+					"name": "text",
+					"type": {
+						"type": "string"
+					}
+				}
+			],
+			"name": "insertConditional"
+		},
+		/** Make the selection conditional on `when`, or unconditional when it already is. */
+		{
+			"args": [
+				/** Which versions of the document keep the text, in the host's own terms, such as `instagram threads`. */
+				{
+					"name": "when",
+					"type": {
+						"type": "string"
+					}
+				}
+			],
+			"name": "toggleConditional"
+		},
+		/** Make the selection unconditional. */
+		{
+			"args": [],
+			"name": "unsetConditional"
+		}
+	],
+	"name": "conditional",
+	"nodes": [
+		{
+			"attrs": [
+				/** Which versions of the document keep the text, in the host's own terms. */
+				{
+					"default": "",
+					"name": "when",
+					"type": {
+						"type": "string"
+					}
+				}
+			],
+			"kind": "mark",
+			"name": "conditional"
+		}
+	],
+	"queries": [
+		/** Whether the selection is conditional. */
+		{
+			"args": [],
+			"name": "isConditional",
+			"returns": {
+				"type": "bool"
+			}
+		},
+		/** The `when` every selected character is conditional on, or null. */
+		{
+			"args": [],
+			"name": "conditionalWhen",
+			"returns": {
+				"of": {
+					"type": "string"
+				},
+				"type": "nullable"
+			}
+		}
+	]
+} as const satisfies ExtensionDescriptor;
+
 /** The `typography` extension. */
 export const typography = {
 	"commands": [],
@@ -2630,7 +2725,7 @@ export const table = {
 } as const satisfies ExtensionDescriptor;
 
 /** Every extension beyond the StarterKit, which `@canvist/headless/full` compiles in. */
-export const extras = [textStyle, mention, details, subscript, superscript, highlight, color, backgroundColor, fontFamily, fontSize, lineHeight, textAlign, characterCount, placeholder, hashtag, emoji, image, youtube, twitch, audio, file, callout, mathematics, findAndReplace, tableOfContents, comments, dragHandle, clearFormatting, ink, kinetic, typography, table] as const;
+export const extras = [textStyle, mention, details, subscript, superscript, highlight, color, backgroundColor, fontFamily, fontSize, lineHeight, textAlign, characterCount, placeholder, hashtag, emoji, image, youtube, twitch, audio, file, callout, mathematics, findAndReplace, tableOfContents, comments, dragHandle, clearFormatting, ink, kinetic, conditional, typography, table] as const;
 
 /** Every optional extension canvist ships, the StarterKit's included. */
 export const allExtensions = [...starterKit, ...extras] as const;

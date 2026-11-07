@@ -55,5 +55,6 @@ pub fn extras() -> Vec<Arc<dyn Extension>> {
 		Arc::new(crate::ClearFormatting),
 		Arc::new(crate::Ink),
 		Arc::new(crate::Kinetic),
+		Arc::new(crate::Conditional),
 	]
 }

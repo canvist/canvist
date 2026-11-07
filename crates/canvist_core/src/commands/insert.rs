@@ -35,7 +35,9 @@ pub fn insert_embed(state: &mut EditorState, embed: Embed) -> CommandResult {
 	insert_inline(state, InlineText::embed(embed, marks))
 }
 
-fn insert_inline(state: &mut EditorState, content: InlineText) -> CommandResult {
+/// Insert `content`, text and embeds with marks of their own, over the
+/// selection, leaving the caret after it.
+pub fn insert_inline(state: &mut EditorState, content: InlineText) -> CommandResult {
 	if let Selection::Blocks { anchor, head } = state.selection() {
 		return replace_blocks(state, anchor, head, content);
 	}

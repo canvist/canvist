@@ -70,6 +70,7 @@
 //! | [`DragHandle`]      | `dragHandle`       | move blocks, Alt-↑ and Alt-↓             |
 //! | [`Ink`]             | `ink`              | `ink`, freehand strokes the canvas draws |
 //! | [`Kinetic`]         | `kinetic`          | `kinetic`, text that moves               |
+//! | [`Conditional`]     | `conditional`      | `conditional`, text some versions keep   |
 //! | [`ClearFormatting`] | `clearFormatting`  | marks off, blocks to paragraphs, `Mod-\` |
 //!
 //! `docs/src/extensions/parity.md` compares the whole set with Remirror and
@@ -169,6 +170,8 @@ mod placeholder;
 mod clear_formatting;
 #[cfg(feature = "comments")]
 mod comments;
+#[cfg(feature = "conditional")]
+mod conditional;
 #[cfg(feature = "drag-handle")]
 mod drag_handle;
 #[cfg(feature = "find-and-replace")]
@@ -227,6 +230,10 @@ pub use code_block::CodeBlockHandle;
 pub use comments::Comments;
 #[cfg(feature = "comments")]
 pub use comments::CommentsHandle;
+#[cfg(feature = "conditional")]
+pub use conditional::Conditional;
+#[cfg(feature = "conditional")]
+pub use conditional::ConditionalHandle;
 #[cfg(feature = "details")]
 pub use details::Details;
 #[cfg(feature = "details")]

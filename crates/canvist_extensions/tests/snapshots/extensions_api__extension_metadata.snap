@@ -2986,6 +2986,99 @@ expression: editor.metadata_json()
     ]
   },
   {
+    "commands": [
+      {
+        "args": [
+          {
+            "doc": "Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.",
+            "name": "when",
+            "type": {
+              "type": "string"
+            }
+          }
+        ],
+        "doc": "Make the selected text conditional: kept only in the versions `when` names.",
+        "name": "setConditional"
+      },
+      {
+        "args": [
+          {
+            "doc": "Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.",
+            "name": "when",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "doc": "The conditional text.",
+            "name": "text",
+            "type": {
+              "type": "string"
+            }
+          }
+        ],
+        "doc": "Write text, kept only in the versions `when` names, over the selection.",
+        "name": "insertConditional"
+      },
+      {
+        "args": [
+          {
+            "doc": "Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.",
+            "name": "when",
+            "type": {
+              "type": "string"
+            }
+          }
+        ],
+        "doc": "Make the selection conditional on `when`, or unconditional when it already is.",
+        "name": "toggleConditional"
+      },
+      {
+        "args": [],
+        "doc": "Make the selection unconditional.",
+        "name": "unsetConditional"
+      }
+    ],
+    "name": "conditional",
+    "nodes": [
+      {
+        "attrs": [
+          {
+            "default": "",
+            "doc": "Which versions of the document keep the text, in the host's own terms.",
+            "name": "when",
+            "type": {
+              "type": "string"
+            }
+          }
+        ],
+        "kind": "mark",
+        "name": "conditional"
+      }
+    ],
+    "queries": [
+      {
+        "args": [],
+        "doc": "Whether the selection is conditional.",
+        "name": "isConditional",
+        "returns": {
+          "type": "bool"
+        }
+      },
+      {
+        "args": [],
+        "doc": "The `when` every selected character is conditional on, or null.",
+        "name": "conditionalWhen",
+        "returns": {
+          "of": {
+            "type": "string"
+          },
+          "type": "nullable"
+        }
+      }
+    ]
+  },
+  {
     "commands": [],
     "name": "typography",
     "nodes": [],

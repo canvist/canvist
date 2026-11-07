@@ -614,7 +614,7 @@ fn plain_marks(
 }
 
 /// The marks that carry attributes, in order: a link, a hashtag, kinetic
-/// type, a comment, a highlight, and a text style.
+/// type, a comment, a conditional, a highlight, and a text style.
 fn attribute_marks(name: &str, attrs: &[(String, String)]) -> Vec<(&'static str, Attrs)> {
 	let data_type = attr(attrs, "data-type");
 	let css = attr(attrs, "style").unwrap_or_default();
@@ -639,6 +639,11 @@ fn attribute_marks(name: &str, attrs: &[(String, String)]) -> Vec<(&'static str,
 			.collect();
 		("comment", Attrs::new().with("threads", threads))
 	});
+	let conditional = (cfg!(feature = "conditional") && data_type == Some("conditional"))
+		.then(|| attr(attrs, "data-when"))
+		.flatten()
+		.filter(|when| !when.trim().is_empty())
+		.map(|when| ("conditional", Attrs::new().with("when", when)));
 	let highlight = (cfg!(feature = "highlight") && name == "mark").then(|| {
 		let color = attr(attrs, "data-color").or_else(|| css_value(css, "background-color"));
 		let attrs = color.map_or_else(Attrs::new, |color| Attrs::new().with("color", color));
@@ -649,10 +654,18 @@ fn attribute_marks(name: &str, attrs: &[(String, String)]) -> Vec<(&'static str,
 		.filter(|styles| !styles.is_empty())
 		.map(|styles| ("textStyle", styles));
 
-	[link, hashtag, kinetic, comment, highlight, text_style]
-		.into_iter()
-		.flatten()
-		.collect()
+	[
+		link,
+		hashtag,
+		kinetic,
+		comment,
+		conditional,
+		highlight,
+		text_style,
+	]
+	.into_iter()
+	.flatten()
+	.collect()
 }
 
 /// The value of CSS `property` in a `style` attribute.

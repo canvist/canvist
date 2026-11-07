@@ -467,6 +467,20 @@ fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
 				"</span>",
 			)
 		}
+		"conditional" if cfg!(feature = "conditional") => {
+			let when = mark
+				.attrs
+				.get("when")
+				.and_then(Value::as_str)
+				.unwrap_or_default();
+			(
+				format!(
+					"<span data-type=\"conditional\" data-when=\"{}\">",
+					escape(when)
+				),
+				"</span>",
+			)
+		}
 		"hashtag" if cfg!(feature = "hashtag") => {
 			let tag = mark.attrs.get("tag").and_then(Value::as_str);
 			let data = tag.map(|tag| format!(" data-tag=\"{}\"", escape(tag)));
