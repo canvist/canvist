@@ -530,6 +530,16 @@ struct InlineWriter<'s> {
 	open: Vec<(Mark, String)>,
 	/// Trailing whitespace held back until the marks around it close.
 	pending: String,
+	/// Where text sits in `out`, written as is: it is escaped in
+	/// [`InlineWriter::finish`], once the characters around it are known.
+	text: Vec<TextSpan>,
+}
+
+/// A stretch of `out` holding text, and whether `$` delimits formulas in it.
+struct TextSpan {
+	start: usize,
+	end: usize,
+	math: bool,
 }
 
 impl InlineWriter<'_> {
@@ -578,22 +588,163 @@ impl InlineWriter<'_> {
 		trail.clone_into(&mut self.pending);
 		open_marks(self.schema, &wanted, core, &mut self.open, &mut self.out);
 
-		let escaped = if literal || self.in_code() {
-			core.to_owned()
-		} else {
+		if !literal && !self.in_code() {
 			let math =
 				cfg!(feature = "mathematics") && self.schema.embed_type("inlineMath").is_some();
-			escape_with(core, math)
-		};
+			let start = self.out.len();
+			self.text.push(TextSpan {
+				start,
+				end: start + core.len(),
+				math,
+			});
+		}
 
-		self.out.push_str(&escaped);
+		self.out.push_str(core);
 	}
 
 	fn finish(mut self) -> String {
 		self.close_unwanted(&[]);
 		self.out.push_str(&self.pending);
-		self.out
+		escape_text(&self.out, &self.text)
 	}
+}
+
+/// `out` with its text escaped where, and only where, a character would
+/// otherwise read as syntax. Each decision sees the whole line, delimiters
+/// included, so `snake_case`, `a * b`, `[a note]`, and the `_` in a bare
+/// URL stay as written, while `*a*`, `[a](b)`, and `` `a` `` written as
+/// text are escaped.
+fn escape_text(out: &str, spans: &[TextSpan]) -> String {
+	let urls = url_spans(out);
+	let mut escaped = String::with_capacity(out.len() + out.len() / 8);
+	let mut copied = 0;
+
+	for span in spans {
+		escaped.push_str(&out[copied..span.start]);
+
+		for (offset, character) in out[span.start..span.end].char_indices() {
+			let index = span.start + offset;
+			let in_url = urls.iter().any(|url| url.contains(&index));
+
+			if needs_escape(out, index, character, span.math, in_url) {
+				escaped.push('\\');
+			}
+
+			escaped.push(character);
+		}
+
+		copied = span.end;
+	}
+
+	escaped.push_str(&out[copied..]);
+	escaped
+}
+
+/// Whether the text character at `index` in `out` must be escaped to read
+/// back as text, in CommonMark with GitHub's extensions and in canvist's
+/// own reader alike.
+fn needs_escape(out: &str, index: usize, character: char, math: bool, in_url: bool) -> bool {
+	let rest = &out[index..];
+	let before = out[..index].chars().next_back();
+	let after = rest[character.len_utf8()..].chars().next();
+	// The edges of a line count as whitespace, as in CommonMark's flanking rules.
+	let space = |near: Option<char>| near.is_none_or(char::is_whitespace);
+	let word = |near: Option<char>| near.is_some_and(char::is_alphanumeric);
+	let highlight = cfg!(feature = "highlight") && rest.starts_with("==");
+	let tag = cfg!(any(feature = "subscript", feature = "superscript"))
+		&& INLINE_TAGS.iter().any(|tag| rest.starts_with(tag));
+
+	if highlight || tag || (math && character == '$') {
+		return true;
+	}
+
+	match character {
+		// A backslash only escapes punctuation, and before a line end makes
+		// a hard break; anywhere else it is a backslash.
+		'\\' => after.is_none_or(|next| next.is_ascii_punctuation() || next == '\n'),
+		// A delimiter with whitespace on both sides can neither open nor
+		// close; `_` inside a word can't either, nor `_` and `~` in a URL.
+		'*' => !(space(before) && space(after)),
+		'_' => !(in_url || space(before) && space(after) || word(before) && word(after)),
+		'~' => !(in_url || space(before) && space(after)),
+		// A backtick opens a code span only if another closes it.
+		'`' => {
+			out.char_indices()
+				.any(|(at, other)| other == '`' && at != index)
+		}
+		// Brackets only matter as a link, `[label](href)`, or at the start of
+		// a line as a reference definition, `[label]: href`.
+		'[' => rest.contains("](") || (index == 0 && rest.contains("]:")),
+		']' => matches!(after, Some('(' | '[' | ':')),
+		_ => false,
+	}
+}
+
+/// Where `out` holds a bare URL, as GitHub's autolinks find them: `www.` or
+/// an `http`/`https` URL after whitespace or the start of the line, up to
+/// whitespace or `<`, without trailing punctuation.
+pub(super) fn url_spans(out: &str) -> Vec<std::ops::Range<usize>> {
+	let mut spans = Vec::new();
+
+	for (index, _) in out.char_indices() {
+		if spans
+			.last()
+			.is_some_and(|span: &std::ops::Range<usize>| span.contains(&index))
+		{
+			continue;
+		}
+
+		if let Some(length) = url_length(out, index) {
+			spans.push(index..index + length);
+		}
+	}
+
+	spans
+}
+
+/// The length of the bare URL starting at `index`, if one does.
+pub(super) fn url_length(text: &str, index: usize) -> Option<usize> {
+	let rest = &text[index..];
+	let before = text[..index].chars().next_back();
+	let starts = ["https://", "http://", "www."].iter().any(|scheme| {
+		rest.len() > scheme.len()
+			&& rest
+				.get(..scheme.len())
+				.is_some_and(|start| start.eq_ignore_ascii_case(scheme))
+	});
+
+	if !starts
+		|| !before.is_none_or(|near| near.is_whitespace() || matches!(near, '(' | '*' | '_' | '~'))
+	{
+		return None;
+	}
+
+	let end = rest
+		.find(|character: char| character.is_whitespace() || character == '<')
+		.unwrap_or(rest.len());
+	let mut url = &rest[..end];
+
+	// Trailing punctuation, and a `)` with no `(` to match, end the URL.
+	loop {
+		// A backslash goes too, so an escaped `\_` at the end reads as the `_` it escapes.
+		let trimmed =
+			url.trim_end_matches(['?', '!', '.', ',', ':', '*', '_', '~', '\'', '"', '\\']);
+		let unmatched =
+			trimmed.ends_with(')') && trimmed.matches(')').count() > trimmed.matches('(').count();
+		let next = if unmatched {
+			&trimmed[..trimmed.len() - 1]
+		} else {
+			trimmed
+		};
+
+		if next.len() == url.len() {
+			break;
+		}
+
+		url = next;
+	}
+
+	url.contains('.').then_some(url.len())
 }
 
 /// Inline text as Markdown. Markdown cannot break a line inside emphasis
@@ -605,6 +756,7 @@ fn inline(schema: &Schema, text: &InlineText) -> String {
 		out: String::new(),
 		open: Vec::new(),
 		pending: String::new(),
+		text: Vec::new(),
 	};
 
 	for run in text.runs() {
