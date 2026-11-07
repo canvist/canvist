@@ -247,6 +247,42 @@ final class CommentsHandle extends ExtensionHandle {
   );
 }
 
+/// The commands and queries of `conditional`.
+final class ConditionalHandle extends ExtensionHandle {
+  ConditionalHandle._(super.registration) : super._();
+
+  /// Make the selected text conditional: kept only in the versions `when` names.
+  ///
+  /// [when]: Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.
+  Command setConditional({required String when}) =>
+      _command('setConditional', {'when': when});
+
+  /// Write text, kept only in the versions `when` names, over the selection.
+  ///
+  /// [when]: Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.
+  ///
+  /// [text]: The conditional text.
+  Command insertConditional({required String when, required String text}) =>
+      _command('insertConditional', {'when': when, 'text': text});
+
+  /// Make the selection conditional on `when`, or unconditional when it already is.
+  ///
+  /// [when]: Which versions of the document keep the text, in the host's own terms, such as `instagram threads`.
+  Command toggleConditional({required String when}) =>
+      _command('toggleConditional', {'when': when});
+
+  /// Make the selection unconditional.
+  Command unsetConditional() => _command('unsetConditional', const {});
+
+  /// Whether the selection is conditional.
+  Query<bool> isConditional() =>
+      _query('isConditional', (json) => json! as bool);
+
+  /// The `when` every selected character is conditional on, or null.
+  Query<String?> conditionalWhen() =>
+      _query('conditionalWhen', (json) => json == null ? null : json as String);
+}
+
 /// The commands and queries of `details`.
 final class DetailsHandle extends ExtensionHandle {
   DetailsHandle._(super.registration) : super._();
@@ -1255,6 +1291,14 @@ final class CommentsExtension extends Extension<CommentsHandle> {
       CommentsHandle._(registration);
 }
 
+/// Registers `conditional`.
+final class ConditionalExtension extends Extension<ConditionalHandle> {
+  const ConditionalExtension._() : super('conditional');
+  @override
+  ConditionalHandle _handle(Registration registration) =>
+      ConditionalHandle._(registration);
+}
+
 /// Registers `details`.
 final class DetailsExtension extends Extension<DetailsHandle> {
   const DetailsExtension._() : super('details');
@@ -1583,6 +1627,9 @@ abstract final class Extensions {
   /// The `comments` extension.
   static const comments = CommentsExtension._();
 
+  /// The `conditional` extension.
+  static const conditional = ConditionalExtension._();
+
   /// The `details` extension.
   static const details = DetailsExtension._();
 
@@ -1729,6 +1776,7 @@ abstract final class Extensions {
     codeBlock,
     color,
     comments,
+    conditional,
     details,
     dragHandle,
     emoji,

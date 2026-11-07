@@ -26,6 +26,8 @@ use canvist_extensions::ClearFormattingHandle;
 use canvist_extensions::Color;
 use canvist_extensions::Comments;
 use canvist_extensions::CommentsHandle;
+use canvist_extensions::Conditional;
+use canvist_extensions::ConditionalHandle;
 use canvist_extensions::Details;
 use canvist_extensions::DetailsHandle;
 use canvist_extensions::DragHandle;
@@ -112,6 +114,7 @@ struct Extras {
 	clear: ClearFormattingHandle,
 	ink: InkHandle,
 	kinetic: KineticHandle,
+	conditional: ConditionalHandle,
 }
 
 /// The StarterKit plus every other extension, built through the typed path.
@@ -150,6 +153,7 @@ fn full() -> (Editor, Extras) {
 		clear: builder.add(ClearFormatting),
 		ink: builder.add(Ink),
 		kinetic: builder.add(Kinetic),
+		conditional: builder.add(Conditional),
 	};
 	builder.add(Typography::default());
 
@@ -431,6 +435,21 @@ fn document_tool_handles_agree_with_their_named_commands() {
 		|kit| kit.kinetic.set(KineticEffect::Pulse),
 		"setKinetic",
 		&Attrs::new().with("effect", "pulse"),
+	);
+	same_as_named(
+		|kit| kit.conditional.set("instagram"),
+		"setConditional",
+		&Attrs::new().with("when", "instagram"),
+	);
+	same_as_named(
+		|kit| kit.conditional.toggle("bluesky"),
+		"toggleConditional",
+		&Attrs::new().with("when", "bluesky"),
+	);
+	same_as_named(
+		|kit| kit.conditional.insert("x", "@ada_x"),
+		"insertConditional",
+		&Attrs::new().with("when", "x").with("text", "@ada_x"),
 	);
 }
 

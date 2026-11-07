@@ -715,6 +715,27 @@ Ranges of text tied to discussion threads. Adds the `comment` mark, whose `threa
 
 `setComment` adds a thread to the selected text, and `unsetComment` removes it everywhere. `activeComments` lists the threads at the caret, and `comments` every thread in the document with the text it covers. The theme tints commented text; HTML writes `<span data-type="comment" data-threads="…">`, and Markdown drops the mark.
 
+### Conditional text
+
+Text that only some versions of a document keep, such as a sentence for one audience, or the handle a person goes by on one network when the same post goes to several. Adds the `conditional` mark, whose `when` attribute is your app's own string: canvist never reads it, and your app decides what it means when it renders or exports a version. The theme tints conditional text so writers see it.
+
+| Commands                                                                                                           | Queries                            |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| `setConditional({ when })`, `toggleConditional({ when })`, `insertConditional({ when, text })`, `unsetConditional` | `isConditional`, `conditionalWhen` |
+
+`setConditional` and `toggleConditional` work on selected text. The mark is not inclusive, so text typed after a conditional run is ordinary text, as after a link: words that slipped into one version by accident would go out unseen. At a caret, `insertConditional` writes the conditional text itself. `conditionalWhen` is the `when` every selected character shares, or null. HTML writes `<span data-type="conditional" data-when="…">`, and Markdown keeps only the text, so export JSON or HTML to keep the conditions.
+
+```ts
+import { conditional, createEngine } from "@canvist/headless/full";
+
+const doc = (await createEngine([conditional])).parse("text", "Thanks ");
+doc.select({ path: [0], offset: 7 });
+doc.commands.insertConditional({ when: "bluesky", text: "@ada.bsky.social" });
+doc.commands.insertConditional({ when: "instagram", text: "@ada_builds" });
+console.log(doc.export("html"));
+// <p>Thanks <span data-type="conditional" data-when="bluesky">@ada.bsky.social</span><span data-type="conditional" data-when="instagram">@ada_builds</span></p>
+```
+
 ### Drag handle
 
 The commands behind a drag handle. The handle is your app's UI: place it with the layout's `DocumentLayout::block_rect` and find where a drop lands with `hit_block`. `moveBlockUp` and `moveBlockDown` (`Alt-↑` and `Alt-↓`) swap the selected blocks with their neighbour, reaching for the enclosing block at a container's edge, so a lone paragraph in a list item moves the item. `moveBlocksTo({ index })` puts them before sibling `index`, as a drop does.

@@ -62,6 +62,8 @@ struct Palette {
 	table_header: Color,
 	/// The tint under commented text.
 	comment: Color,
+	/// The tint under conditional text, which only some versions keep.
+	conditional: Color,
 	/// The paper behind an ink drawing.
 	ink_paper: Color,
 }
@@ -85,6 +87,7 @@ const LIGHT: Palette = Palette {
 	],
 	table_header: Color::rgb(0xf7, 0xf6, 0xf5),
 	comment: Color::rgba(0xe8, 0x59, 0x0c, 0x1f),
+	conditional: Color::rgba(0x1c, 0x7e, 0xd6, 0x1f),
 	ink_paper: Color::rgb(0xfa, 0xf9, 0xf7),
 };
 
@@ -107,6 +110,7 @@ const DARK: Palette = Palette {
 	],
 	table_header: Color::rgb(0x24, 0x21, 0x1f),
 	comment: Color::rgba(0xff, 0xa9, 0x4d, 0x2e),
+	conditional: Color::rgba(0x74, 0xc0, 0xfc, 0x2e),
 	ink_paper: Color::rgb(0x21, 0x1f, 0x1d),
 };
 
@@ -608,6 +612,11 @@ fn mark_rules(options: &StarterKitOptions, palette: &Palette) -> Vec<MarkRule> {
 				"comment",
 				"span",
 				TextPatch::new().background(palette.comment).underline(true),
+			),
+			MarkRule::new(
+				"conditional",
+				"span",
+				TextPatch::new().background(palette.conditional),
 			),
 			MarkRule::new(
 				"subscript",
