@@ -1,0 +1,29 @@
+[package]
+name = "canvist_extension_emoji"
+version = "0.2.0"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_emoji"
+edition.workspace = true
+homepage.workspace = true
+# The emoji table and its licence are data the `data` feature compiles in.
+include = ["Cargo.toml", "license", "readme.md", "src/**/*.rs", "src/*.txt"]
+keywords = ["text-editor", "rich-text", "editor", "canvist", "emoji"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: TipTap's `emoji` node, with `:smile:` shortcodes and `:` suggestions from GitHub's gemoji"
+
+[features]
+# GitHub's gemoji table, compiled in. Without it, `load` supplies the table
+# at run time.
+data = []
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_extension_suggestion = { workspace = true }
+canvist_model = { workspace = true }
+
+[lints]
+workspace = true

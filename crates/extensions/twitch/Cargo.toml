@@ -1,0 +1,27 @@
+[package]
+name = "canvist_extension_twitch"
+version = "0.2.0"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_twitch"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["text-editor", "rich-text", "editor", "canvist", "twitch"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: TipTap's `twitch` block, embedding only Twitch URLs"
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_extension_media = { workspace = true }
+canvist_model = { workspace = true }
+
+[dev-dependencies]
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
+[lints]
+workspace = true

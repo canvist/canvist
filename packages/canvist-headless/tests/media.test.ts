@@ -186,7 +186,7 @@ test("the StarterKit module refuses every extension beyond the StarterKit", asyn
 test("the emoji table the full module loads is the Rust table", async () => {
 	const rust = await readFile(
 		new URL(
-			"../../../crates/canvist_extensions/src/emoji/gemoji.txt",
+			"../../../crates/extensions/emoji/src/gemoji.txt",
 			import.meta.url,
 		),
 		"utf8",

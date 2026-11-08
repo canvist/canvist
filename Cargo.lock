@@ -994,16 +994,477 @@ dependencies = [
 ]
 
 [[package]]
+name = "canvist_extension_audio"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_media",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_blockquote"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_bold"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_callout"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_character_count"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "canvist_extension_clear_formatting"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_clipboard"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+ "serde_json",
+]
+
+[[package]]
+name = "canvist_extension_code"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_code_block"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_comments"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_conditional"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_details"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_document"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_drag_handle"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_emoji"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_suggestion",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_file"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_media",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_find_and_replace"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_hard_break"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_hashtag"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_suggestion",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_heading"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_highlight"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_history"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_horizontal_rule"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_image"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_media",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_ink"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_italic"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_kinetic"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_link"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_list"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_mathematics"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_media"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_mention"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_suggestion",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_paragraph"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_placeholder"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_strike"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_subscript"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_suggestion"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_superscript"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_table"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_table_of_contents"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_text_align"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_text_style"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_trailing_node"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_twitch"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_media",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_typography"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_underline"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
+name = "canvist_extension_youtube"
+version = "0.2.0"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_media",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
 name = "canvist_extensions"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_audio",
+ "canvist_extension_blockquote",
+ "canvist_extension_bold",
+ "canvist_extension_callout",
+ "canvist_extension_character_count",
+ "canvist_extension_clear_formatting",
+ "canvist_extension_clipboard",
+ "canvist_extension_code",
+ "canvist_extension_code_block",
+ "canvist_extension_comments",
+ "canvist_extension_conditional",
+ "canvist_extension_details",
+ "canvist_extension_document",
+ "canvist_extension_drag_handle",
+ "canvist_extension_emoji",
+ "canvist_extension_file",
+ "canvist_extension_find_and_replace",
+ "canvist_extension_hard_break",
+ "canvist_extension_hashtag",
+ "canvist_extension_heading",
+ "canvist_extension_highlight",
+ "canvist_extension_history",
+ "canvist_extension_horizontal_rule",
+ "canvist_extension_image",
+ "canvist_extension_ink",
+ "canvist_extension_italic",
+ "canvist_extension_kinetic",
+ "canvist_extension_link",
+ "canvist_extension_list",
+ "canvist_extension_mathematics",
+ "canvist_extension_media",
+ "canvist_extension_mention",
+ "canvist_extension_paragraph",
+ "canvist_extension_placeholder",
+ "canvist_extension_strike",
+ "canvist_extension_subscript",
+ "canvist_extension_superscript",
+ "canvist_extension_table",
+ "canvist_extension_table_of_contents",
+ "canvist_extension_text_align",
+ "canvist_extension_text_style",
+ "canvist_extension_trailing_node",
+ "canvist_extension_twitch",
+ "canvist_extension_typography",
+ "canvist_extension_underline",
+ "canvist_extension_youtube",
  "canvist_model",
  "divan",
  "insta",
  "proptest",
  "serde_json",
- "unicode-segmentation",
 ]
 
 [[package]]

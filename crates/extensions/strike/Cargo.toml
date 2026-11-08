@@ -1,0 +1,26 @@
+[package]
+name = "canvist_extension_strike"
+version = "0.2.0"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_strike"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["text-editor", "rich-text", "editor", "canvist", "strike"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: TipTap's `strike` mark, with `Mod-Shift-s` and `~~text~~`"
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_model = { workspace = true }
+
+[dev-dependencies]
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
+[lints]
+workspace = true

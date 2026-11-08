@@ -1,0 +1,23 @@
+[package]
+name = "canvist_extension_hashtag"
+version = "0.2.0"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_hashtag"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["text-editor", "rich-text", "editor", "canvist", "hashtag"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: Remirror's `hashtag` mark, applied to `#tag` as you type"
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_extension_suggestion = { workspace = true }
+canvist_model = { workspace = true }
+
+[lints]
+workspace = true

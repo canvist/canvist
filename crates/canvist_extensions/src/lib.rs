@@ -100,45 +100,14 @@
 //! # Ok::<(), canvist_core::EditorError>(())
 //! ```
 
-#[cfg(feature = "blockquote")]
-mod blockquote;
-#[cfg(feature = "bullet-list")]
-mod bullet_list;
-#[cfg(feature = "callout")]
-mod callout;
-#[cfg(feature = "character-count")]
-mod character_count;
 #[cfg(feature = "clipboard")]
-pub mod clipboard;
-#[cfg(feature = "code-block")]
-mod code_block;
-#[cfg(feature = "details")]
-mod details;
+pub use canvist_extension_clipboard as clipboard;
 #[cfg(feature = "emoji")]
-pub mod emoji;
+pub use canvist_extension_emoji as emoji;
 #[cfg(feature = "extras")]
 mod extras;
-#[cfg(feature = "hashtag")]
-mod hashtag;
+mod starter_kit;
 
-#[cfg(feature = "hard-break")]
-mod hard_break;
-
-#[cfg(feature = "heading")]
-mod heading;
-#[cfg(feature = "highlight")]
-mod highlight;
-#[cfg(feature = "history")]
-mod history;
-#[cfg(feature = "horizontal-rule")]
-mod horizontal_rule;
-#[cfg(feature = "link")]
-mod link;
-
-#[cfg(feature = "list-item")]
-mod list_item;
-#[cfg(any(feature = "list-item", feature = "task-list"))]
-mod lists;
 #[cfg(any(
 	feature = "bold",
 	feature = "italic",
@@ -148,9 +117,132 @@ mod lists;
 	feature = "subscript",
 	feature = "superscript"
 ))]
-mod marks;
+pub use canvist_core::MarkHandle;
+#[cfg(feature = "audio")]
+pub use canvist_extension_audio::Audio;
+#[cfg(feature = "blockquote")]
+pub use canvist_extension_blockquote::Blockquote;
+#[cfg(feature = "blockquote")]
+pub use canvist_extension_blockquote::BlockquoteHandle;
+#[cfg(feature = "bold")]
+pub use canvist_extension_bold::Bold;
+#[cfg(feature = "callout")]
+pub use canvist_extension_callout::Callout;
+#[cfg(feature = "callout")]
+pub use canvist_extension_callout::CalloutHandle;
+#[cfg(feature = "callout")]
+pub use canvist_extension_callout::CalloutType;
+#[cfg(feature = "character-count")]
+pub use canvist_extension_character_count::CharacterCount;
+#[cfg(feature = "character-count")]
+pub use canvist_extension_character_count::CharacterCountHandle;
+#[cfg(feature = "clear-formatting")]
+pub use canvist_extension_clear_formatting::ClearFormatting;
+#[cfg(feature = "clear-formatting")]
+pub use canvist_extension_clear_formatting::ClearFormattingHandle;
+#[cfg(feature = "code")]
+pub use canvist_extension_code::Code;
+#[cfg(feature = "code-block")]
+pub use canvist_extension_code_block::CodeBlock;
+#[cfg(feature = "code-block")]
+pub use canvist_extension_code_block::CodeBlockHandle;
+#[cfg(feature = "comments")]
+pub use canvist_extension_comments::Comments;
+#[cfg(feature = "comments")]
+pub use canvist_extension_comments::CommentsHandle;
+#[cfg(feature = "conditional")]
+pub use canvist_extension_conditional::Conditional;
+#[cfg(feature = "conditional")]
+pub use canvist_extension_conditional::ConditionalHandle;
+#[cfg(feature = "details")]
+pub use canvist_extension_details::Details;
+#[cfg(feature = "details")]
+pub use canvist_extension_details::DetailsHandle;
+pub use canvist_extension_document::Document;
+#[cfg(feature = "drag-handle")]
+pub use canvist_extension_drag_handle::DragHandle;
+#[cfg(feature = "drag-handle")]
+pub use canvist_extension_drag_handle::DragHandleHandle;
+#[cfg(feature = "emoji")]
+pub use canvist_extension_emoji::Emoji;
+#[cfg(feature = "emoji")]
+pub use canvist_extension_emoji::EmojiHandle;
+#[cfg(feature = "file")]
+pub use canvist_extension_file::File;
+#[cfg(feature = "find-and-replace")]
+pub use canvist_extension_find_and_replace::FindAndReplace;
+#[cfg(feature = "find-and-replace")]
+pub use canvist_extension_find_and_replace::FindAndReplaceHandle;
+#[cfg(feature = "find-and-replace")]
+pub use canvist_extension_find_and_replace::SearchMatch;
+#[cfg(feature = "hard-break")]
+pub use canvist_extension_hard_break::HardBreak;
+#[cfg(feature = "hard-break")]
+pub use canvist_extension_hard_break::HardBreakHandle;
+#[cfg(feature = "hashtag")]
+pub use canvist_extension_hashtag::Hashtag;
+#[cfg(feature = "hashtag")]
+pub use canvist_extension_hashtag::HashtagHandle;
+#[cfg(feature = "heading")]
+pub use canvist_extension_heading::Heading;
+#[cfg(feature = "heading")]
+pub use canvist_extension_heading::HeadingHandle;
+#[cfg(feature = "heading")]
+pub use canvist_extension_heading::HeadingLevel;
+#[cfg(feature = "highlight")]
+pub use canvist_extension_highlight::Highlight;
+#[cfg(feature = "highlight")]
+pub use canvist_extension_highlight::HighlightHandle;
+#[cfg(feature = "history")]
+pub use canvist_extension_history::History;
+#[cfg(feature = "history")]
+pub use canvist_extension_history::HistoryHandle;
+#[cfg(feature = "horizontal-rule")]
+pub use canvist_extension_horizontal_rule::HorizontalRule;
+#[cfg(feature = "horizontal-rule")]
+pub use canvist_extension_horizontal_rule::HorizontalRuleHandle;
+#[cfg(feature = "image")]
+pub use canvist_extension_image::Image;
+#[cfg(feature = "ink")]
+pub use canvist_extension_ink::INK_WIDTH;
+#[cfg(feature = "ink")]
+pub use canvist_extension_ink::Ink;
+#[cfg(feature = "ink")]
+pub use canvist_extension_ink::InkHandle;
+#[cfg(feature = "ink")]
+pub use canvist_extension_ink::InkStroke;
+#[cfg(feature = "italic")]
+pub use canvist_extension_italic::Italic;
+#[cfg(feature = "kinetic")]
+pub use canvist_extension_kinetic::Kinetic;
+#[cfg(feature = "kinetic")]
+pub use canvist_extension_kinetic::KineticEffect;
+#[cfg(feature = "kinetic")]
+pub use canvist_extension_kinetic::KineticHandle;
+#[cfg(feature = "link")]
+pub use canvist_extension_link::Link;
+#[cfg(feature = "link")]
+pub use canvist_extension_link::LinkHandle;
+#[cfg(feature = "bullet-list")]
+pub use canvist_extension_list::BulletList;
+#[cfg(feature = "bullet-list")]
+pub use canvist_extension_list::BulletListHandle;
+#[cfg(feature = "list-item")]
+pub use canvist_extension_list::ListItem;
+#[cfg(feature = "list-item")]
+pub use canvist_extension_list::ListItemHandle;
+#[cfg(feature = "ordered-list")]
+pub use canvist_extension_list::OrderedList;
+#[cfg(feature = "ordered-list")]
+pub use canvist_extension_list::OrderedListHandle;
+#[cfg(feature = "task-list")]
+pub use canvist_extension_list::TaskList;
+#[cfg(feature = "task-list")]
+pub use canvist_extension_list::TaskListHandle;
 #[cfg(feature = "mathematics")]
-mod math;
+pub use canvist_extension_mathematics::Mathematics;
+#[cfg(feature = "mathematics")]
+pub use canvist_extension_mathematics::MathematicsHandle;
 #[cfg(any(
 	feature = "audio",
 	feature = "file",
@@ -158,258 +250,74 @@ mod math;
 	feature = "twitch",
 	feature = "youtube"
 ))]
-mod media;
+pub use canvist_extension_media::MediaHandle;
 #[cfg(feature = "mention")]
-mod mention;
-#[cfg(feature = "ordered-list")]
-mod ordered_list;
+pub use canvist_extension_mention::Mention;
+#[cfg(feature = "mention")]
+pub use canvist_extension_mention::MentionHandle;
+#[cfg(feature = "mention")]
+pub use canvist_extension_mention::MentionTarget;
+pub use canvist_extension_paragraph::Paragraph;
+pub use canvist_extension_paragraph::ParagraphHandle;
 #[cfg(feature = "placeholder")]
-mod placeholder;
-
-#[cfg(feature = "clear-formatting")]
-mod clear_formatting;
-#[cfg(feature = "comments")]
-mod comments;
-#[cfg(feature = "conditional")]
-mod conditional;
-#[cfg(feature = "drag-handle")]
-mod drag_handle;
-#[cfg(feature = "find-and-replace")]
-mod find;
-#[cfg(feature = "ink")]
-mod ink;
-#[cfg(feature = "kinetic")]
-mod kinetic;
-mod paragraph;
-mod resolve;
-mod starter_kit;
-#[cfg(any(feature = "mention", feature = "hashtag", feature = "emoji"))]
-mod suggestion;
+pub use canvist_extension_placeholder::Placeholder;
+#[cfg(feature = "placeholder")]
+pub use canvist_extension_placeholder::PlaceholderHandle;
+#[cfg(feature = "strike")]
+pub use canvist_extension_strike::Strike;
+#[cfg(feature = "subscript")]
+pub use canvist_extension_subscript::Subscript;
+#[cfg(feature = "superscript")]
+pub use canvist_extension_superscript::Superscript;
 #[cfg(feature = "table")]
-mod table;
-#[cfg(feature = "task-list")]
-mod task_list;
-#[cfg(feature = "text-align")]
-mod text_align;
-#[cfg(feature = "text-style")]
-mod text_style;
+pub use canvist_extension_table::HeaderPart;
+#[cfg(feature = "table")]
+pub use canvist_extension_table::Table;
+#[cfg(feature = "table")]
+pub use canvist_extension_table::TableCell;
+#[cfg(feature = "table")]
+pub use canvist_extension_table::TableHandle;
 #[cfg(feature = "table-of-contents")]
-mod toc;
+pub use canvist_extension_table_of_contents::TableOfContents;
+#[cfg(feature = "table-of-contents")]
+pub use canvist_extension_table_of_contents::TableOfContentsHandle;
+#[cfg(feature = "table-of-contents")]
+pub use canvist_extension_table_of_contents::TocEntry;
+#[cfg(feature = "text-align")]
+pub use canvist_extension_text_align::Alignment;
+#[cfg(feature = "text-align")]
+pub use canvist_extension_text_align::TextAlign;
+#[cfg(feature = "text-align")]
+pub use canvist_extension_text_align::TextAlignHandle;
+#[cfg(feature = "background-color")]
+pub use canvist_extension_text_style::BackgroundColor;
+#[cfg(feature = "color")]
+pub use canvist_extension_text_style::Color;
+#[cfg(feature = "font-family")]
+pub use canvist_extension_text_style::FontFamily;
+#[cfg(feature = "font-size")]
+pub use canvist_extension_text_style::FontSize;
+#[cfg(feature = "line-height")]
+pub use canvist_extension_text_style::LineHeight;
+#[cfg(feature = "text-style")]
+pub use canvist_extension_text_style::StyleAttrHandle;
+#[cfg(feature = "text-style")]
+pub use canvist_extension_text_style::TextStyle;
+#[cfg(feature = "text-style")]
+pub use canvist_extension_text_style::TextStyleHandle;
 #[cfg(feature = "trailing-node")]
-mod trailing_node;
+pub use canvist_extension_trailing_node::TrailingNode;
+#[cfg(feature = "twitch")]
+pub use canvist_extension_twitch::Twitch;
 #[cfg(feature = "typography")]
-mod typography;
-
-#[cfg(feature = "blockquote")]
-pub use blockquote::Blockquote;
-#[cfg(feature = "blockquote")]
-pub use blockquote::BlockquoteHandle;
-#[cfg(feature = "bullet-list")]
-pub use bullet_list::BulletList;
-#[cfg(feature = "bullet-list")]
-pub use bullet_list::BulletListHandle;
-#[cfg(feature = "callout")]
-pub use callout::Callout;
-#[cfg(feature = "callout")]
-pub use callout::CalloutHandle;
-#[cfg(feature = "callout")]
-pub use callout::CalloutType;
-#[cfg(feature = "character-count")]
-pub use character_count::CharacterCount;
-#[cfg(feature = "character-count")]
-pub use character_count::CharacterCountHandle;
-#[cfg(feature = "clear-formatting")]
-pub use clear_formatting::ClearFormatting;
-#[cfg(feature = "clear-formatting")]
-pub use clear_formatting::ClearFormattingHandle;
-#[cfg(feature = "code-block")]
-pub use code_block::CodeBlock;
-#[cfg(feature = "code-block")]
-pub use code_block::CodeBlockHandle;
-#[cfg(feature = "comments")]
-pub use comments::Comments;
-#[cfg(feature = "comments")]
-pub use comments::CommentsHandle;
-#[cfg(feature = "conditional")]
-pub use conditional::Conditional;
-#[cfg(feature = "conditional")]
-pub use conditional::ConditionalHandle;
-#[cfg(feature = "details")]
-pub use details::Details;
-#[cfg(feature = "details")]
-pub use details::DetailsHandle;
-#[cfg(feature = "drag-handle")]
-pub use drag_handle::DragHandle;
-#[cfg(feature = "drag-handle")]
-pub use drag_handle::DragHandleHandle;
-#[cfg(feature = "emoji")]
-pub use emoji::Emoji;
-#[cfg(feature = "emoji")]
-pub use emoji::EmojiHandle;
+pub use canvist_extension_typography::Typography;
+#[cfg(feature = "typography")]
+pub use canvist_extension_typography::TypographyHandle;
+#[cfg(feature = "underline")]
+pub use canvist_extension_underline::Underline;
+#[cfg(feature = "youtube")]
+pub use canvist_extension_youtube::Youtube;
 #[cfg(feature = "extras")]
 pub use extras::extras;
-#[cfg(feature = "find-and-replace")]
-pub use find::FindAndReplace;
-#[cfg(feature = "find-and-replace")]
-pub use find::FindAndReplaceHandle;
-#[cfg(feature = "find-and-replace")]
-pub use find::SearchMatch;
-#[cfg(feature = "hard-break")]
-pub use hard_break::HardBreak;
-#[cfg(feature = "hard-break")]
-pub use hard_break::HardBreakHandle;
-#[cfg(feature = "hashtag")]
-pub use hashtag::Hashtag;
-#[cfg(feature = "hashtag")]
-pub use hashtag::HashtagHandle;
-#[cfg(feature = "heading")]
-pub use heading::Heading;
-#[cfg(feature = "heading")]
-pub use heading::HeadingHandle;
-#[cfg(feature = "heading")]
-pub use heading::HeadingLevel;
-#[cfg(feature = "highlight")]
-pub use highlight::Highlight;
-#[cfg(feature = "highlight")]
-pub use highlight::HighlightHandle;
-#[cfg(feature = "history")]
-pub use history::History;
-#[cfg(feature = "history")]
-pub use history::HistoryHandle;
-#[cfg(feature = "horizontal-rule")]
-pub use horizontal_rule::HorizontalRule;
-#[cfg(feature = "horizontal-rule")]
-pub use horizontal_rule::HorizontalRuleHandle;
-#[cfg(feature = "ink")]
-pub use ink::INK_WIDTH;
-#[cfg(feature = "ink")]
-pub use ink::Ink;
-#[cfg(feature = "ink")]
-pub use ink::InkHandle;
-#[cfg(feature = "ink")]
-pub use ink::InkStroke;
-#[cfg(feature = "kinetic")]
-pub use kinetic::Kinetic;
-#[cfg(feature = "kinetic")]
-pub use kinetic::KineticEffect;
-#[cfg(feature = "kinetic")]
-pub use kinetic::KineticHandle;
-#[cfg(feature = "link")]
-pub use link::Link;
-#[cfg(feature = "link")]
-pub use link::LinkHandle;
-#[cfg(feature = "list-item")]
-pub use list_item::ListItem;
-#[cfg(feature = "list-item")]
-pub use list_item::ListItemHandle;
-#[cfg(feature = "bold")]
-pub use marks::Bold;
-#[cfg(feature = "code")]
-pub use marks::Code;
-#[cfg(feature = "italic")]
-pub use marks::Italic;
-#[cfg(any(
-	feature = "bold",
-	feature = "italic",
-	feature = "underline",
-	feature = "strike",
-	feature = "code",
-	feature = "subscript",
-	feature = "superscript"
-))]
-pub use marks::MarkHandle;
-#[cfg(feature = "strike")]
-pub use marks::Strike;
-#[cfg(feature = "subscript")]
-pub use marks::Subscript;
-#[cfg(feature = "superscript")]
-pub use marks::Superscript;
-#[cfg(feature = "underline")]
-pub use marks::Underline;
-#[cfg(feature = "mathematics")]
-pub use math::Mathematics;
-#[cfg(feature = "mathematics")]
-pub use math::MathematicsHandle;
-#[cfg(feature = "audio")]
-pub use media::Audio;
-#[cfg(feature = "file")]
-pub use media::File;
-#[cfg(feature = "image")]
-pub use media::Image;
-#[cfg(any(
-	feature = "audio",
-	feature = "file",
-	feature = "image",
-	feature = "twitch",
-	feature = "youtube"
-))]
-pub use media::MediaHandle;
-#[cfg(feature = "twitch")]
-pub use media::Twitch;
-#[cfg(feature = "youtube")]
-pub use media::Youtube;
-#[cfg(feature = "mention")]
-pub use mention::Mention;
-#[cfg(feature = "mention")]
-pub use mention::MentionHandle;
-#[cfg(feature = "mention")]
-pub use mention::MentionTarget;
-#[cfg(feature = "ordered-list")]
-pub use ordered_list::OrderedList;
-#[cfg(feature = "ordered-list")]
-pub use ordered_list::OrderedListHandle;
-pub use paragraph::Document;
-pub use paragraph::Paragraph;
-pub use paragraph::ParagraphHandle;
-#[cfg(feature = "placeholder")]
-pub use placeholder::Placeholder;
-#[cfg(feature = "placeholder")]
-pub use placeholder::PlaceholderHandle;
 pub use starter_kit::StarterKit;
 pub use starter_kit::StarterKitHandles;
-#[cfg(feature = "table")]
-pub use table::HeaderPart;
-#[cfg(feature = "table")]
-pub use table::Table;
-#[cfg(feature = "table")]
-pub use table::TableCell;
-#[cfg(feature = "table")]
-pub use table::TableHandle;
-#[cfg(feature = "task-list")]
-pub use task_list::TaskList;
-#[cfg(feature = "task-list")]
-pub use task_list::TaskListHandle;
-#[cfg(feature = "text-align")]
-pub use text_align::Alignment;
-#[cfg(feature = "text-align")]
-pub use text_align::TextAlign;
-#[cfg(feature = "text-align")]
-pub use text_align::TextAlignHandle;
-#[cfg(feature = "background-color")]
-pub use text_style::BackgroundColor;
-#[cfg(feature = "color")]
-pub use text_style::Color;
-#[cfg(feature = "font-family")]
-pub use text_style::FontFamily;
-#[cfg(feature = "font-size")]
-pub use text_style::FontSize;
-#[cfg(feature = "line-height")]
-pub use text_style::LineHeight;
-#[cfg(feature = "text-style")]
-pub use text_style::StyleAttrHandle;
-#[cfg(feature = "text-style")]
-pub use text_style::TextStyle;
-#[cfg(feature = "text-style")]
-pub use text_style::TextStyleHandle;
-#[cfg(feature = "table-of-contents")]
-pub use toc::TableOfContents;
-#[cfg(feature = "table-of-contents")]
-pub use toc::TableOfContentsHandle;
-#[cfg(feature = "table-of-contents")]
-pub use toc::TocEntry;
-#[cfg(feature = "trailing-node")]
-pub use trailing_node::TrailingNode;
-#[cfg(feature = "typography")]
-pub use typography::Typography;
-#[cfg(feature = "typography")]
-pub use typography::TypographyHandle;
