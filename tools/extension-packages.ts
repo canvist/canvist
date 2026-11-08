@@ -228,7 +228,7 @@ function npm(item: Package): Record<string, string> {
 		},
 		files: ["mod.js", "mod.d.ts"],
 		sideEffects: false,
-		peerDependencies: {
+		dependencies: {
 			"@canvist/headless": `^${VERSION}`,
 		},
 	};
