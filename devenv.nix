@@ -29,7 +29,7 @@ in
       rustup
       shellcheck
       shfmt
-      swift-format
+      extra.swift-format
       wasm-pack
     ]
     ++ lib.optionals stdenv.isDarwin [
