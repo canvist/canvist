@@ -327,6 +327,8 @@ function dart(
 		"environment:",
 		"  sdk: ^3.13.0",
 		"",
+		"resolution: workspace",
+		"",
 		"dependencies:",
 		`  canvist: ^${VERSION}`,
 		"",
@@ -356,18 +358,8 @@ final engine = await builder.build();
 The [extension catalogue](https://github.com/canvist/canvist/blob/main/docs/src/extensions/readme.md) lists each extension's commands, queries, and keys.
 `;
 
-	const overrides = [
-		"# Build against the `canvist` package in this repository instead of the",
-		"# pub.dev release. pub reads this file locally and never publishes it.",
-		"dependency_overrides:",
-		"  canvist:",
-		"    path: ../../dart",
-		"",
-	].join("\n");
-
 	return {
 		"pubspec.yaml": pubspec,
-		"pubspec_overrides.yaml": overrides,
 		[`lib/${name}.dart`]: library,
 		"README.md": readme,
 		LICENSE,

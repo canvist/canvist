@@ -37,3 +37,10 @@ devenv.local.nix
 
 # Python release-tool bytecode.
 __pycache__/
+
+# FVM Version Cache
+.fvm/
+
+# The Dart workspace (`pubspec.yaml`) resolves here.
+.dart_tool/
+/pubspec.lock

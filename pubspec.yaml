@@ -1,0 +1,16 @@
+# The Dart workspace: every Dart and Flutter package in the repository,
+# resolved together, so each one builds against the others' local source.
+# Run `dart pub get` (or `flutter pub get`) once, here or in any member.
+# Flutter packages are members, so resolving needs Flutter's SDK; its
+# version is pinned in `.fvmrc`.
+name: canvist_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - platforms/dart
+  - platforms/dart_extensions/*
+  - platforms/flutter
+  - platforms/flutter/example

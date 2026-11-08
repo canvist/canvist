@@ -54,7 +54,7 @@ jobs:
       - name: setup flutter
         uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3.3
         with:
-          path: platforms/flutter/.fvmrc
+          path: .fvmrc
 
       # `platforms/flutter/test.sh` runs the Patrol suites with Patrol's CLI.
       - name: install patrol cli
@@ -165,7 +165,7 @@ jobs:
       - name: setup flutter
         uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3.3
         with:
-          path: platforms/flutter/.fvmrc
+          path: .fvmrc
 
       # `platforms/flutter/test.sh` runs the Patrol suites with Patrol's CLI.
       - name: install patrol cli

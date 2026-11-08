@@ -56,7 +56,7 @@ Android:
 
 Flutter:
 
-- [fvm](https://fvm.app). `platforms/flutter/.fvmrc` pins Flutter 3.47.7; run `fvm install` in `platforms/flutter` once. Without fvm the scripts use `flutter` from `PATH`, which must be the same version.
+- [fvm](https://fvm.app). The root `.fvmrc` pins Flutter 3.47.7 for the whole Dart workspace; run `fvm install` at the repository root once. Without fvm the scripts use `flutter` from `PATH`, which must be the same version.
 
 ## Build and test
 

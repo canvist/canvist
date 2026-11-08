@@ -17,10 +17,18 @@ final engine = await builder.build();
 
 pub.dev lets one account create 4 packages every 4 hours and 12 every 24 hours, so the packages go live in batches. A package whose `pubspec.yaml` says `publish_to: none` is not live yet: the `pub` job in `publish.yml` skips it, so releases carry on meanwhile. The generator keeps that line as it finds it.
 
+They belong to the repository's Dart workspace (the root `pubspec.yaml`), so they build against the local `canvist`.
+
 To put the next batch live, as a pub.dev uploader of `canvist` (after `dart pub login`):
 
 ```sh
 bash tools/release/reserve_dart_extensions.sh
 ```
 
-For each package not yet live, it publishes a placeholder 0.0.0 (at most 4 new packages per run), turns on automated publishing from GitHub Actions (repository `canvist/canvist`, tag pattern `v{{version}}`, environment `publisher`), and deletes `publish_to: none`. When pub.dev refuses the automated publishing change, it prints the package's admin page to do it by hand. Commit the pubspecs it changed, and run it again once the rate limit resets, until it reports nothing left.
+It publishes a placeholder 0.0.0 for each package not yet on pub.dev, at most 4 new packages per run, and prints each one's admin page. pub.dev only changes automated publishing from a signed-in browser, so on each page turn on publishing from GitHub Actions: repository `canvist/canvist`, tag pattern `v{{version}}`, and required environment `publisher`. Then switch those packages on and commit their pubspecs:
+
+```sh
+bash tools/release/reserve_dart_extensions.sh --released canvist_extension_bold canvist_extension_table
+```
+
+Run the script again once the rate limit resets, until it reports nothing left.

@@ -22,7 +22,10 @@ defaults:
 
 jobs:
   test:
-    # The pure Dart package, with the Dart SDK alone: no Flutter.
+    # The pure Dart package. It imports nothing from Flutter, but it
+    # resolves in the repository's Dart workspace (`pubspec.yaml`), which
+    # holds the Flutter packages too, so the SDK comes from Flutter; the
+    # `publish` job builds its archive alone, outside the workspace.
     name: dart (${{ matrix.os }})
     timeout-minutes: 40
     strategy:
@@ -48,14 +51,14 @@ jobs:
       - name: cache the build hook's cargo output
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: platforms/dart/.dart_tool/hooks_runner
+          path: .dart_tool/hooks_runner
           key: dart-hooks-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'platforms/dart/rust/**') }}
           restore-keys: dart-hooks-${{ runner.os }}-
 
-      - name: install dart
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+      - name: setup flutter
+        uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3.3
         with:
-          sdk: 3.13.5
+          path: .fvmrc
 
       - name: install dependencies
         run: dart pub get
@@ -75,9 +78,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         working-directory: platforms/dart_extensions
         run: |
-          for package in */; do
-            (cd "$package" && dart pub get && dart analyze --fatal-infos)
-          done
+          dart analyze --fatal-infos
           dart format --output=none --set-exit-if-changed .
 
       - name: conformance, api, and server tests
@@ -123,14 +124,14 @@ jobs:
       - name: cache the build hook's cargo output
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: platforms/flutter/.dart_tool/hooks_runner
+          path: .dart_tool/hooks_runner
           key: flutter-hooks-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'platforms/dart/rust/**') }}
           restore-keys: flutter-hooks-${{ runner.os }}-
 
       - name: setup flutter
         uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3.3
         with:
-          path: platforms/flutter/.fvmrc
+          path: .fvmrc
 
       - name: install dependencies
         run: flutter pub get
@@ -171,7 +172,7 @@ jobs:
       - name: setup flutter
         uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3.3
         with:
-          path: platforms/flutter/.fvmrc
+          path: .fvmrc
 
       - name: each package ships the repository's license
         run: |
@@ -188,6 +189,13 @@ jobs:
         run: |
           flutter pub get
           flutter pub publish --dry-run
+
+      - name: the released extension packages publish cleanly
+        run: |
+          for package in ../dart_extensions/*/; do
+            if grep -q '^publish_to: none$' "$package/pubspec.yaml"; then continue; fi
+            (cd "$package" && dart pub publish --dry-run)
+          done
 
       # pub archives what git tracks, minus ignored files. The crates.io
       # release this version pins does not exist until the release publishes
@@ -207,6 +215,8 @@ jobs:
           } > "$package/.cargo/config.toml"
           cat "$package/.cargo/config.toml"
           cd "$package"
+          # Alone, as a pub.dev user gets it: outside the Dart workspace.
+          sed -i '/^resolution: workspace$/d' pubspec.yaml
           dart pub get
           # The conformance fixtures live at the repository root, outside the
           # package.
