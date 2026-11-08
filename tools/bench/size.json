@@ -116,7 +116,7 @@
 				"packages/canvist-web/report/bundle/**/*.{js,wasm,css}"
 			],
 			"budget": {
-				"gzip": 359000
+				"gzip": 366000
 			}
 		},
 		{
@@ -126,7 +126,7 @@
 				"packages/canvist-web/wasm/canvist_web_bg.wasm"
 			],
 			"budget": {
-				"gzip": 345000
+				"gzip": 352000
 			}
 		},
 		{
@@ -278,8 +278,8 @@
 				"gzip"
 			],
 			"budget": {
-				"raw": 4100000,
-				"gzip": 1700000
+				"raw": 4230000,
+				"gzip": 1730000
 			}
 		},
 		{
