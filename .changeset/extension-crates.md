@@ -4,6 +4,7 @@
 "canvist_extensions": feat
 "@canvist/headless": feat
 "canvist-dart": feat
+"sdk": feat
 ---
 
 # One crate per extension, combined by canvist_extensions
