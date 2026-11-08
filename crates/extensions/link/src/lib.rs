@@ -2,7 +2,41 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Links.
+//! # `canvist_extension_link`
+//!
+//! TipTap's `link` mark for the canvist editor. [`Link`] registers a
+//! non-inclusive `link` mark with an `href` attribute, the `setLink` and
+//! `unsetLink` commands, and the `linkHref` query. With `autolink`, a URL
+//! becomes a link when a space follows it; with `link_on_paste`, URLs in
+//! pasted text become links. Trailing punctuation such as a full stop stays
+//! outside the link. Unlike TipTap, there is no `toggleLink` and no click
+//! handling: the host decides what opening a link means.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_link::Link;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_model::Point;
+//! use canvist_model::Selection;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let link = builder.add(Link::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "see https://canvist.dev ".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! let block = editor.state().doc().children(None)[0];
+//! editor.select(Selection::caret(Point::new(block, 10)), &mut env)?;
+//! assert_eq!(link.href(editor.state()).as_deref(), Some("https://canvist.dev"));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Command;
 use canvist_core::CommandResult;
@@ -25,6 +59,7 @@ use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_core::mark_type;
+use canvist_core::query;
 use canvist_model::Attrs;
 use canvist_model::Mark;
 use canvist_model::MarkSpec;
@@ -101,30 +136,20 @@ impl LinkHandle {
 fn set(href: &str) -> Command {
 	let href = href.to_owned();
 	command(move |state| {
-		let kind = mark_type(state.schema(), "link", "link")?;
+		let kind = kind(state.schema())?;
 		commands::set_mark(state, &link(kind, &href))
 	})
 }
 
 fn unset() -> Command {
-	command(|state| {
-		let kind = mark_type(state.schema(), "link", "link")?;
-		commands::unset_mark(state, kind)
-	})
+	command(|state| commands::unset_mark(state, kind(state.schema())?))
 }
 
-/// The link at the selection: the active marks at a caret, or the marks
+/// The link at the selection: the active marks at a caret, or the `href`
 /// every selected character shares.
 fn href(state: &EditorState) -> Option<String> {
-	let kind = state.schema().mark_type("link")?;
-
-	if !commands::is_mark_active(state, kind) {
-		return None;
-	}
-
-	let marks = commands::active_marks(state);
-	let href = marks.get(kind)?.attrs.get("href")?.as_str()?;
-	Some(href.to_owned())
+	let href = query::shared_mark_attr(state, "link", "href")?;
+	href.as_str().map(str::to_owned)
 }
 
 fn href_field(required: bool) -> Field {
@@ -203,7 +228,8 @@ impl Extension for Link {
 		}
 
 		let kind = kind(schema)?;
-		let pattern = format!(r"(?:^|\s)({URL})[.,;:!?)\]]*\s$");
+		// A URL may open with a bracket or quote, as in `(https://…)`.
+		let pattern = format!(r#"(?:^|[\s(\[<"'])({URL})[.,;:!?)\]>"']*\s$"#);
 		let rule = InputRule::new(&pattern, move |state, found| autolink(state, found, kind))?;
 		Ok(vec![rule.lookback(Lookback::Word)])
 	}
@@ -227,5 +253,131 @@ impl TypedExtension for Link {
 		LinkHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn editor(link: Link) -> Result<(Editor, LinkHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let handle = builder.add(link);
+		Ok((builder.build()?, handle))
+	}
+
+	fn type_text(editor: &mut Editor, text: &str, env: &mut Env<'_>) -> Result<(), EditorError> {
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), env)?;
+		}
+
+		Ok(())
+	}
+
+	/// Select the last `needle` in the paragraph and read its `href`.
+	fn href_of(
+		editor: &mut Editor,
+		needle: &str,
+		env: &mut Env<'_>,
+	) -> Result<Option<String>, EditorError> {
+		let block = editor.state().doc().children(None)[0];
+		let text = editor.state().doc().plain_text();
+		let start = text.rfind(needle).expect("the paragraph holds the needle");
+		let point = |at: usize| Point::new(block, u32::try_from(at).expect("a short paragraph"));
+		let selection = Selection::text(point(start), point(start + needle.len()));
+
+		editor.select(selection, env)?;
+		Ok(href(editor.state()))
+	}
+
+	#[test]
+	fn mixed_links_share_no_href() -> Result<(), EditorError> {
+		let (mut editor, link) = editor(Link::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+
+		href_of(&mut editor, "a", &mut env)?;
+		editor.run(&link.set("https://a.test"), &mut env)?;
+		href_of(&mut editor, "b", &mut env)?;
+		editor.run(&link.set("https://b.test"), &mut env)?;
+
+		assert_eq!(href_of(&mut editor, "ab", &mut env)?, None);
+		assert_eq!(
+			href_of(&mut editor, "b", &mut env)?.as_deref(),
+			Some("https://b.test")
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn autolink_skips_brackets_quotes_and_punctuation() -> Result<(), EditorError> {
+		let cases = [
+			("see https://a.test, ", ", "),
+			("(https://a.test). ", "). "),
+			("\"https://a.test\" ", "\" "),
+		];
+
+		for (typed, after) in cases {
+			let (mut editor, _) = editor(Link::default())?;
+			let mut env = Env::headless(Duration::ZERO);
+			type_text(&mut editor, typed, &mut env)?;
+
+			assert_eq!(editor.state().doc().plain_text(), typed);
+			let url = href_of(&mut editor, "https://a.test", &mut env)?;
+			assert_eq!(url.as_deref(), Some("https://a.test"), "{typed}");
+			assert_eq!(href_of(&mut editor, after, &mut env)?, None, "{typed}");
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn options_turn_off_autolink_and_paste() -> Result<(), EditorError> {
+		let options = Link {
+			autolink: false,
+			link_on_paste: false,
+		};
+		let (mut editor, _) = editor(options)?;
+		let mut env = Env::headless(Duration::ZERO);
+		type_text(&mut editor, "https://a.test ", &mut env)?;
+		editor.paste_text("https://b.test", &mut env)?;
+
+		assert_eq!(href_of(&mut editor, "https://a.test", &mut env)?, None);
+		assert_eq!(href_of(&mut editor, "https://b.test", &mut env)?, None);
+		Ok(())
+	}
+
+	#[test]
+	fn pasted_urls_become_links() -> Result<(), EditorError> {
+		let (mut editor, _) = editor(Link::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.paste_text("go to https://a.test.", &mut env)?;
+
+		let url = href_of(&mut editor, "https://a.test", &mut env)?;
+		assert_eq!(url.as_deref(), Some("https://a.test"));
+		assert_eq!(href_of(&mut editor, "go", &mut env)?, None);
+		assert_eq!(href_of(&mut editor, ".", &mut env)?, None);
+		Ok(())
+	}
+
+	#[test]
+	fn unset_removes_the_link() -> Result<(), EditorError> {
+		let (mut editor, link) = editor(Link::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		href_of(&mut editor, "ab", &mut env)?;
+
+		editor.run(&link.set("https://a.test"), &mut env)?;
+		editor.run(&link.unset(), &mut env)?;
+
+		assert_eq!(link.href(editor.state()), None);
+		Ok(())
 	}
 }

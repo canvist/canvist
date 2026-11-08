@@ -123,16 +123,20 @@ fn check_around(state: &mut EditorState, checked: bool) -> CommandResult {
 		return Ok(None);
 	};
 
-	lists::set_attrs(state, item, &Attrs::new().with("checked", checked))
+	commands::set_block_attrs(state, item, &Attrs::new().with("checked", checked))
 }
 
 /// Check the caret's new task item when the rule was typed as `[x]`.
 fn check(state: &mut EditorState, item: BlockTypeId, checked: bool) -> CommandResult {
-	let Some((found, _)) = lists::caret_item(state, item).filter(|_| checked) else {
+	if !checked {
+		return Ok(None);
+	}
+
+	let Some((found, _)) = lists::caret_item(state, item) else {
 		return Ok(None);
 	};
 
-	lists::set_attrs(state, found, &Attrs::new().with("checked", true))
+	commands::set_block_attrs(state, found, &Attrs::new().with("checked", true))
 }
 
 fn checked_field() -> Field {

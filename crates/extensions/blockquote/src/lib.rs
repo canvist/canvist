@@ -2,7 +2,37 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Block quotes.
+//! # `canvist_extension_blockquote`
+//!
+//! TipTap's `blockquote` node for the canvist editor, as in TipTap's
+//! `@tiptap/extension-blockquote`. [`Blockquote`] registers a container
+//! that holds any blocks, the `toggleBlockquote` command, and the
+//! `isBlockquote` query. `Mod-Shift-b` wraps the selected blocks in a quote
+//! or lifts them out of one, and typing `> ` at the start of a block wraps
+//! it.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_blockquote::Blockquote;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let quote = builder.add(Blockquote);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "> Quoted".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! assert!(quote.is_active(editor.state()));
+//! assert_eq!(editor.state().doc().plain_text(), "Quoted");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -19,6 +49,7 @@ use canvist_core::Registration;
 use canvist_core::RuleMatch;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_core::query;
@@ -59,7 +90,7 @@ impl BlockquoteHandle {
 
 fn toggle() -> Command {
 	command(|state| {
-		let quote = canvist_core::block_type(state.schema(), "blockquote", "blockquote")?;
+		let quote = block_type(state.schema(), "blockquote", "blockquote")?;
 		commands::toggle_wrap(state, quote, Attrs::new())
 	})
 }
@@ -101,7 +132,7 @@ impl Extension for Blockquote {
 	}
 
 	fn input_rules(&self, schema: &Schema) -> Result<Vec<InputRule>, EditorError> {
-		let quote = canvist_core::block_type(schema, self.name(), "blockquote")?;
+		let quote = block_type(schema, self.name(), "blockquote")?;
 		let wrap = move |state: &mut EditorState, _: &RuleMatch| {
 			commands::wrap_in(state, quote, Attrs::new())
 		};
@@ -116,5 +147,56 @@ impl TypedExtension for Blockquote {
 		BlockquoteHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn editor() -> Result<(Editor, BlockquoteHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let quote = builder.add(Blockquote);
+		Ok((builder.build()?, quote))
+	}
+
+	#[test]
+	fn toggle_wraps_and_lifts() -> Result<(), EditorError> {
+		let (mut editor, quote) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("Quoted", &mut env)?;
+
+		editor.run(&quote.toggle(), &mut env)?;
+		assert!(quote.is_active(editor.state()));
+		assert_eq!(
+			editor.query("isBlockquote", &Attrs::new())?,
+			Value::Bool(true)
+		);
+
+		editor.run(&quote.toggle(), &mut env)?;
+		assert!(!quote.is_active(editor.state()));
+		assert_eq!(editor.state().doc().plain_text(), "Quoted");
+		Ok(())
+	}
+
+	#[test]
+	fn the_shortcut_only_fires_at_the_start_of_a_block() -> Result<(), EditorError> {
+		let (mut editor, quote) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		for character in "a > b".chars() {
+			editor.insert_text(&character.to_string(), &mut env)?;
+		}
+
+		assert!(!quote.is_active(editor.state()));
+		assert_eq!(editor.state().doc().plain_text(), "a > b");
+		Ok(())
 	}
 }

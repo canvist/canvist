@@ -30,6 +30,29 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_table
 ```
 
+## Usage
+
+Register [`Table`] and keep its handle, which offers every command typed:
+
+```rust
+use canvist_core::Editor;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_table::Table;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let table = builder.add(Table);
+let mut editor = builder.build()?;
+
+editor.run(&table.insert(3, 3, true), &mut env)?;
+editor.run(&table.add_row_after(), &mut env)?;
+editor.run(&table.merge_cells(), &mut env)?;
+```
+
+Hosts without the typed API run the same commands by name: `insertTable` with `rows`, `cols`, and `withHeaderRow`, `addRowAfter`, `mergeCells`, and the rest. The `tableCell` query says where the caret sits. Pasting and copying tables as HTML and Markdown needs [`canvist_extension_clipboard`](../clipboard) with its `table` feature.
+
+[`Table`]: https://docs.rs/canvist_extension_table/latest/canvist_extension_table/struct.Table.html
+
 ## License
 
 [Unlicense](https://unlicense.org)

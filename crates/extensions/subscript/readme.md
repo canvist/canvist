@@ -30,6 +30,26 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_subscript
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_subscript::Subscript;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let subscript = builder.add(Subscript);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&subscript.toggle(), &mut env)?;
+assert!(subscript.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

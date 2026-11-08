@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_character_count
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_character_count::CharacterCount;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let count = builder.add(CharacterCount { limit: Some(8) });
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("two words", &mut env)?;
+assert_eq!(count.characters(editor.state()), 0);
+
+editor.insert_text("one word", &mut env)?;
+assert_eq!(count.characters(editor.state()), 8);
+assert_eq!(count.words(editor.state()), 2);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

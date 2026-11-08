@@ -2,7 +2,41 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Mathematics: LaTeX formulas inline and as blocks.
+//! # `canvist_extension_mathematics`
+//!
+//! TipTap's Mathematics for the canvist editor, as in
+//! `@tiptap/extension-mathematics`: LaTeX formulas inline and as blocks.
+//! [`Mathematics`] adds the `inlineMath` embed and the `blockMath` block,
+//! each with the formula in `latex`, and the `insertInlineMath` and
+//! `insertBlockMath` commands.
+//!
+//! Typing `$$x^2$$` inserts an inline formula, and `$$$x^2$$$` alone on a
+//! line a block one. The host typesets them, with KaTeX or MathJax, in the
+//! slot the canvas reserves. Its handle is a [`MathematicsHandle`].
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_mathematics::Mathematics;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let math = builder.add(Mathematics);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "Area: $$\\pi r^2$$".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//! assert_eq!(editor.state().doc().plain_text(), "Area: \u{fffc}", "the formula is an embed");
+//!
+//! editor.run(&math.insert_inline("e^{i\\pi}"), &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "Area: \u{fffc}\u{fffc}");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Command;
 use canvist_core::CommandResult;
@@ -19,8 +53,10 @@ use canvist_core::Registration;
 use canvist_core::RuleMatch;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_core::embed_type;
 use canvist_model::Attrs;
 use canvist_model::BlockSpec;
 use canvist_model::BlockTypeId;
@@ -80,7 +116,7 @@ fn insert_inline(source: &str) -> Command {
 	let attrs = latex(source);
 
 	command(move |state| {
-		let kind = canvist_core::embed_type(state.schema(), INLINE, INLINE)?;
+		let kind = embed_type(state.schema(), INLINE, INLINE)?;
 		commands::insert_embed(
 			state,
 			Embed {
@@ -95,7 +131,7 @@ fn insert_block(source: &str) -> Command {
 	let attrs = latex(source);
 
 	command(move |state| {
-		let kind = canvist_core::block_type(state.schema(), BLOCK, BLOCK)?;
+		let kind = block_type(state.schema(), BLOCK, BLOCK)?;
 		commands::insert_leaf(state, kind, attrs.clone())
 	})
 }
@@ -196,8 +232,8 @@ impl Extension for Mathematics {
 	}
 
 	fn input_rules(&self, schema: &Schema) -> Result<Vec<InputRule>, EditorError> {
-		let inline = canvist_core::embed_type(schema, INLINE, INLINE)?;
-		let block = canvist_core::block_type(schema, BLOCK, BLOCK)?;
+		let inline = embed_type(schema, INLINE, INLINE)?;
+		let block = block_type(schema, BLOCK, BLOCK)?;
 		let block_rule = InputRule::new(r"^\$\$\$([^$]+)\$\$\$$", move |state, found| {
 			typed_block(state, found, block)
 		})?;
@@ -216,5 +252,86 @@ impl TypedExtension for Mathematics {
 		MathematicsHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Value;
+
+	use super::*;
+
+	/// The editor after typing `text`, one character at a time.
+	fn typed(text: &str) -> Result<Editor, EditorError> {
+		let mut editor = Editor::builder()
+			.extension(Document)
+			.extension(Paragraph)
+			.extension(Mathematics)
+			.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), &mut env)?;
+		}
+
+		Ok(editor)
+	}
+
+	/// Every formula in the document, inline or block, in order.
+	fn formulas(editor: &Editor) -> Vec<Value> {
+		let doc = editor.state().doc();
+		let latex = |attrs: &Attrs| attrs.get("latex").cloned().unwrap_or_default();
+		doc.iter()
+			.flat_map(|block| {
+				let inline = block.inline().into_iter().flat_map(|text| {
+					text.runs()
+						.filter_map(|run| run.embed.map(|embed| latex(&embed.attrs)))
+						.collect::<Vec<_>>()
+				});
+				let leaf = (doc.schema().block(block.kind()).name.as_ref() == BLOCK)
+					.then(|| latex(block.attrs()));
+				inline.chain(leaf).collect::<Vec<_>>()
+			})
+			.collect()
+	}
+
+	#[test]
+	fn typed_double_dollars_make_inline_formulas() -> Result<(), EditorError> {
+		let editor = typed("a $$x^2$$ and $$y$$")?;
+
+		assert_eq!(formulas(&editor), [Value::from("x^2"), Value::from("y")]);
+		assert_eq!(editor.state().doc().plain_text(), "a \u{fffc} and \u{fffc}");
+		Ok(())
+	}
+
+	#[test]
+	fn three_dollars_alone_on_a_line_make_a_block_formula() -> Result<(), EditorError> {
+		let editor = typed("$$$\\sum x$$$")?;
+		let doc = editor.state().doc();
+		let first = doc.children(None)[0];
+		let kind = doc
+			.block(first)
+			.map(|block| doc.schema().block(block.kind()).name.to_string());
+
+		assert_eq!(kind.as_deref(), Some(BLOCK));
+		assert_eq!(formulas(&editor), [Value::from("\\sum x")]);
+		Ok(())
+	}
+
+	#[test]
+	fn empty_or_unclosed_formulas_stay_text() -> Result<(), EditorError> {
+		for text in ["$$$$", "$$x$", "price $5 or $$"] {
+			let editor = typed(text)?;
+			assert!(formulas(&editor).is_empty(), "{text:?}");
+			assert_eq!(editor.state().doc().plain_text(), text);
+		}
+
+		Ok(())
 	}
 }

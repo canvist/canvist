@@ -4,9 +4,12 @@
 )]
 //! # `canvist_extension_strike`
 //!
-//! TipTap's `strike` mark for the canvist editor. [`Strike`] registers the
-//! mark with `toggleStrike`, `setStrike`, and `unsetStrike`, the `isStrike` query, and its keys
-//! and Markdown shortcuts. Its handle is a [`MarkHandle`].
+//! TipTap's `strike` mark for the canvist editor, as in TipTap's
+//! `@tiptap/extension-strike`. [`Strike`] registers the mark with the
+//! `toggleStrike`, `setStrike`, and `unsetStrike` commands and the
+//! `isStrike` query. `Mod-Shift-s` toggles it, typing `~~text~~` strikes the
+//! text through, and pasted text gets the same treatment. Its handle is a
+//! [`MarkHandle`].
 //!
 //! ```
 //! use std::time::Duration;
@@ -106,7 +109,15 @@ impl TypedExtension for Strike {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
 	use canvist_model::BlockSpec;
+	use canvist_model::Point;
+	use canvist_model::Selection;
 
 	use super::*;
 
@@ -120,5 +131,53 @@ mod tests {
 
 		assert!(STRIKE.input_rules(&schema).is_ok());
 		assert!(STRIKE.paste_rules(&schema).is_ok());
+	}
+
+	/// The text after typing (or pasting) `text`, and whether the last
+	/// `selected` in it is struck through.
+	fn strike(text: &str, paste: bool, selected: &str) -> Result<(String, bool), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let strike = builder.add(Strike);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		if paste {
+			editor.paste_text(text, &mut env)?;
+		} else {
+			for character in text.chars() {
+				editor.insert_text(&character.to_string(), &mut env)?;
+			}
+		}
+
+		let block = editor.state().doc().children(None)[0];
+		let plain = editor.state().doc().plain_text();
+		let start = plain.rfind(selected).expect("the text holds the selection");
+		let point = |at: usize| Point::new(block, u32::try_from(at).expect("a short text"));
+		let selection = Selection::text(point(start), point(start + selected.len()));
+		editor.select(selection, &mut env)?;
+		Ok((plain, strike.is_active(editor.state())))
+	}
+
+	#[test]
+	fn typed_delimiters_make_text_struck() -> Result<(), EditorError> {
+		assert_eq!(strike("~~a b~~", false, "a b")?, ("a b".to_owned(), true));
+		assert_eq!(strike("x ~~a~~", false, "a")?, ("x a".to_owned(), true));
+		Ok(())
+	}
+
+	#[test]
+	fn delimiters_need_a_word_boundary_and_no_inner_spaces() -> Result<(), EditorError> {
+		assert_eq!(
+			strike("x~~ a~~", false, "x~~ a~~")?,
+			("x~~ a~~".to_owned(), false)
+		);
+		assert!(!strike("a~~b~~", false, "a~~b~~")?.1);
+		Ok(())
+	}
+
+	#[test]
+	fn pasted_delimiters_make_text_struck() -> Result<(), EditorError> {
+		assert_eq!(strike("a ~~b~~ c", true, "b")?, ("a b c".to_owned(), true));
+		Ok(())
 	}
 }

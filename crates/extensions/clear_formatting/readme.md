@@ -30,6 +30,37 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_clear_formatting
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_extension_bold::Bold;
+use canvist_extension_clear_formatting::ClearFormatting;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let bold = builder.add(Bold);
+let clear = builder.add(ClearFormatting);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "**loud**".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+editor.run(&command(commands::select_all), &mut env)?;
+assert!(bold.is_active(editor.state()));
+
+editor.run(&clear.clear(), &mut env)?;
+assert!(!bold.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

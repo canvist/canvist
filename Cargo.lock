@@ -1009,6 +1009,8 @@ name = "canvist_extension_blockquote"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1027,6 +1029,8 @@ name = "canvist_extension_callout"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1035,6 +1039,8 @@ name = "canvist_extension_character_count"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
  "unicode-segmentation",
 ]
@@ -1044,6 +1050,9 @@ name = "canvist_extension_clear_formatting"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_bold",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1052,6 +1061,14 @@ name = "canvist_extension_clipboard"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_bold",
+ "canvist_extension_code_block",
+ "canvist_extension_document",
+ "canvist_extension_image",
+ "canvist_extension_link",
+ "canvist_extension_list",
+ "canvist_extension_paragraph",
+ "canvist_extension_table",
  "canvist_model",
  "serde_json",
 ]
@@ -1071,6 +1088,8 @@ name = "canvist_extension_code_block"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1079,6 +1098,8 @@ name = "canvist_extension_comments"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1087,6 +1108,8 @@ name = "canvist_extension_conditional"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1095,6 +1118,8 @@ name = "canvist_extension_details"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1112,6 +1137,8 @@ name = "canvist_extension_drag_handle"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1120,6 +1147,8 @@ name = "canvist_extension_emoji"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_extension_suggestion",
  "canvist_model",
 ]
@@ -1140,6 +1169,8 @@ name = "canvist_extension_find_and_replace"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1148,6 +1179,8 @@ name = "canvist_extension_hard_break"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1156,6 +1189,8 @@ name = "canvist_extension_hashtag"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_extension_suggestion",
  "canvist_model",
 ]
@@ -1165,6 +1200,8 @@ name = "canvist_extension_heading"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1173,6 +1210,8 @@ name = "canvist_extension_highlight"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1181,6 +1220,8 @@ name = "canvist_extension_history"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1189,6 +1230,8 @@ name = "canvist_extension_horizontal_rule"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1208,6 +1251,8 @@ name = "canvist_extension_ink"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1226,6 +1271,8 @@ name = "canvist_extension_kinetic"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1234,6 +1281,8 @@ name = "canvist_extension_link"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1252,6 +1301,8 @@ name = "canvist_extension_mathematics"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1270,6 +1321,8 @@ name = "canvist_extension_mention"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_extension_suggestion",
  "canvist_model",
 ]
@@ -1288,6 +1341,8 @@ name = "canvist_extension_placeholder"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1334,6 +1389,8 @@ name = "canvist_extension_table"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1342,6 +1399,9 @@ name = "canvist_extension_table_of_contents"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_heading",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1350,6 +1410,8 @@ name = "canvist_extension_text_align"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1358,6 +1420,8 @@ name = "canvist_extension_text_style"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1366,6 +1430,9 @@ name = "canvist_extension_trailing_node"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_blockquote",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 
@@ -1385,6 +1452,8 @@ name = "canvist_extension_typography"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
  "canvist_model",
 ]
 

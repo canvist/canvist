@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_text_style
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_text_style::Color;
+use canvist_extension_text_style::TextStyle;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+builder.add(TextStyle);
+let color = builder.add(Color);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&color.set("#958df1"), &mut env)?;
+editor.insert_text("purple", &mut env)?;
+
+assert_eq!(color.value(editor.state()).as_deref(), Some("#958df1"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

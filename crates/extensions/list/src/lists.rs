@@ -9,11 +9,12 @@ use canvist_core::EditorState;
 use canvist_core::QuerySpec;
 use canvist_core::RuleMatch;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_core::commands::ListType;
 use canvist_core::position;
-use canvist_model::Attrs;
+use canvist_core::query;
 use canvist_model::BlockId;
 use canvist_model::BlockTypeId;
 use canvist_model::Schema;
@@ -47,8 +48,8 @@ pub(crate) fn list_type(
 	(list, item): (&'static str, &'static str),
 ) -> Result<ListType, EditorError> {
 	Ok(ListType {
-		list: canvist_core::block_type(schema, extension, list)?,
-		item: canvist_core::block_type(schema, extension, item)?,
+		list: block_type(schema, extension, list)?,
+		item: block_type(schema, extension, item)?,
 	})
 }
 
@@ -69,7 +70,7 @@ pub(crate) fn item_command(
 	run: fn(&mut EditorState, BlockTypeId) -> CommandResult,
 ) -> Command {
 	command(move |state| {
-		let kind = canvist_core::block_type(state.schema(), extension, item)?;
+		let kind = block_type(state.schema(), extension, item)?;
 		run(state, kind)
 	})
 }
@@ -126,9 +127,7 @@ pub(crate) fn item_specs(
 /// A query answering whether the selection is inside a `list` block.
 pub(crate) fn inside_query(name: &'static str, list: &'static str, doc: &'static str) -> QuerySpec {
 	QuerySpec::new(name, doc, ValueType::Bool, move |state, _| {
-		Ok(Value::Bool(
-			canvist_core::query::around(state, list).is_some(),
-		))
+		Ok(Value::Bool(query::around(state, list).is_some()))
 	})
 }
 
@@ -158,11 +157,6 @@ pub(crate) fn wrap_and(
 		Some(adjusted) => wrapped.then(adjusted),
 		None => wrapped,
 	}))
-}
-
-/// Set `attrs` on block `id` as part of an input rule.
-pub(crate) fn set_attrs(state: &mut EditorState, id: BlockId, attrs: &Attrs) -> CommandResult {
-	commands::set_block_attrs(state, id, attrs)
 }
 
 /// The number typed before `. `, as an ordered list's start.

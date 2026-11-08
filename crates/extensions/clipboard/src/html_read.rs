@@ -14,6 +14,12 @@ use canvist_model::Schema;
 use canvist_model::Value;
 
 use super::NestingLimitExceeded;
+use super::html_role::BOUNDARIES;
+use super::html_role::Role;
+use super::html_role::attr;
+use super::html_role::role;
+use super::html_token::Token;
+use super::html_token::Tokenizer;
 use super::tree::Builder;
 
 /// Parse pasted HTML into a slice for `schema`.
@@ -57,701 +63,6 @@ pub(super) fn read_html(build: &mut Builder<'_>, html: &str) -> Vec<BlockTree> {
 	trees
 }
 
-/// One piece of markup.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum Token {
-	Open {
-		name: String,
-		attrs: Vec<(String, String)>,
-	},
-	Close(String),
-	Text(String),
-}
-
-/// Splits HTML into tags and decoded text, skipping comments, doctypes,
-/// and the contents of `<script>` and `<style>`.
-struct Tokenizer<'a> {
-	rest: &'a str,
-}
-
-impl<'a> Tokenizer<'a> {
-	fn new(html: &'a str) -> Self {
-		Self { rest: html }
-	}
-
-	/// Skip past `end`, or to the end of the input.
-	fn skip_past(&mut self, end: &str) {
-		self.rest = self
-			.rest
-			.find(end)
-			.map_or("", |index| &self.rest[index + end.len()..]);
-	}
-
-	/// Skip a comment, doctype, or processing instruction, returning
-	/// whether there was one.
-	fn skip_markup(&mut self) -> bool {
-		if self.rest.starts_with("<!--") {
-			self.skip_past("-->");
-
-			return true;
-		}
-
-		if self.rest.starts_with("<!") || self.rest.starts_with("<?") {
-			self.skip_past(">");
-
-			return true;
-		}
-
-		false
-	}
-
-	/// Read the tag at the start of the input, opening or closing, and skip
-	/// the contents of `script` and `style`, which are never text. `None`
-	/// when the tag never ends.
-	fn tag(&mut self) -> Option<Token> {
-		let closing = self.rest.starts_with("</");
-		let body_start = if closing { 2 } else { 1 };
-		let end = self.rest.find('>')?;
-		let body = &self.rest[body_start..end];
-		self.rest = &self.rest[end + 1..];
-		let body = body.trim_end_matches('/');
-		let name_end = body
-			.find(|character: char| character.is_whitespace())
-			.unwrap_or(body.len());
-		let name = body[..name_end].to_ascii_lowercase();
-
-		if closing {
-			return Some(Token::Close(name));
-		}
-
-		if name == "script" || name == "style" {
-			self.skip_past(&format!("</{name}"));
-			self.skip_past(">");
-		}
-
-		Some(Token::Open {
-			attrs: parse_attrs(&body[name_end..]),
-			name,
-		})
-	}
-
-	fn text(&mut self) -> Token {
-		let first = self.rest.chars().next().map_or(0, char::len_utf8);
-		let end = self.rest[first..]
-			.find('<')
-			.map_or(self.rest.len(), |index| index + first);
-		let text = decode(&self.rest[..end]);
-		self.rest = &self.rest[end..];
-		Token::Text(text)
-	}
-}
-
-impl Iterator for Tokenizer<'_> {
-	type Item = Token;
-
-	/// Skip comments and declarations, then read a tag when `<` starts
-	/// one, or text up to the next `<`.
-	fn next(&mut self) -> Option<Token> {
-		while self.skip_markup() {}
-
-		if self.rest.is_empty() {
-			return None;
-		}
-
-		let starts_tag = self.rest.starts_with("</")
-			|| (self.rest.starts_with('<')
-				&& self.rest[1..].starts_with(|next: char| next.is_ascii_alphabetic()));
-
-		if starts_tag {
-			return self.tag();
-		}
-
-		Some(self.text())
-	}
-}
-
-/// Parse `name="value"` pairs, with single, double, or no quotes.
-fn parse_attrs(source: &str) -> Vec<(String, String)> {
-	let mut attrs = Vec::new();
-	let mut rest = source.trim_start();
-
-	while !rest.is_empty() {
-		let name_end = rest
-			.find(|character: char| character.is_whitespace() || character == '=')
-			.unwrap_or(rest.len());
-		let name = rest[..name_end].to_ascii_lowercase();
-		rest = rest[name_end..].trim_start();
-
-		let value = match rest.strip_prefix('=') {
-			Some(after) => {
-				let (value, remaining) = attr_value(after.trim_start());
-				rest = remaining.trim_start();
-				value
-			}
-			None => String::new(),
-		};
-
-		if !name.is_empty() {
-			attrs.push((name, value));
-		}
-	}
-
-	attrs
-}
-
-/// A quoted or bare attribute value and the input after it.
-fn attr_value(source: &str) -> (String, &str) {
-	let quote = source
-		.chars()
-		.next()
-		.filter(|&quote| quote == '"' || quote == '\'');
-
-	let Some(quote) = quote else {
-		let end = source.find(char::is_whitespace).unwrap_or(source.len());
-
-		return (decode(&source[..end]), &source[end..]);
-	};
-	let body = &source[1..];
-	let end = body.find(quote).unwrap_or(body.len());
-	let rest = body.get(end + 1..).unwrap_or("");
-
-	(decode(&body[..end]), rest)
-}
-
-/// Decode character references.
-pub(super) fn decode(text: &str) -> String {
-	let mut decoded = String::with_capacity(text.len());
-	let mut rest = text;
-
-	while let Some(start) = rest.find('&') {
-		decoded.push_str(&rest[..start]);
-		rest = &rest[start..];
-		let end = rest.find(';').filter(|&end| end <= 10);
-		let character = end.and_then(|end| entity(&rest[1..end]));
-
-		if let (Some(end), Some(character)) = (end, character) {
-			decoded.push(character);
-			rest = &rest[end + 1..];
-		} else {
-			decoded.push('&');
-			rest = &rest[1..];
-		}
-	}
-
-	decoded.push_str(rest);
-	decoded
-}
-
-fn entity(name: &str) -> Option<char> {
-	let numeric = |digits: &str, radix| {
-		u32::from_str_radix(digits, radix)
-			.ok()
-			.and_then(char::from_u32)
-	};
-
-	match name {
-		"amp" => Some('&'),
-		"lt" => Some('<'),
-		"gt" => Some('>'),
-		"quot" => Some('"'),
-		"apos" => Some('\''),
-		"nbsp" => Some('\u{a0}'),
-		_ => {
-			let digits = name.strip_prefix('#')?;
-			match digits.strip_prefix(['x', 'X']) {
-				Some(hex) => numeric(hex, 16),
-				None => numeric(digits, 10),
-			}
-		}
-	}
-}
-
-fn attr<'a>(attrs: &'a [(String, String)], name: &str) -> Option<&'a str> {
-	attrs
-		.iter()
-		.find(|(key, _)| key == name)
-		.map(|(_, value)| value.as_str())
-}
-
-/// What a tag means to the reader.
-enum Role {
-	/// Opens a text block of the named type.
-	Text(&'static str, Attrs),
-	/// Opens a container of the named type.
-	Container(&'static str, Attrs),
-	/// An atomic block and its attributes.
-	Leaf(&'static str, Attrs),
-	/// A line break.
-	Break,
-	/// An inline atom, such as a mention, whose text is read but not kept.
-	Atom(&'static str, Attrs),
-	/// Inline formatting: zero or more marks until the tag closes.
-	Marks(Vec<(&'static str, Attrs)>),
-	/// A block boundary with no type of its own, such as `<div>`.
-	Boundary,
-	/// Inline markup with no meaning here, such as `<span>`.
-	Inline,
-}
-
-const BOUNDARIES: [&str; 17] = [
-	"address",
-	"article",
-	"aside",
-	"body",
-	"dd",
-	"div",
-	"dl",
-	"dt",
-	"figcaption",
-	"figure",
-	"footer",
-	"header",
-	"html",
-	"main",
-	"nav",
-	"section",
-	"tbody",
-];
-
-/// A text block's attributes from its `style`: TipTap's text alignment.
-fn text_block_attrs(attrs: &[(String, String)]) -> Attrs {
-	let style = attr(attrs, "style").unwrap_or_default();
-	// CSS keywords ignore ASCII case: `TEXT-ALIGN: Center` is centred.
-	let align = cfg!(feature = "text-align")
-		.then(|| css_value(style, "text-align").map(str::to_ascii_lowercase))
-		.flatten();
-
-	match align.as_deref() {
-		Some(align @ ("left" | "center" | "right" | "justify")) if cfg!(feature = "text-align") => {
-			Attrs::new().with("textAlign", align)
-		}
-		_ => Attrs::new(),
-	}
-}
-
-fn role(name: &str, attrs: &[(String, String)], parent: Option<&'static str>) -> Role {
-	let data_type = attr(attrs, "data-type");
-
-	match name {
-		"p" => Role::Text("paragraph", text_block_attrs(attrs)),
-		"h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-			let level = i64::from(name.as_bytes()[1] - b'0');
-			Role::Text("heading", text_block_attrs(attrs).with("level", level))
-		}
-		"pre" => Role::Text("codeBlock", Attrs::new()),
-		"blockquote" => Role::Container("blockquote", Attrs::new()),
-		"ul" if data_type == Some("taskList") => Role::Container("taskList", Attrs::new()),
-		"ul" => Role::Container("bulletList", Attrs::new()),
-		"ol" => {
-			let start = attr(attrs, "start").and_then(|start| start.parse::<i64>().ok());
-			Role::Container(
-				"orderedList",
-				Attrs::new().with("start", start.unwrap_or(1)),
-			)
-		}
-
-		"li" if data_type == Some("taskItem") || parent == Some("taskList") => {
-			let checked = attr(attrs, "data-checked") == Some("true");
-			Role::Container("taskItem", Attrs::new().with("checked", checked))
-		}
-		"li" => Role::Container("listItem", Attrs::new()),
-		"hr" => Role::Leaf("horizontalRule", Attrs::new()),
-		"img" if cfg!(feature = "image") => {
-			Role::Leaf("image", media_attrs(attrs, IMAGE_ATTRIBUTES))
-		}
-		"audio" if cfg!(feature = "audio") => Role::Leaf("audio", audio_attrs(attrs)),
-		"iframe" if cfg!(any(feature = "youtube", feature = "twitch")) => iframe_role(attrs),
-		"div" if cfg!(feature = "file") && (data_type == Some("file")) => {
-			Role::Leaf("file", media_attrs(attrs, FILE_ATTRIBUTES))
-		}
-		"br" => Role::Break,
-		"details" if cfg!(feature = "details") => {
-			Role::Container(
-				"details",
-				Attrs::new().with("open", attr(attrs, "open").is_some()),
-			)
-		}
-		"summary" if cfg!(feature = "details") => Role::Text("detailsSummary", Attrs::new()),
-		"figure" if cfg!(feature = "ink") && (data_type == Some("ink")) => {
-			Role::Leaf("ink", ink_attrs(attrs))
-		}
-		"table" if cfg!(feature = "table") => Role::Container("table", Attrs::new()),
-		"tr" if cfg!(feature = "table") => Role::Container("tableRow", Attrs::new()),
-		"td" if cfg!(feature = "table") => Role::Container("tableCell", cell_attrs(attrs)),
-		"th" if cfg!(feature = "table") => Role::Container("tableHeader", cell_attrs(attrs)),
-		"div" if cfg!(feature = "details") && (data_type == Some("detailsContent")) => {
-			Role::Container("detailsContent", Attrs::new())
-		}
-		"div" if cfg!(feature = "callout") && (attr(attrs, "data-callout-type").is_some()) => {
-			// An unknown type reads as the default, as the theme draws it.
-			let kind = attr(attrs, "data-callout-type")
-				.filter(|kind| {
-					super::markdown_write::ALERTS
-						.iter()
-						.any(|(known, _)| known == kind)
-				})
-				.unwrap_or("info");
-			Role::Container("callout", Attrs::new().with("type", kind))
-		}
-		"div" if cfg!(feature = "mathematics") && (data_type == Some("block-math")) => {
-			Role::Leaf("blockMath", atom_attrs(attrs))
-		}
-		"span" if cfg!(feature = "mathematics") && (data_type == Some("inline-math")) => {
-			Role::Atom("inlineMath", atom_attrs(attrs))
-		}
-		"span" if cfg!(feature = "mention") && (data_type == Some("mention")) => {
-			Role::Atom("mention", atom_attrs(attrs))
-		}
-		"span" if cfg!(feature = "emoji") && (data_type == Some("emoji")) => {
-			Role::Atom("emoji", atom_attrs(attrs))
-		}
-		_ => inline_role(name, attrs),
-	}
-}
-
-/// The HTML attributes of `<img>`, and the image attributes they hold.
-const IMAGE_ATTRIBUTES: &[(&str, &str)] = &[
-	("src", "src"),
-	("alt", "alt"),
-	("title", "title"),
-	("width", "width"),
-	("height", "height"),
-];
-
-/// The HTML attributes of a video `<iframe>` that videos keep.
-const VIDEO_ATTRIBUTES: &[(&str, &str)] =
-	&[("src", "src"), ("width", "width"), ("height", "height")];
-
-/// The HTML attributes of a file card, and the file attributes they hold.
-const FILE_ATTRIBUTES: &[(&str, &str)] = &[
-	("data-url", "url"),
-	("data-file-name", "fileName"),
-	("data-file-type", "fileType"),
-	("data-file-size", "fileSize"),
-];
-
-/// The boolean attributes of `<audio>`.
-const AUDIO_FLAGS: [&str; 4] = ["controls", "autoplay", "loop", "muted"];
-
-/// The attributes `mapping` names, with sizes read as numbers.
-fn media_attrs(attrs: &[(String, String)], mapping: &[(&str, &'static str)]) -> Attrs {
-	mapping
-		.iter()
-		.filter_map(|(html, key)| {
-			let value = attr(attrs, html)?;
-			let number = matches!(*key, "width" | "height" | "fileSize")
-				.then(|| value.parse::<f64>().ok())
-				.flatten();
-			Some((*key, number.map_or_else(|| Value::from(value), Value::from)))
-		})
-		.collect()
-}
-
-/// An `<audio>` element's source and flags; a flag is on when present.
-fn audio_attrs(attrs: &[(String, String)]) -> Attrs {
-	let flags = AUDIO_FLAGS
-		.iter()
-		.map(|flag| (*flag, Value::Bool(attr(attrs, flag).is_some())));
-	let src = attr(attrs, "src").map(|src| ("src", Value::from(src)));
-	src.into_iter().chain(flags).collect()
-}
-
-/// An `<iframe>` showing a YouTube or Twitch video, as TipTap writes them;
-/// other iframes carry nothing to keep.
-fn iframe_role(attrs: &[(String, String)]) -> Role {
-	let Some(video) = attr(attrs, "src").and_then(video_kind) else {
-		return Role::Inline;
-	};
-
-	Role::Leaf(video, media_attrs(attrs, VIDEO_ATTRIBUTES))
-}
-
-#[cfg(any(feature = "youtube", feature = "twitch"))]
-pub(super) use canvist_model::video_kind;
-
-/// Without the video extensions, no iframe is a video.
-#[cfg(not(any(feature = "youtube", feature = "twitch")))]
-pub(super) fn video_kind(_src: &str) -> Option<&'static str> {
-	None
-}
-
-/// The `data-` attributes TipTap writes on inline atoms, and the attributes
-/// they hold.
-const ATOM_ATTRIBUTES: [(&str, &str); 6] = [
-	("data-id", "id"),
-	("data-label", "label"),
-	("data-mention-suggestion-char", "mentionSuggestionChar"),
-	("data-name", "name"),
-	("data-emoji", "emoji"),
-	("data-latex", "latex"),
-];
-
-/// An ink drawing's height and strokes, which `data-strokes` carries as
-/// JSON.
-fn ink_attrs(attrs: &[(String, String)]) -> Attrs {
-	let mut ink = Attrs::new();
-
-	if let Some(height) =
-		attr(attrs, "data-height").and_then(|height| height.trim().parse::<i64>().ok())
-	{
-		ink.set("height", height.max(1));
-	}
-
-	let strokes = attr(attrs, "data-strokes")
-		.and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
-		.map(|json| json_value(&json));
-
-	if let Some(strokes @ Value::Array(_)) = strokes {
-		ink.set("strokes", strokes);
-	}
-
-	ink
-}
-
-/// A JSON value as a document value.
-fn json_value(json: &serde_json::Value) -> Value {
-	match json {
-		serde_json::Value::Null => Value::Null,
-		serde_json::Value::Bool(flag) => Value::Bool(*flag),
-		serde_json::Value::Number(number) => {
-			number.as_i64().map_or_else(
-				|| Value::Float(number.as_f64().unwrap_or_default()),
-				Value::Int,
-			)
-		}
-		serde_json::Value::String(text) => Value::from(text.as_str()),
-		serde_json::Value::Array(items) => {
-			Value::from(items.iter().map(json_value).collect::<Vec<_>>())
-		}
-		serde_json::Value::Object(map) => {
-			Value::from(
-				map.iter()
-					.map(|(key, value)| (key.as_str(), json_value(value)))
-					.collect::<Attrs>(),
-			)
-		}
-	}
-}
-
-/// A table cell's spans and TipTap's `colwidth`, a comma-separated list of
-/// pixel widths.
-fn cell_attrs(attrs: &[(String, String)]) -> Attrs {
-	let mut cell = Attrs::new();
-
-	for key in ["colspan", "rowspan"] {
-		if let Some(span) = attr(attrs, key).and_then(|span| span.trim().parse::<i64>().ok()) {
-			cell.set(key, span.max(1));
-		}
-	}
-
-	let widths: Vec<Value> = attr(attrs, "colwidth")
-		.unwrap_or_default()
-		.split(',')
-		.filter_map(|width| width.trim().parse::<i64>().ok())
-		.map(Value::Int)
-		.collect();
-
-	if !widths.is_empty() {
-		cell.set("colwidth", widths);
-	}
-
-	cell
-}
-
-fn atom_attrs(attrs: &[(String, String)]) -> Attrs {
-	ATOM_ATTRIBUTES
-		.iter()
-		.filter_map(|(data, key)| Some((*key, attr(attrs, data)?)))
-		.collect()
-}
-
-/// How an inline element reads: a boundary, plain content, or the marks
-/// its tag, `style`, and `data-*` attributes carry.
-fn inline_role(name: &str, attrs: &[(String, String)]) -> Role {
-	if BOUNDARIES.contains(&name) {
-		return Role::Boundary;
-	}
-
-	let tagged = tag_mark(name);
-	let mut marks = plain_marks(tagged, attrs);
-	marks.extend(attribute_marks(name, attrs));
-
-	if marks.is_empty() && tagged.is_none() && name != "span" && name != "a" {
-		return Role::Inline;
-	}
-
-	Role::Marks(marks)
-}
-
-/// The mark an element's tag stands for, when it takes no attributes.
-fn tag_mark(name: &str) -> Option<&'static str> {
-	match name {
-		"strong" | "b" => Some("bold"),
-		"em" | "i" => Some("italic"),
-		"u" => Some("underline"),
-		"s" | "strike" | "del" => Some("strike"),
-		"code" => Some("code"),
-		"sub" if cfg!(feature = "subscript") => Some("subscript"),
-		"sup" if cfg!(feature = "superscript") => Some("superscript"),
-		_ => None,
-	}
-}
-
-/// The tag's mark and the inline `style`'s, less bold when the style sets
-/// a normal weight.
-fn plain_marks(
-	tagged: Option<&'static str>,
-	attrs: &[(String, String)],
-) -> Vec<(&'static str, Attrs)> {
-	let style = attr(attrs, "style").map(Style::parse).unwrap_or_default();
-
-	tagged
-		.into_iter()
-		.chain(style.marks())
-		.filter(|&mark| !(mark == "bold" && style.bold == Some(false)))
-		.map(|mark| (mark, Attrs::new()))
-		.collect()
-}
-
-/// The marks that carry attributes, in order: a link, a hashtag, kinetic
-/// type, a comment, a conditional, a highlight, and a text style.
-fn attribute_marks(name: &str, attrs: &[(String, String)]) -> Vec<(&'static str, Attrs)> {
-	let data_type = attr(attrs, "data-type");
-	let css = attr(attrs, "style").unwrap_or_default();
-
-	let link = (name == "a").then(|| {
-		let href = attr(attrs, "href").unwrap_or_default();
-		("link", Attrs::new().with("href", href))
-	});
-	let hashtag = (cfg!(feature = "hashtag") && data_type == Some("hashtag")).then(|| {
-		let tag = attr(attrs, "data-tag").map_or(Value::Null, Value::from);
-		("hashtag", Attrs::new().with("tag", tag))
-	});
-	let kinetic = cfg!(feature = "kinetic")
-		.then(|| attr(attrs, "data-kinetic"))
-		.flatten()
-		.map(|effect| ("kinetic", Attrs::new().with("effect", effect)));
-	let comment = (cfg!(feature = "comments") && data_type == Some("comment")).then(|| {
-		let threads: Vec<Value> = attr(attrs, "data-threads")
-			.unwrap_or_default()
-			.split_whitespace()
-			.map(Value::from)
-			.collect();
-		("comment", Attrs::new().with("threads", threads))
-	});
-	let conditional = (cfg!(feature = "conditional") && data_type == Some("conditional"))
-		.then(|| attr(attrs, "data-when"))
-		.flatten()
-		.filter(|when| !when.trim().is_empty())
-		.map(|when| ("conditional", Attrs::new().with("when", when)));
-	let highlight = (cfg!(feature = "highlight") && name == "mark").then(|| {
-		let color = attr(attrs, "data-color").or_else(|| css_value(css, "background-color"));
-		let attrs = color.map_or_else(Attrs::new, |color| Attrs::new().with("color", color));
-		("highlight", attrs)
-	});
-	let text_style = (cfg!(feature = "text-style") && name != "mark")
-		.then(|| text_style_attrs(css))
-		.filter(|styles| !styles.is_empty())
-		.map(|styles| ("textStyle", styles));
-
-	[
-		link,
-		hashtag,
-		kinetic,
-		comment,
-		conditional,
-		highlight,
-		text_style,
-	]
-	.into_iter()
-	.flatten()
-	.collect()
-}
-
-/// The value of CSS `property` in a `style` attribute.
-fn css_value<'a>(style: &'a str, property: &str) -> Option<&'a str> {
-	style.split(';').find_map(|declaration| {
-		let (name, value) = declaration.split_once(':')?;
-		let value = value.trim();
-		(name.trim().eq_ignore_ascii_case(property) && !value.is_empty()).then_some(value)
-	})
-}
-
-/// `textStyle` attributes from a `style` attribute: colour, background,
-/// font family, size, and line height. A transparent background is no
-/// background.
-fn text_style_attrs(style: &str) -> Attrs {
-	let mut attrs = Attrs::new();
-
-	for (attr, property) in super::html_write::TEXT_STYLE_PROPERTIES {
-		let value = css_value(style, property).filter(|value| *value != "transparent");
-
-		if let Some(value) = value {
-			attrs.set(attr, value);
-		}
-	}
-
-	attrs
-}
-
-/// Formatting carried by inline `style` attributes, which word processors
-/// such as Google Docs use instead of `<b>` and `<i>`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct Style {
-	/// `Some(false)` for an explicit normal weight, which cancels `<b>`.
-	bold: Option<bool>,
-	italic: bool,
-	underline: bool,
-	strike: bool,
-}
-
-impl Style {
-	fn parse(style: &str) -> Self {
-		let mut parsed = Self::default();
-
-		for declaration in style.split(';') {
-			let Some((property, value)) = declaration.split_once(':') else {
-				continue;
-			};
-			let value = value.trim().to_ascii_lowercase();
-
-			match property.trim().to_ascii_lowercase().as_str() {
-				"font-weight" => parsed.bold = Some(heavy(&value)),
-				"font-style" => parsed.italic = value == "italic" || value == "oblique",
-				"text-decoration" | "text-decoration-line" => {
-					parsed.underline = value.contains("underline");
-					parsed.strike = value.contains("line-through");
-				}
-				_ => {}
-			}
-		}
-
-		parsed
-	}
-
-	fn marks(self) -> impl Iterator<Item = &'static str> {
-		[
-			(self.bold == Some(true), "bold"),
-			(self.italic, "italic"),
-			(self.underline, "underline"),
-			(self.strike, "strike"),
-		]
-		.into_iter()
-		.filter_map(|(on, mark)| on.then_some(mark))
-	}
-}
-
-/// The lightest CSS font weight that reads as bold (semibold).
-const BOLD_WEIGHT: u16 = 600;
-
-/// Whether a `font-weight` value is bold.
-fn heavy(value: &str) -> bool {
-	match value.parse::<u16>() {
-		Ok(weight) => weight >= BOLD_WEIGHT,
-		Err(_) => value == "bold" || value == "bolder",
-	}
-}
-
 /// Whether any compiled leaf is an element with a closing tag, whose end
 /// must not close the container around it. The StarterKit's only leaf,
 /// `<hr>`, is void.
@@ -781,6 +92,36 @@ fn is_void(tag: &str) -> bool {
 			| "track"
 			| "wbr"
 	)
+}
+
+/// An atom's attributes, with the text it shows filling in an emoji's
+/// missing character or a mention's missing label.
+fn shown_attrs(name: &str, mut attrs: Attrs, shown: &str) -> Attrs {
+	let key = match name {
+		"emoji" => "emoji",
+		"mention" => "label",
+		_ => return attrs,
+	};
+
+	if attrs.get(key).is_some() {
+		return attrs;
+	}
+
+	if name == "emoji" && !shown.is_empty() {
+		attrs.set(key, shown);
+	}
+
+	if name == "mention" {
+		let label: String = shown.chars().skip(1).collect();
+		// A mention without a label shows its id, which is not a label.
+		let id = attrs.get("id").and_then(Value::as_str);
+
+		if id != Some(label.as_str()) {
+			attrs.set(key, label);
+		}
+	}
+
+	attrs
 }
 
 /// An open container.
@@ -858,6 +199,8 @@ impl<'b, 's> Reader<'b, 's> {
 		}
 	}
 
+	/// Open what tag `tag` starts, as its role says. Blocks end the open
+	/// text block first; inline roles add to it.
 	fn open(&mut self, tag: String, attrs: &[(String, String)]) {
 		let parent = self.frames.last().map(|frame| frame.name);
 
@@ -872,28 +215,8 @@ impl<'b, 's> Reader<'b, 's> {
 					space: None,
 				});
 			}
-			Role::Container(name, block_attrs) => {
-				if !self.build.enter() {
-					return;
-				}
-
-				self.end_text();
-				self.frames.push(Frame {
-					tag,
-					name,
-					attrs: block_attrs,
-					children: Vec::new(),
-				});
-			}
-			Role::Leaf(name, leaf_attrs) => {
-				self.end_text();
-				let leaf = self.build.leaf(name, &leaf_attrs);
-				self.children().extend(leaf);
-
-				if CLOSED_LEAVES && !is_void(&tag) {
-					self.leaves.push(tag);
-				}
-			}
+			Role::Container(name, block_attrs) => self.open_frame(tag, name, block_attrs),
+			Role::Leaf(name, leaf_attrs) => self.add_leaf(tag, name, &leaf_attrs),
 			Role::Break => self.line_break(),
 			Role::Atom(name, attrs) => {
 				self.atom = Some(OpenAtom {
@@ -909,6 +232,36 @@ impl<'b, 's> Reader<'b, 's> {
 		}
 	}
 
+	/// Open a container, unless that would nest too deeply.
+	fn open_frame(&mut self, tag: String, name: &'static str, attrs: Attrs) {
+		if !self.build.enter() {
+			return;
+		}
+
+		self.end_text();
+		self.frames.push(Frame {
+			tag,
+			name,
+			attrs,
+			children: Vec::new(),
+		});
+	}
+
+	/// Add a leaf block, and remember its tag until it closes when it is an
+	/// element with a closing tag.
+	fn add_leaf(&mut self, tag: String, name: &'static str, attrs: &Attrs) {
+		self.end_text();
+		let leaf = self.build.leaf(name, attrs);
+		self.children().extend(leaf);
+
+		if CLOSED_LEAVES && !is_void(&tag) {
+			self.leaves.push(tag);
+		}
+	}
+
+	/// Apply an inline element's marks until it closes. Inside code, marks
+	/// are dropped, and the element only carries the code's language, as
+	/// `<code class="language-rust">` inside `<pre>` does.
 	fn open_marks(
 		&mut self,
 		tag: String,
@@ -917,24 +270,27 @@ impl<'b, 's> Reader<'b, 's> {
 	) {
 		if self.in_code() {
 			let language = attr(attrs, "class").and_then(|class| class.strip_prefix("language-"));
+			let text = self.text.as_mut().zip(language);
 
-			if let (Some(language), Some(text)) = (language, self.text.as_mut()) {
+			if let Some((text, language)) = text {
 				text.attrs.set("language", Value::from(language));
 			}
 
 			return;
 		}
 
+		// A text style means only its attributes, so it needs one the schema
+		// declares.
 		let marks = marks
 			.into_iter()
 			.filter_map(|(name, mark_attrs)| {
-				if name == "textStyle" {
-					self.build.style_mark(name, &mark_attrs)
-				} else {
-					self.build.mark(name, &mark_attrs)
+				match name {
+					"textStyle" => self.build.style_mark(name, &mark_attrs),
+					_ => self.build.mark(name, &mark_attrs),
 				}
 			})
 			.collect();
+
 		if self.build.enter() {
 			self.marks.push((tag, marks));
 		}
@@ -950,47 +306,69 @@ impl<'b, 's> Reader<'b, 's> {
 			return;
 		}
 
-		if CLOSED_LEAVES && let Some(index) = self.leaves.iter().rposition(|open| open == tag) {
-			self.leaves.truncate(index);
+		let closed = self.close_leaf(tag)
+			|| self.close_text(tag)
+			|| self.close_mark(tag)
+			|| self.close_frame(tag);
 
-			return;
+		if !closed && BOUNDARIES.contains(&tag) {
+			self.end_text();
 		}
+	}
 
-		let closes_text = self
+	/// Close the innermost open leaf element `tag`, if there is one.
+	fn close_leaf(&mut self, tag: &str) -> bool {
+		let index = CLOSED_LEAVES
+			.then(|| self.leaves.iter().rposition(|open| open == tag))
+			.flatten();
+
+		index
+			.inspect(|&index| self.leaves.truncate(index))
+			.is_some()
+	}
+
+	/// End the open text block, if `tag` opened it.
+	fn close_text(&mut self, tag: &str) -> bool {
+		let closes = self
 			.text
 			.as_ref()
 			.is_some_and(|text| text.tag.as_deref() == Some(tag));
 
-		if closes_text {
+		if closes {
 			self.end_text();
-
-			return;
 		}
 
-		if let Some(index) = self.marks.iter().rposition(|(open, _)| open == tag) {
-			self.marks.remove(index);
-			self.build.leave();
+		closes
+	}
 
-			return;
-		}
+	/// Remove the marks of the innermost open inline element `tag`.
+	fn close_mark(&mut self, tag: &str) -> bool {
+		let Some(index) = self.marks.iter().rposition(|(open, _)| open == tag) else {
+			return false;
+		};
 
-		if let Some(index) = self
+		self.marks.remove(index);
+		self.build.leave();
+		true
+	}
+
+	/// Close the innermost container `tag` and every container inside it.
+	fn close_frame(&mut self, tag: &str) -> bool {
+		let index = self
 			.frames
 			.iter()
-			.rposition(|frame| frame.tag == tag && !tag.is_empty())
-		{
-			self.end_text();
+			.rposition(|frame| frame.tag == tag && !tag.is_empty());
+		let Some(index) = index else {
+			return false;
+		};
 
-			while self.frames.len() > index.max(1) {
-				self.pop_frame();
-			}
+		self.end_text();
 
-			return;
+		while self.frames.len() > index.max(1) {
+			self.pop_frame();
 		}
 
-		if BOUNDARIES.contains(&tag) {
-			self.end_text();
-		}
+		true
 	}
 
 	fn children(&mut self) -> &mut Vec<BlockTree> {
@@ -1093,27 +471,7 @@ impl<'b, 's> Reader<'b, 's> {
 		let Some(atom) = self.atom.take() else {
 			return;
 		};
-		let shown = atom.text.trim();
-		let mut attrs = atom.attrs;
-
-		match atom.name {
-			"emoji"
-				if cfg!(feature = "emoji") && attrs.get("emoji").is_none() && !shown.is_empty() =>
-			{
-				attrs.set("emoji", shown);
-			}
-			"mention" if cfg!(feature = "mention") && attrs.get("label").is_none() => {
-				let label: String = shown.chars().skip(1).collect();
-				// A mention without a label shows its id, which is not a label.
-				let id = attrs.get("id").and_then(Value::as_str);
-
-				if id != Some(label.as_str()) {
-					attrs.set("label", label);
-				}
-			}
-			_ => {}
-		}
-
+		let attrs = shown_attrs(atom.name, atom.attrs, atom.text.trim());
 		let marks = self.marks();
 		let Some(embed) = self.build.embed(atom.name, &attrs, marks) else {
 			self.push_text(&atom.text);
@@ -1176,48 +534,5 @@ impl<'b, 's> Reader<'b, 's> {
 			.pop()
 			.map(|root| root.children)
 			.unwrap_or_default()
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn tokenizes_tags_attributes_and_entities() {
-		let tokens: Vec<Token> =
-			Tokenizer::new("<!-- c --><a HREF='x&amp;y' data-x=1 hidden>&lt;3 &#x1F600;</a>")
-				.collect();
-
-		assert_eq!(
-			tokens,
-			[
-				Token::Open {
-					name: "a".to_owned(),
-					attrs: vec![
-						("href".to_owned(), "x&y".to_owned()),
-						("data-x".to_owned(), "1".to_owned()),
-						("hidden".to_owned(), String::new()),
-					],
-				},
-				Token::Text("<3 😀".to_owned()),
-				Token::Close("a".to_owned()),
-			]
-		);
-	}
-
-	#[test]
-	fn skips_scripts_styles_and_doctypes() {
-		let tokens: Vec<Token> =
-			Tokenizer::new("<!DOCTYPE html><style>p{}</style><script>if (a < b) {}</script>x")
-				.collect();
-
-		assert_eq!(tokens.last(), Some(&Token::Text("x".to_owned())));
-		assert_eq!(tokens.len(), 3);
-	}
-
-	#[test]
-	fn keeps_unknown_entities_and_stray_ampersands() {
-		assert_eq!(decode("a & b &bogus; &#xZZ;"), "a & b &bogus; &#xZZ;");
 	}
 }

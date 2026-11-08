@@ -2,8 +2,41 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Kinetic type: text that moves, glyph by glyph, on the canvas.
-
+//! # `canvist_extension_kinetic`
+//!
+//! Kinetic type for the canvist editor: text that moves, glyph by glyph, on
+//! the canvas. [`Kinetic`] adds a `kinetic` mark whose `effect` attribute is
+//! one of the [`KineticEffect`]s (`wave`, `shake`, `pulse`, or `rainbow`),
+//! the `setKinetic`, `toggleKinetic`, and `unsetKinetic` commands, and the
+//! `kineticEffect` query. It is canvas-native: neither TipTap nor Remirror has
+//! it, and the document only stores the mark, which `canvist_layout`
+//! animates.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_core::command;
+//! use canvist_core::commands;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_kinetic::Kinetic;
+//! use canvist_extension_kinetic::KineticEffect;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let kinetic = builder.add(Kinetic);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("Hooray", &mut env)?;
+//! editor.run(&command(commands::select_all), &mut env)?;
+//! editor.run(&kinetic.set(KineticEffect::Rainbow), &mut env)?;
+//!
+//! assert_eq!(kinetic.effect(editor.state()), Some(KineticEffect::Rainbow));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+use canvist_core::Args;
 use canvist_core::Command;
 use canvist_core::CommandSpec;
 use canvist_core::EditorError;
@@ -18,6 +51,7 @@ use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_core::mark_type;
 use canvist_core::query;
 use canvist_model::Attrs;
 use canvist_model::Mark;
@@ -98,10 +132,7 @@ impl KineticHandle {
 	/// Make the selection still.
 	#[must_use]
 	pub fn unset(self) -> Command {
-		command(|state| {
-			let kind = canvist_core::mark_type(state.schema(), KINETIC, KINETIC)?;
-			commands::unset_mark(state, kind)
-		})
+		unset()
 	}
 
 	/// Make the selection move with `effect`, or still when it already
@@ -114,13 +145,18 @@ impl KineticHandle {
 	/// The effect of the text at the selection, if it moves.
 	#[must_use]
 	pub fn effect(self, state: &EditorState) -> Option<KineticEffect> {
-		query::shared_mark_attr(state, KINETIC, EFFECT)
-			.and_then(|value| value.as_str().and_then(KineticEffect::from_name))
+		effect(state)
 	}
 }
 
+/// The effect every selected character moves with, if they share one.
+fn effect(state: &EditorState) -> Option<KineticEffect> {
+	let value = query::shared_mark_attr(state, KINETIC, EFFECT)?;
+	value.as_str().and_then(KineticEffect::from_name)
+}
+
 fn mark(state: &EditorState, effect: KineticEffect) -> Result<Mark, EditorError> {
-	let kind = canvist_core::mark_type(state.schema(), KINETIC, KINETIC)?;
+	let kind = mark_type(state.schema(), KINETIC, KINETIC)?;
 	Ok(Mark::with_attrs(
 		kind,
 		Attrs::new().with(EFFECT, effect.name()),
@@ -140,10 +176,8 @@ fn set(effect: KineticEffect) -> Command {
 fn toggle(effect: KineticEffect) -> Command {
 	command(move |state| {
 		let mark = mark(state, effect)?;
-		let same = query::shared_mark_attr(state, KINETIC, EFFECT)
-			.is_some_and(|value| value.as_str() == Some(effect.name()));
 
-		if same {
+		if self::effect(state) == Some(effect) {
 			commands::unset_mark(state, mark.kind)
 		} else {
 			commands::set_mark(state, &mark)
@@ -151,7 +185,14 @@ fn toggle(effect: KineticEffect) -> Command {
 	})
 }
 
-fn effect_arg(args: &canvist_core::Args<'_>) -> Result<KineticEffect, EditorError> {
+fn unset() -> Command {
+	command(|state| {
+		let kind = mark_type(state.schema(), KINETIC, KINETIC)?;
+		commands::unset_mark(state, kind)
+	})
+}
+
+fn effect_arg(args: &Args<'_>) -> Result<KineticEffect, EditorError> {
 	let name = args.string(EFFECT)?;
 
 	KineticEffect::from_name(name).ok_or_else(|| {
@@ -207,14 +248,7 @@ impl Extension for Kinetic {
 				|args| Ok(toggle(effect_arg(args)?)),
 			)
 			.arg(effect_field()),
-			CommandSpec::simple(
-				"unsetKinetic",
-				"Make the selection still.",
-				command(|state| {
-					let kind = canvist_core::mark_type(state.schema(), KINETIC, KINETIC)?;
-					commands::unset_mark(state, kind)
-				}),
-			),
+			CommandSpec::simple("unsetKinetic", "Make the selection still.", unset()),
 		])
 	}
 
@@ -223,15 +257,7 @@ impl Extension for Kinetic {
 			"kineticEffect",
 			"How the text at the selection moves, or null when it is still.",
 			ValueType::nullable(effect_type()),
-			|state, _| {
-				Ok(query::shared_mark_attr(state, KINETIC, EFFECT)
-					.filter(|value| {
-						value
-							.as_str()
-							.is_some_and(|name| KineticEffect::from_name(name).is_some())
-					})
-					.unwrap_or(Value::Null))
-			},
+			|state, _| Ok(effect(state).map_or(Value::Null, |effect| Value::from(effect.name()))),
 		)])
 	}
 }
@@ -243,5 +269,75 @@ impl TypedExtension for Kinetic {
 		KineticHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn run(editor: &mut Editor, command: &Command) -> bool {
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(command, &mut env).expect("ran").is_some()
+	}
+
+	/// An editor holding `text`, all of it selected.
+	fn selected(text: &str) -> (Editor, KineticHandle) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let kinetic = builder.add(Kinetic);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.insert_text(text, &mut env).expect("typed");
+		assert!(run(&mut editor, &command(commands::select_all)));
+
+		(editor, kinetic)
+	}
+
+	#[test]
+	fn names_round_trip() {
+		for effect in KineticEffect::ALL {
+			assert_eq!(KineticEffect::from_name(effect.name()), Some(effect));
+		}
+
+		assert_eq!(KineticEffect::from_name("spin"), None);
+	}
+
+	#[test]
+	fn toggling_another_effect_switches_and_the_same_one_stills() {
+		let (mut editor, kinetic) = selected("text");
+
+		assert!(run(&mut editor, &kinetic.toggle(KineticEffect::Wave)));
+		assert!(run(&mut editor, &kinetic.toggle(KineticEffect::Shake)));
+		assert_eq!(kinetic.effect(editor.state()), Some(KineticEffect::Shake));
+
+		assert!(run(&mut editor, &kinetic.toggle(KineticEffect::Shake)));
+		assert_eq!(kinetic.effect(editor.state()), None);
+	}
+
+	#[test]
+	fn the_query_reads_the_shared_effect() {
+		let (mut editor, kinetic) = selected("text");
+
+		assert_eq!(
+			editor.query("kineticEffect", &Attrs::new()).ok(),
+			Some(Value::Null)
+		);
+
+		run(&mut editor, &kinetic.set(KineticEffect::Pulse));
+		assert_eq!(
+			editor.query("kineticEffect", &Attrs::new()).ok(),
+			Some(Value::from("pulse"))
+		);
+
+		run(&mut editor, &kinetic.unset());
+		assert_eq!(kinetic.effect(editor.state()), None);
 	}
 }

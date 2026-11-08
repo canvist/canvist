@@ -30,6 +30,33 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_callout
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_callout::Callout;
+use canvist_extension_callout::CalloutType;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let callout = builder.add(Callout);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in ":::warning Mind the gap".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+assert_eq!(callout.kind(editor.state()), Some(CalloutType::Warning));
+assert_eq!(editor.state().doc().plain_text(), "Mind the gap");
+
+editor.run(&callout.set_type(CalloutType::Success), &mut env)?;
+assert_eq!(callout.kind(editor.state()), Some(CalloutType::Success));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

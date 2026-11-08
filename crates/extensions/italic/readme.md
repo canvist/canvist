@@ -30,6 +30,29 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_italic
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_italic::Italic;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let italic = builder.add(Italic);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "*italic*".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+assert_eq!(editor.state().doc().plain_text(), "italic");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

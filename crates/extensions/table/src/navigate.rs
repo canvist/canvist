@@ -99,6 +99,7 @@ pub(crate) fn guard_edge(state: &mut EditorState, forward: bool) -> CommandResul
 	let Some((cell, _)) = cell_around(doc, caret.block) else {
 		return Ok(None);
 	};
+
 	let blocks = text_blocks(doc, cell);
 	let at_edge = if forward {
 		blocks.last() == Some(&caret.block) && caret.offset == position::text_len(doc, caret.block)

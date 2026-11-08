@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_hashtag
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_hashtag::Hashtag;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let hashtag = builder.add(Hashtag);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "Ship #rust, then #ca".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+assert_eq!(hashtag.suggestion(editor.state()).as_deref(), Some("ca"));
+
+editor.run(&hashtag.insert("canvas"), &mut env)?;
+assert_eq!(hashtag.tags(editor.state()), ["canvas", "rust"]);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

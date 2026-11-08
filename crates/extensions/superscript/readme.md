@@ -30,6 +30,26 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_superscript
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_superscript::Superscript;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let superscript = builder.add(Superscript);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&superscript.toggle(), &mut env)?;
+assert!(superscript.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

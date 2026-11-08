@@ -4,9 +4,12 @@
 )]
 //! # `canvist_extension_superscript`
 //!
-//! TipTap's `superscript` mark for the canvist editor. [`Superscript`] registers the
-//! mark with `toggleSuperscript`, `setSuperscript`, and `unsetSuperscript`, the `isSuperscript` query, and its keys
-//! and Markdown shortcuts. Its handle is a [`MarkHandle`].
+//! TipTap's `superscript` mark for the canvist editor, as in TipTap's
+//! `@tiptap/extension-superscript`. [`Superscript`] registers the mark with
+//! the `toggleSuperscript`, `setSuperscript`, and `unsetSuperscript`
+//! commands and the `isSuperscript` query, and `Mod-.` toggles it. When
+//! `subscript` is registered too, the two exclude each other. There are no
+//! input or paste rules. Its handle is a [`MarkHandle`].
 //!
 //! ```
 //! use std::time::Duration;
@@ -103,19 +106,64 @@ impl TypedExtension for Superscript {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Attrs;
 	use canvist_model::BlockSpec;
+	use canvist_model::Point;
+	use canvist_model::Selection;
+	use canvist_model::Value;
 
 	use super::*;
 
 	#[test]
-	fn every_pattern_compiles() {
-		let schema = Schema::builder()
-			.block(BlockSpec::text("paragraph"))
-			.mark(MarkSpec::new("superscript"))
+	fn toggle_adds_and_removes_the_mark() -> Result<(), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let superscript = builder.add(Superscript);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		let block = editor.state().doc().children(None)[0];
+		editor.select(
+			Selection::text(Point::new(block, 0), Point::new(block, 2)),
+			&mut env,
+		)?;
+
+		editor.run(&superscript.toggle(), &mut env)?;
+		assert!(superscript.is_active(editor.state()));
+		assert_eq!(
+			editor.query("isSuperscript", &Attrs::new())?,
+			Value::Bool(true)
+		);
+
+		editor.run(&superscript.toggle(), &mut env)?;
+		assert!(!superscript.is_active(editor.state()));
+		Ok(())
+	}
+
+	#[test]
+	fn excludes_subscript_when_it_is_registered() {
+		let paragraph = || Schema::builder().block(BlockSpec::text("paragraph"));
+		let alone = Superscript
+			.schema(paragraph())
 			.build()
 			.expect("valid schema");
+		let both = Superscript
+			.schema(paragraph().mark(MarkSpec::new("subscript")))
+			.build()
+			.expect("valid schema");
+		let superscript = both
+			.mark_type("superscript")
+			.expect("superscript is registered");
+		let subscript = both
+			.mark_type("subscript")
+			.expect("subscript is registered");
 
-		assert!(SUPERSCRIPT.input_rules(&schema).is_ok());
-		assert!(SUPERSCRIPT.paste_rules(&schema).is_ok());
+		assert!(alone.mark_type("superscript").is_some());
+		assert!(both.mark(superscript).excludes.contains(&subscript));
 	}
 }

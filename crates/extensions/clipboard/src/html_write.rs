@@ -13,6 +13,7 @@ use canvist_model::TreeContent;
 use canvist_model::Value;
 use canvist_model::is_safe_link_url;
 
+use super::features::gated;
 use super::tree::HARD_BREAK;
 
 /// Serialize a slice to HTML: `<p>`, `<h1>`–`<h6>`, `<blockquote>`,
@@ -42,6 +43,7 @@ fn attr_int(attrs: &Attrs, key: &str) -> Option<i64> {
 	attrs.get(key).and_then(Value::as_int)
 }
 
+/// One block: a text block, a container around its children, or a leaf.
 fn write_block(schema: &Schema, tree: &BlockTree, html: &mut String) {
 	let name = schema.block(tree.kind).name.as_ref();
 
@@ -57,135 +59,183 @@ fn write_block(schema: &Schema, tree: &BlockTree, html: &mut String) {
 
 			html.push_str(close);
 		}
+		TreeContent::Leaf => write_leaf(name, &tree.attrs, html),
+	}
+}
 
-		TreeContent::Leaf if name == "horizontalRule" => html.push_str("<hr>"),
-		TreeContent::Leaf
-			if cfg!(any(
-				feature = "image",
-				feature = "youtube",
-				feature = "twitch",
-				feature = "audio",
-				feature = "file",
-				feature = "mathematics"
-			)) && (write_media(name, &tree.attrs, html)) => {}
-		TreeContent::Leaf if cfg!(feature = "ink") && (name == "ink") => {
-			write_ink(&tree.attrs, html);
-		}
-		TreeContent::Leaf => {
-			html.push_str("<div data-type=\"");
-			html.push_str(&escape(name));
-			html.push_str("\"></div>");
+/// A leaf block: a rule, a drawing, a media block, or an unknown leaf as
+/// an empty `<div data-type>`.
+fn write_leaf(name: &str, attrs: &Attrs, html: &mut String) {
+	if let Some(media) = media(name) {
+		write_media(name, media, attrs, html);
+
+		return;
+	}
+
+	match gated(name) {
+		"horizontalRule" => html.push_str("<hr>"),
+		"ink" => write_ink(attrs, html),
+		_ => {
+			let _ = write!(html, "<div data-type=\"{}\"></div>", escape(name));
 		}
 	}
 }
 
-/// Media blocks as TipTap and Remirror write them, returning whether
-/// `name` is one.
-fn write_media(name: &str, attrs: &Attrs, html: &mut String) -> bool {
-	let (open, attributes, close): (&str, &[(&str, &str)], &str) = match name {
-		"image" if cfg!(feature = "image") => {
-			(
-				"<img",
-				&[
-					("src", "src"),
-					("alt", "alt"),
-					("title", "title"),
-					("width", "width"),
-					("height", "height"),
-				],
-				">",
-			)
-		}
-		"youtube" if cfg!(feature = "youtube") => {
-			(
-				"<div data-youtube-video=\"\"><iframe title=\"YouTube video\"",
-				&[("src", "src"), ("width", "width"), ("height", "height")],
-				"></iframe></div>",
-			)
-		}
-		"twitch" if cfg!(feature = "twitch") => {
-			(
-				"<div data-twitch-video=\"\"><iframe title=\"Twitch video\"",
-				&[("src", "src"), ("width", "width"), ("height", "height")],
-				"></iframe></div>",
-			)
-		}
-		"audio" if cfg!(feature = "audio") => ("<audio", &[("src", "src")], "></audio>"),
-		"file" if cfg!(feature = "file") => {
-			(
-				"<div data-type=\"file\"",
-				&[
-					("url", "data-url"),
-					("fileName", "data-file-name"),
-					("fileType", "data-file-type"),
-					("fileSize", "data-file-size"),
-				],
-				"></div>",
-			)
-		}
-		"blockMath" if cfg!(feature = "mathematics") => {
-			(
-				"<div data-type=\"block-math\"",
-				&[("latex", "data-latex")],
-				"></div>",
-			)
-		}
-		_ => return false,
-	};
+/// How a media block's element opens and closes, and the HTML attribute
+/// each of its attributes becomes.
+struct Media {
+	open: &'static str,
+	attributes: &'static [(&'static str, &'static str)],
+	close: &'static str,
+}
 
-	html.push_str(open);
+/// The attributes a video frame carries.
+const VIDEO_ATTRIBUTES: &[(&str, &str)] =
+	&[("src", "src"), ("width", "width"), ("height", "height")];
 
-	for (key, attribute) in attributes {
-		let value = match attrs.get(key) {
-			Some(Value::String(text)) => text.to_string(),
-			Some(Value::Int(number)) => number.to_string(),
-			Some(Value::Float(number)) => {
-				let Some(text) = float_text(*number) else {
-					continue;
-				};
-				text
-			}
-			_ => continue,
+/// Media blocks as TipTap and Remirror write them.
+const MEDIA: [(&str, Media); 6] = [
+	(
+		"image",
+		Media {
+			open: "<img",
+			attributes: &[
+				("src", "src"),
+				("alt", "alt"),
+				("title", "title"),
+				("width", "width"),
+				("height", "height"),
+			],
+			close: ">",
+		},
+	),
+	(
+		"youtube",
+		Media {
+			open: "<div data-youtube-video=\"\"><iframe title=\"YouTube video\"",
+			attributes: VIDEO_ATTRIBUTES,
+			close: "></iframe></div>",
+		},
+	),
+	(
+		"twitch",
+		Media {
+			open: "<div data-twitch-video=\"\"><iframe title=\"Twitch video\"",
+			attributes: VIDEO_ATTRIBUTES,
+			close: "></iframe></div>",
+		},
+	),
+	(
+		"audio",
+		Media {
+			open: "<audio",
+			attributes: &[("src", "src")],
+			close: "></audio>",
+		},
+	),
+	(
+		"file",
+		Media {
+			open: "<div data-type=\"file\"",
+			attributes: &[
+				("url", "data-url"),
+				("fileName", "data-file-name"),
+				("fileType", "data-file-type"),
+				("fileSize", "data-file-size"),
+			],
+			close: "></div>",
+		},
+	),
+	(
+		"blockMath",
+		Media {
+			open: "<div data-type=\"block-math\"",
+			attributes: &[("latex", "data-latex")],
+			close: "></div>",
+		},
+	),
+];
+
+/// The markup of media block `name`, when it is one and compiled in.
+fn media(name: &str) -> Option<&'static Media> {
+	MEDIA
+		.iter()
+		.find(|(media, _)| *media == gated(name))
+		.map(|(_, media)| media)
+}
+
+/// A media block's element with the attributes it has set.
+fn write_media(name: &str, media: &Media, attrs: &Attrs, html: &mut String) {
+	html.push_str(media.open);
+
+	for (key, attribute) in media.attributes {
+		let Some(value) = media_value(attrs, key) else {
+			continue;
 		};
 
 		// A video's source becomes a frame, so only its own site's URLs do.
 		let is_video = matches!(name, "youtube" | "twitch");
 
-		if is_video && *key == "src" && super::html_read::video_kind(&value) != Some(name) {
+		if is_video && *key == "src" && super::html_role::video_kind(&value) != Some(name) {
 			continue;
 		}
 
-		html.push(' ');
-		html.push_str(attribute);
-		html.push_str("=\"");
-		html.push_str(&escape(&value));
-		html.push('"');
+		write_attribute(html, attribute, &value);
 	}
 
-	if cfg!(feature = "audio") && name == "audio" {
-		for flag in ["controls", "autoplay", "loop", "muted"] {
-			// Controls are on unless turned off; the rest are off.
-			let on = attrs
-				.get(flag)
-				.and_then(Value::as_bool)
-				.unwrap_or(flag == "controls");
+	if name == "audio" {
+		write_audio_flags(attrs, html);
+	}
 
-			if on {
-				html.push(' ');
-				html.push_str(flag);
-			}
+	html.push_str(media.close);
+}
+
+/// A media attribute as HTML writes it: text, or a finite number.
+fn media_value(attrs: &Attrs, key: &str) -> Option<String> {
+	match attrs.get(key)? {
+		Value::String(text) => Some(text.to_string()),
+		Value::Int(number) => Some(number.to_string()),
+		Value::Float(number) => float_text(*number),
+		_ => None,
+	}
+}
+
+/// `<audio>`'s boolean attributes. Controls are on unless turned off; the
+/// rest are off.
+fn write_audio_flags(attrs: &Attrs, html: &mut String) {
+	for flag in ["controls", "autoplay", "loop", "muted"] {
+		let on = attrs
+			.get(flag)
+			.and_then(Value::as_bool)
+			.unwrap_or(flag == "controls");
+
+		if on {
+			html.push(' ');
+			html.push_str(flag);
 		}
 	}
-
-	html.push_str(close);
-	true
 }
+
+/// ` name="value"`, with the value escaped.
+fn write_attribute(html: &mut String, name: &str, value: &str) {
+	html.push(' ');
+	html.push_str(name);
+	html.push_str("=\"");
+	html.push_str(&escape(value));
+	html.push('"');
+}
+
+/// An ink drawing's height when it has none, as the ink extension's default.
+const INK_HEIGHT: i64 = 400;
+
+/// A stroke's width when it has none.
+const STROKE_WIDTH: f64 = 4.0;
 
 /// An ink drawing as a `<figure>` carrying its strokes as JSON, which the
 /// reader takes back, around an SVG of them that any browser shows.
 fn write_ink(attrs: &Attrs, html: &mut String) {
 	// A malformed height would make the viewBox invalid.
-	let height = attr_int(attrs, "height").unwrap_or(400).max(1);
+	let height = attr_int(attrs, "height").unwrap_or(INK_HEIGHT).max(1);
 	let strokes = attrs
 		.get("strokes")
 		.and_then(Value::as_array)
@@ -223,11 +273,13 @@ fn write_ink(attrs: &Attrs, html: &mut String) {
 			.get("color")
 			.and_then(Value::as_str)
 			.unwrap_or("currentColor");
+
 		let width = match stroke.get("width") {
 			Some(Value::Float(width)) => *width,
 			Some(Value::Int(width)) => *width as f64,
-			_ => 4.0,
+			_ => STROKE_WIDTH,
 		};
+
 		let _ = write!(
 			html,
 			"<path d=\"{}\" fill=\"none\" stroke=\"{}\" stroke-width=\"{}\" \
@@ -309,31 +361,24 @@ fn cell_tag(tag: &str, attrs: &Attrs) -> String {
 	open
 }
 
+/// A container's opening and closing tags. Lists, cells, details, callouts,
+/// and task items carry their attributes on the opening tag; an unknown
+/// container is a `<div data-type>`.
 fn container_tags(name: &str, attrs: &Attrs) -> (String, &'static str) {
-	match name {
+	match gated(name) {
 		"blockquote" => ("<blockquote>".to_owned(), "</blockquote>"),
 		"bulletList" => ("<ul>".to_owned(), "</ul>"),
-		"orderedList" => {
-			match attr_int(attrs, "start").filter(|&start| start != 1) {
-				Some(start) => (format!("<ol start=\"{start}\">"), "</ol>"),
-				None => ("<ol>".to_owned(), "</ol>"),
-			}
-		}
+		"orderedList" => (ordered_list_tag(attrs), "</ol>"),
 		"listItem" => ("<li>".to_owned(), "</li>"),
-		"table" if cfg!(feature = "table") => ("<table><tbody>".to_owned(), "</tbody></table>"),
-		"tableRow" if cfg!(feature = "table") => ("<tr>".to_owned(), "</tr>"),
-		"tableCell" if cfg!(feature = "table") => (cell_tag("td", attrs), "</td>"),
-		"tableHeader" if cfg!(feature = "table") => (cell_tag("th", attrs), "</th>"),
-		"details" if cfg!(feature = "details") => {
-			let open = attrs.get("open").and_then(Value::as_bool) == Some(true);
-			let tag = if open { "<details open>" } else { "<details>" };
-			(tag.to_owned(), "</details>")
-		}
-		"detailsContent" if cfg!(feature = "details") => {
-			("<div data-type=\"detailsContent\">".to_owned(), "</div>")
-		}
-		"callout" if cfg!(feature = "callout") => {
-			let kind = attrs.get("type").and_then(Value::as_str).unwrap_or("info");
+		"table" => ("<table><tbody>".to_owned(), "</tbody></table>"),
+		"tableRow" => ("<tr>".to_owned(), "</tr>"),
+		"tableCell" => (cell_tag("td", attrs), "</td>"),
+		"tableHeader" => (cell_tag("th", attrs), "</th>"),
+		"details" if flag(attrs, "open") => ("<details open>".to_owned(), "</details>"),
+		"details" => ("<details>".to_owned(), "</details>"),
+		"detailsContent" => ("<div data-type=\"detailsContent\">".to_owned(), "</div>"),
+		"callout" => {
+			let kind = text_attr(attrs, "type").unwrap_or("info");
 			(
 				format!("<div data-callout-type=\"{}\">", escape(kind)),
 				"</div>",
@@ -341,14 +386,37 @@ fn container_tags(name: &str, attrs: &Attrs) -> (String, &'static str) {
 		}
 		"taskList" => ("<ul data-type=\"taskList\">".to_owned(), "</ul>"),
 		"taskItem" => {
-			let checked = attrs.get("checked").and_then(Value::as_bool) == Some(true);
+			let checked = flag(attrs, "checked");
 			let open = format!("<li data-type=\"taskItem\" data-checked=\"{checked}\">");
 			(open, "</li>")
 		}
-		other => (format!("<div data-type=\"{}\">", escape(other)), "</div>"),
+		_ => (format!("<div data-type=\"{}\">", escape(name)), "</div>"),
 	}
 }
 
+/// `<ol>`, with its `start` when it is not one.
+fn ordered_list_tag(attrs: &Attrs) -> String {
+	match attr_int(attrs, "start").filter(|&start| start != 1) {
+		Some(start) => format!("<ol start=\"{start}\">"),
+		None => "<ol>".to_owned(),
+	}
+}
+
+/// Whether boolean attribute `key` is set and true.
+fn flag(attrs: &Attrs, key: &str) -> bool {
+	attrs.get(key).and_then(Value::as_bool) == Some(true)
+}
+
+/// Text attribute `key`, if it holds text.
+fn text_attr<'a>(attrs: &'a Attrs, key: &str) -> Option<&'a str> {
+	attrs.get(key).and_then(Value::as_str)
+}
+
+/// The deepest heading HTML has.
+const MAX_HEADING: i64 = 6;
+
+/// A text block: a heading, a code block holding its plain text, a details
+/// summary, or else a paragraph.
 fn write_text_block(
 	schema: &Schema,
 	name: &str,
@@ -356,29 +424,16 @@ fn write_text_block(
 	text: &InlineText,
 	html: &mut String,
 ) {
-	match name {
+	match gated(name) {
 		"heading" => {
-			let level = attr_int(attrs, "level")
-				.unwrap_or(1)
-				.clamp(1, 6)
-				.to_string();
-			html.push_str("<h");
-			html.push_str(&level);
-			if cfg!(feature = "text-align") {
-				html.push_str(&align_style(attrs));
-			}
-			html.push('>');
-			write_inline(schema, text, html);
-			html.push_str("</h");
-			html.push_str(&level);
-			html.push('>');
+			let level = attr_int(attrs, "level").unwrap_or(1).clamp(1, MAX_HEADING);
+			let open = format!("<h{level}{}>", align_style(attrs));
+			write_wrapped(schema, &open, text, &format!("</h{level}>"), html);
 		}
 		"codeBlock" => {
-			match attrs.get("language").and_then(Value::as_str) {
+			match text_attr(attrs, "language") {
 				Some(language) => {
-					html.push_str("<pre><code class=\"language-");
-					html.push_str(&escape(language));
-					html.push_str("\">");
+					let _ = write!(html, "<pre><code class=\"language-{}\">", escape(language));
 				}
 				None => html.push_str("<pre><code>"),
 			}
@@ -386,110 +441,106 @@ fn write_text_block(
 			html.push_str(&escape(&super::tree::plain_text(schema, text)));
 			html.push_str("</code></pre>");
 		}
-		"detailsSummary" if cfg!(feature = "details") => {
-			html.push_str("<summary>");
-			write_inline(schema, text, html);
-			html.push_str("</summary>");
+		"detailsSummary" => {
+			write_wrapped(schema, "<summary>", text, "</summary>", html);
 		}
 		_ => {
-			html.push_str("<p");
-			if cfg!(feature = "text-align") {
-				html.push_str(&align_style(attrs));
-			}
-			html.push('>');
-			write_inline(schema, text, html);
-			html.push_str("</p>");
+			let open = format!("<p{}>", align_style(attrs));
+			write_wrapped(schema, &open, text, "</p>", html);
 		}
 	}
 }
 
+/// `text` between `open` and `close`.
+fn write_wrapped(schema: &Schema, open: &str, text: &InlineText, close: &str, html: &mut String) {
+	html.push_str(open);
+	write_inline(schema, text, html);
+	html.push_str(close);
+}
+
 /// A ` style="text-align: …"` attribute for an aligned block, as TipTap
-/// writes it, or nothing.
+/// writes it, or nothing, as it is without the text alignment extension.
 fn align_style(attrs: &Attrs) -> String {
-	attrs
-		.get("textAlign")
-		.and_then(Value::as_str)
+	if !cfg!(feature = "text-align") {
+		return String::new();
+	}
+
+	text_attr(attrs, "textAlign")
 		.and_then(|value| super::css::value("text-align", value))
 		.map(|align| format!(" style=\"text-align: {}\"", escape(align)))
 		.unwrap_or_default()
 }
 
-/// The opening and closing tags for one mark.
+/// The opening and closing tags for one mark. Marks with attributes write
+/// them as TipTap does; an unknown mark is a `<span data-mark>`.
 fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
-	match schema.mark(mark.kind).name.as_ref() {
+	let name = schema.mark(mark.kind).name.as_ref();
+	let attrs = &mark.attrs;
+
+	match gated(name) {
 		"bold" => ("<strong>".to_owned(), "</strong>"),
 		"italic" => ("<em>".to_owned(), "</em>"),
 		"underline" => ("<u>".to_owned(), "</u>"),
 		"strike" => ("<s>".to_owned(), "</s>"),
 		"code" => ("<code>".to_owned(), "</code>"),
-		"link" => {
-			let href = mark
-				.attrs
-				.get("href")
-				.and_then(Value::as_str)
-				.unwrap_or_default();
-
-			if is_safe_link_url(href) {
-				(format!("<a href=\"{}\">", escape(href)), "</a>")
-			} else {
-				("<a>".to_owned(), "</a>")
-			}
+		"link" => (link_tag(attrs), "</a>"),
+		"subscript" => ("<sub>".to_owned(), "</sub>"),
+		"superscript" => ("<sup>".to_owned(), "</sup>"),
+		"highlight" => (highlight_tag(attrs), "</mark>"),
+		"textStyle" => (text_style_tag(attrs), "</span>"),
+		"kinetic" => {
+			let effect = text_attr(attrs, "effect").unwrap_or("wave");
+			(span_tag(&[("data-kinetic", effect)]), "</span>")
 		}
-		"subscript" if cfg!(feature = "subscript") => ("<sub>".to_owned(), "</sub>"),
-		"superscript" if cfg!(feature = "superscript") => ("<sup>".to_owned(), "</sup>"),
-		"highlight" if cfg!(feature = "highlight") => (highlight_tag(&mark.attrs), "</mark>"),
-		"textStyle" if cfg!(feature = "text-style") => (text_style_tag(&mark.attrs), "</span>"),
-		"kinetic" if cfg!(feature = "kinetic") => {
-			let effect = mark
-				.attrs
-				.get("effect")
-				.and_then(Value::as_str)
-				.unwrap_or("wave");
-			(
-				format!("<span data-kinetic=\"{}\">", escape(effect)),
-				"</span>",
-			)
-		}
-		"comment" if cfg!(feature = "comments") => {
-			let threads: Vec<&str> = mark
-				.attrs
+		"comment" => {
+			let threads: Vec<&str> = attrs
 				.get("threads")
 				.and_then(Value::as_array)
 				.unwrap_or_default()
 				.iter()
 				.filter_map(Value::as_str)
 				.collect();
-			(
-				format!(
-					"<span data-type=\"comment\" data-threads=\"{}\">",
-					escape(&threads.join(" "))
-				),
-				"</span>",
-			)
+			let threads = threads.join(" ");
+			let tag = span_tag(&[("data-type", "comment"), ("data-threads", &threads)]);
+			(tag, "</span>")
 		}
-		"conditional" if cfg!(feature = "conditional") => {
-			let when = mark
-				.attrs
-				.get("when")
-				.and_then(Value::as_str)
-				.unwrap_or_default();
-			(
-				format!(
-					"<span data-type=\"conditional\" data-when=\"{}\">",
-					escape(when)
-				),
-				"</span>",
-			)
+		"conditional" => {
+			let when = text_attr(attrs, "when").unwrap_or_default();
+			let tag = span_tag(&[("data-type", "conditional"), ("data-when", when)]);
+			(tag, "</span>")
 		}
-		"hashtag" if cfg!(feature = "hashtag") => {
-			let tag = mark.attrs.get("tag").and_then(Value::as_str);
-			let data = tag.map(|tag| format!(" data-tag=\"{}\"", escape(tag)));
-			(
-				format!("<span data-type=\"hashtag\"{}>", data.unwrap_or_default()),
-				"</span>",
-			)
+		"hashtag" => {
+			let tag = match text_attr(attrs, "tag") {
+				Some(tag) => span_tag(&[("data-type", "hashtag"), ("data-tag", tag)]),
+				None => span_tag(&[("data-type", "hashtag")]),
+			};
+
+			(tag, "</span>")
 		}
-		other => (format!("<span data-mark=\"{}\">", escape(other)), "</span>"),
+		_ => (span_tag(&[("data-mark", name)]), "</span>"),
+	}
+}
+
+/// A `<span>` opening tag with these attributes.
+fn span_tag(attributes: &[(&str, &str)]) -> String {
+	let mut tag = "<span".to_owned();
+
+	for (name, value) in attributes {
+		write_attribute(&mut tag, name, value);
+	}
+
+	tag.push('>');
+	tag
+}
+
+/// `<a>`, with its `href` when the URL's scheme is safe to follow.
+fn link_tag(attrs: &Attrs) -> String {
+	let href = text_attr(attrs, "href").unwrap_or_default();
+
+	if is_safe_link_url(href) {
+		format!("<a href=\"{}\">", escape(href))
+	} else {
+		"<a>".to_owned()
 	}
 }
 
@@ -538,6 +589,8 @@ fn text_style_tag(attrs: &Attrs) -> String {
 	format!("<span style=\"{}\">", escape(&declarations.join("; ")))
 }
 
+/// Inline text, run by run: each run's marks open in order around its text,
+/// a hard break, or an embed, and close in reverse, so tags always nest.
 fn write_inline(schema: &Schema, text: &InlineText, html: &mut String) {
 	for run in text.runs() {
 		let tags: Vec<_> = run
@@ -587,17 +640,14 @@ fn write_embed(schema: &Schema, embed: &Embed, html: &mut String) {
 	} else {
 		name
 	};
+
 	html.push_str("<span data-type=\"");
 	html.push_str(&escape(data_type));
 	html.push('"');
 
 	for (attr, data) in EMBED_ATTRIBUTES {
-		if let Some(value) = embed.attrs.get(attr).and_then(Value::as_str) {
-			html.push(' ');
-			html.push_str(data);
-			html.push_str("=\"");
-			html.push_str(&escape(value));
-			html.push('"');
+		if let Some(value) = text_attr(&embed.attrs, attr) {
+			write_attribute(html, data, value);
 		}
 	}
 

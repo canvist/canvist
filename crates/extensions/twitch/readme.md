@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_twitch
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_twitch::Twitch;
+use canvist_model::Attrs;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let twitch = builder.add(Twitch);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let update = editor.run(&twitch.insert("https://www.twitch.tv/videos/1", &Attrs::new()), &mut env)?;
+assert!(update.is_some());
+
+let refused = editor.run(&twitch.insert("https://youtu.be/x", &Attrs::new()), &mut env)?;
+assert!(refused.is_none());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

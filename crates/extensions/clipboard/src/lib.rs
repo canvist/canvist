@@ -2,32 +2,105 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Clipboard formats: HTML, Markdown, and plain text.
+//! # `canvist_extension_clipboard`
 //!
+//! The canvist editor's clipboard formats: HTML, Markdown, and plain text.
 //! [`Editor::copy`](canvist_core::Editor::copy) produces a [`Slice`]; these
 //! functions turn it into the formats a system clipboard carries, and turn
 //! pasted content back into a slice for
 //! [`Editor::paste`](canvist_core::Editor::paste).
 //!
-//! The codecs know the StarterKit's TipTap names (`heading`, `bulletList`,
-//! `bold`, ...). Unknown block types serialize as their text, and parsed
-//! content that the schema lacks a type for falls back to paragraphs and
-//! plain text. The infallible readers preserve input that exceeds
-//! [`MAX_PARSE_DEPTH`] as literal plain text; the `try_from_*` readers
-//! return [`NestingLimitExceeded`] instead.
+//! - [`to_html`] writes the markup TipTap renders, and [`from_html`] reads
+//!   it back, along with what browsers, Google Docs, and Word put on the
+//!   clipboard.
+//! - [`to_markdown`] writes CommonMark with GitHub's strikethrough, task
+//!   lists, pipe tables, and alerts, and [`from_markdown`] reads it.
+//! - [`to_plain_text`] writes one line per text block, and
+//!   [`from_plain_text`] reads one paragraph per line.
+//!
+//! Every reader takes the [`Schema`] the slice is for, and builds only the
+//! types it has: content without a type falls back to paragraphs and plain
+//! text, and a bare paragraph in a list gets a list item. Writers know the
+//! TipTap names (`heading`, `bulletList`, `bold`, ...) and write unknown
+//! blocks as their content.
+//!
+//! The infallible readers preserve input that nests deeper than
+//! [`MAX_PARSE_DEPTH`] as literal plain text; [`try_from_html`] and
+//! [`try_from_markdown`] return [`NestingLimitExceeded`] instead.
 //!
 //! The parsers are small and hand-written rather than full HTML5 or
 //! CommonMark implementations: clipboard content only needs its structure
 //! and formatting read, and a full HTML parser would add hundreds of
 //! kilobytes to every WebAssembly build.
+//!
+//! # Features
+//!
+//! The StarterKit's markup is always understood. Each feature adds the
+//! markup of the extension of the same name, which is otherwise read and
+//! written as plain HTML or Markdown; `canvist_extensions` turns on the
+//! feature with the extension.
+//!
+//! - `audio`, `file`, `image`, `twitch`, and `youtube`: media blocks as
+//!   `<audio>`, file cards, `<img>`, and video frames, and in Markdown as
+//!   images and links. A video's frame only keeps a source on its own site.
+//! - `callout`: `<div data-callout-type>`, and GitHub alerts such as
+//!   `> [!WARNING]` in Markdown.
+//! - `comments`, `conditional`, `hashtag`, and `kinetic`: their marks as
+//!   `<span>`s with TipTap's `data-` attributes.
+//! - `details`: `<details>` and `<summary>`, in Markdown too.
+//! - `emoji` and `mention`: inline `<span data-type>` atoms, written as
+//!   the text they show elsewhere.
+//! - `highlight`: `<mark>`, and `==text==` in Markdown.
+//! - `ink`: drawings as a `<figure>` holding their strokes and an SVG.
+//! - `mathematics`: formulas as `<span>` and `<div data-type="…-math">`,
+//!   and `$…$` and `$$` blocks in Markdown.
+//! - `subscript` and `superscript`: `<sub>` and `<sup>`, in Markdown too.
+//! - `table`: `<table>` with spans and column widths, and GitHub pipe
+//!   tables in Markdown when a table fits one.
+//! - `text-align`: a block's `text-align` style.
+//! - `text-style`: `<span style>` colours, fonts, and sizes, which only
+//!   ever write values from a small, safe CSS grammar.
+//!
+//! # Example
+//!
+//! ```
+//! use canvist_core::Editor;
+//! use canvist_extension_bold::Bold;
+//! use canvist_extension_clipboard::from_markdown;
+//! use canvist_extension_clipboard::to_html;
+//! use canvist_extension_clipboard::to_plain_text;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_link::Link;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let schema = Editor::builder()
+//! 	.extension(Document)
+//! 	.extension(Paragraph)
+//! 	.extension(Bold)
+//! 	.extension(Link::default())
+//! 	.schema()?;
+//! let slice = from_markdown(&schema, "Some **bold** and a [link](https://canvist.dev)");
+//!
+//! assert_eq!(
+//! 	to_html(&schema, &slice),
+//! 	"<p>Some <strong>bold</strong> and a <a href=\"https://canvist.dev\">link</a></p>"
+//! );
+//! assert_eq!(to_plain_text(&schema, &slice), "Some bold and a link");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 mod css;
+mod features;
+mod tree;
+
 mod html_read;
+mod html_role;
+mod html_token;
 mod html_write;
+
 mod markdown_inline;
 mod markdown_read;
 mod markdown_write;
-mod tree;
 
 use canvist_core::Slice;
 use canvist_model::BlockTree;

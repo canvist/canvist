@@ -18,5 +18,9 @@ description = "canvist: Search a canvist document, step through matches, and rep
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
+[dev-dependencies]
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
 [lints]
 workspace = true

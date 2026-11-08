@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_list
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_list::BulletList;
+use canvist_extension_list::ListItem;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let bullets = builder.add(BulletList);
+builder.add(ListItem);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("-", &mut env)?;
+editor.insert_text(" ", &mut env)?;
+
+assert!(bullets.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

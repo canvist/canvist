@@ -2,8 +2,42 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Highlighted text.
+//! # `canvist_extension_highlight`
+//!
+//! TipTap's `highlight` mark for the canvist editor, as in TipTap's
+//! `@tiptap/extension-highlight`. [`Highlight`] registers the mark with the
+//! `setHighlight`, `toggleHighlight`, and `unsetHighlight` commands and the
+//! `isHighlight` query. `Mod-Shift-h` toggles a highlight in the theme's
+//! colour, and typing or pasting `==text==` highlights the text.
+//!
+//! With [`Highlight::multicolor`] (the default, unlike TipTap) the mark has
+//! a nullable `color` attribute, the set and toggle commands take an
+//! optional `color`, and the `highlightColor` query reports the colour the
+//! selection shares.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_highlight::Highlight;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let highlight = builder.add(Highlight::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&highlight.set(Some("#fef08a")), &mut env)?;
+//! editor.insert_text("marked", &mut env)?;
+//!
+//! assert!(highlight.is_active(editor.state()));
+//! assert_eq!(highlight.color(editor.state()).as_deref(), Some("#fef08a"));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
+use canvist_core::Args;
 use canvist_core::Binding;
 use canvist_core::Command;
 use canvist_core::CommandSpec;
@@ -154,10 +188,7 @@ fn color_field() -> Field {
 }
 
 /// The `color` argument, which only multicolour highlights declare.
-fn color_arg<'a>(
-	multicolor: bool,
-	args: &canvist_core::Args<'a>,
-) -> Result<Option<&'a str>, EditorError> {
+fn color_arg<'a>(multicolor: bool, args: &Args<'a>) -> Result<Option<&'a str>, EditorError> {
 	if multicolor {
 		args.optional_string("color")
 	} else {
@@ -268,5 +299,109 @@ impl TypedExtension for Highlight {
 		HighlightHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::CommandResult;
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Point;
+	use canvist_model::Selection;
+
+	use super::*;
+
+	fn editor(highlight: Highlight) -> Result<(Editor, HighlightHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let handle = builder.add(highlight);
+		Ok((builder.build()?, handle))
+	}
+
+	fn select(editor: &mut Editor, from: u32, to: u32, env: &mut Env<'_>) -> CommandResult {
+		let block = editor.state().doc().children(None)[0];
+		let selection = Selection::text(Point::new(block, from), Point::new(block, to));
+		editor.select(selection, env)
+	}
+
+	#[test]
+	fn typed_and_set_highlights_without_a_colour_match() -> Result<(), EditorError> {
+		let (mut editor, highlight) = editor(Highlight::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		for character in "==a== b".chars() {
+			editor.insert_text(&character.to_string(), &mut env)?;
+		}
+
+		select(&mut editor, 2, 3, &mut env)?;
+		editor.run(&highlight.set(None), &mut env)?;
+
+		let block = editor.state().doc().children(None)[0];
+		let text = editor.state().doc().inline(block).expect("a text block");
+		assert_eq!(text.as_str(), "a b");
+		assert!(text.marks_after(0).is_some_and(|marks| !marks.is_empty()));
+		assert_eq!(text.marks_after(0), text.marks_after(2));
+		assert_eq!(highlight.color(editor.state()), None);
+
+		editor.run(&highlight.toggle(None), &mut env)?;
+		assert!(!highlight.is_active(editor.state()));
+		Ok(())
+	}
+
+	#[test]
+	fn toggle_removes_the_same_colour_and_recolours_another() -> Result<(), EditorError> {
+		let (mut editor, highlight) = editor(Highlight::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		select(&mut editor, 0, 2, &mut env)?;
+
+		editor.run(&highlight.toggle(Some("red")), &mut env)?;
+		assert_eq!(highlight.color(editor.state()).as_deref(), Some("red"));
+		editor.run(&highlight.toggle(Some("blue")), &mut env)?;
+		assert_eq!(highlight.color(editor.state()).as_deref(), Some("blue"));
+		editor.run(&highlight.toggle(Some("blue")), &mut env)?;
+		assert!(!highlight.is_active(editor.state()));
+		Ok(())
+	}
+
+	#[test]
+	fn mixed_colours_share_no_colour() -> Result<(), EditorError> {
+		let (mut editor, highlight) = editor(Highlight::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		select(&mut editor, 0, 1, &mut env)?;
+		editor.run(&highlight.set(Some("red")), &mut env)?;
+		select(&mut editor, 1, 2, &mut env)?;
+		editor.run(&highlight.set(Some("blue")), &mut env)?;
+		select(&mut editor, 0, 2, &mut env)?;
+
+		assert!(highlight.is_active(editor.state()));
+		assert_eq!(highlight.color(editor.state()), None);
+		assert_eq!(editor.query("highlightColor", &Attrs::new())?, Value::Null);
+
+		editor.run(&highlight.toggle(Some("red")), &mut env)?;
+		assert_eq!(highlight.color(editor.state()).as_deref(), Some("red"));
+		Ok(())
+	}
+
+	#[test]
+	fn single_colour_highlights_ignore_colours() -> Result<(), EditorError> {
+		let (mut editor, highlight) = editor(Highlight { multicolor: false })?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		select(&mut editor, 0, 2, &mut env)?;
+
+		editor.run(&highlight.set(Some("red")), &mut env)?;
+		assert!(highlight.is_active(editor.state()));
+		assert_eq!(highlight.color(editor.state()), None);
+		assert!(editor.query("highlightColor", &Attrs::new()).is_err());
+
+		editor.run(&highlight.toggle(Some("red")), &mut env)?;
+		assert!(!highlight.is_active(editor.state()));
+		Ok(())
 	}
 }

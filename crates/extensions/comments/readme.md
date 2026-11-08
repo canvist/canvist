@@ -30,6 +30,32 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_comments
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_extension_comments::Comments;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let comments = builder.add(Comments);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("Ship it", &mut env)?;
+editor.run(&command(commands::select_all), &mut env)?;
+editor.run(&comments.set("thread-1"), &mut env)?;
+
+let threads = comments.threads(editor.state());
+assert_eq!(threads, [("thread-1".to_owned(), "Ship it".to_owned())]);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

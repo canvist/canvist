@@ -2,8 +2,42 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Moving blocks among their siblings: what a drag handle, or Alt and an
-//! arrow key, does.
+//! # `canvist_extension_drag_handle`
+//!
+//! Moving blocks among their siblings for the canvist editor: what a drag
+//! handle, or Alt and an arrow key, does. [`DragHandle`] adds the commands
+//! behind TipTap's `@tiptap/extension-drag-handle`: `moveBlockUp` and
+//! `moveBlockDown`, bound to `Alt-ArrowUp` and `Alt-ArrowDown`, and
+//! `moveBlocksTo`, which a drop calls with the sibling index it lands
+//! before. It adds no nodes or marks; the handle itself is host UI.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_core::command;
+//! use canvist_core::commands;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_drag_handle::DragHandle;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let drag = builder.add(DragHandle);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("first", &mut env)?;
+//! editor.run(&command(commands::split_block), &mut env)?;
+//! editor.insert_text("second", &mut env)?;
+//! editor.run(&drag.up(), &mut env)?;
+//!
+//! let doc = editor.state().doc();
+//! let first = doc.first_text_block().and_then(|id| doc.inline(id));
+//! assert_eq!(first.map(|text| text.as_str()), Some("second"));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+use std::ops::Range;
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -51,13 +85,13 @@ impl DragHandleHandle {
 	/// Move the selected blocks up past their previous sibling.
 	#[must_use]
 	pub fn up(self) -> Command {
-		command(|state| step(state, false))
+		up()
 	}
 
 	/// Move the selected blocks down past their next sibling.
 	#[must_use]
 	pub fn down(self) -> Command {
-		command(|state| step(state, true))
+		down()
 	}
 
 	/// Move the selected blocks to just before sibling `index`, or to the
@@ -68,11 +102,22 @@ impl DragHandleHandle {
 	}
 }
 
-/// The selected sibling blocks: their parent and index range. A block
-/// selection, as a click on a drag handle or a horizontal rule makes, moves
-/// the blocks it covers.
-fn selected(state: &EditorState) -> Option<(Option<BlockId>, std::ops::Range<usize>)> {
+/// Sibling blocks: their parent and their index range in it.
+type Siblings = (Option<BlockId>, Range<usize>);
+
+fn up() -> Command {
+	command(|state| step(state, false))
+}
+
+fn down() -> Command {
+	command(|state| step(state, true))
+}
+
+/// The selected sibling blocks. A block selection, as a click on a drag
+/// handle or a horizontal rule makes, moves the blocks it covers.
+fn selected(state: &EditorState) -> Option<Siblings> {
 	let doc = state.doc();
+
 	let (first, last) = match state.selection() {
 		Selection::Blocks { anchor, head }
 			if position::compare_blocks(doc, anchor, head).is_gt() =>
@@ -91,11 +136,7 @@ fn selected(state: &EditorState) -> Option<(Option<BlockId>, std::ops::Range<usi
 
 /// `range` of `parent`'s children, or the nearest enclosing block that can
 /// move `down` (or up) when `range` is at its container's edge.
-fn movable(
-	doc: &Document,
-	(mut parent, mut range): (Option<BlockId>, std::ops::Range<usize>),
-	down: bool,
-) -> Option<(Option<BlockId>, std::ops::Range<usize>)> {
+fn movable(doc: &Document, (mut parent, mut range): Siblings, down: bool) -> Option<Siblings> {
 	loop {
 		let free = if down {
 			range.end < doc.children(parent).len()
@@ -153,7 +194,7 @@ fn move_to(state: &mut EditorState, index: usize) -> CommandResult {
 fn shift(
 	state: &mut EditorState,
 	parent: Option<BlockId>,
-	range: std::ops::Range<usize>,
+	range: Range<usize>,
 	to: usize,
 ) -> CommandResult {
 	let selection = state.selection();
@@ -194,22 +235,19 @@ impl Extension for DragHandle {
 			CommandSpec::simple(
 				"moveBlockUp",
 				"Move the selected blocks up past their previous sibling.",
-				command(|state| step(state, false)),
+				up(),
 			),
 			CommandSpec::simple(
 				"moveBlockDown",
 				"Move the selected blocks down past their next sibling.",
-				command(|state| step(state, true)),
+				down(),
 			),
 			to,
 		])
 	}
 
 	fn keymap(&self, _schema: &Schema, _platform: Platform) -> Result<Vec<Binding>, EditorError> {
-		Ok(vec![
-			("Alt-ArrowUp", command(|state| step(state, false))),
-			("Alt-ArrowDown", command(|state| step(state, true))),
-		])
+		Ok(vec![("Alt-ArrowUp", up()), ("Alt-ArrowDown", down())])
 	}
 }
 
@@ -220,5 +258,84 @@ impl TypedExtension for DragHandle {
 		DragHandleHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::commands;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	/// Paragraphs holding `texts`, with the caret in the last.
+	fn paragraphs(texts: &[&str]) -> (Editor, DragHandleHandle) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let drag = builder.add(DragHandle);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+
+		for (index, text) in texts.iter().enumerate() {
+			if index > 0 {
+				editor
+					.run(&command(commands::split_block), &mut env)
+					.expect("split");
+			}
+
+			editor.insert_text(text, &mut env).expect("typed");
+		}
+
+		(editor, drag)
+	}
+
+	fn texts(editor: &Editor) -> Vec<String> {
+		let doc = editor.state().doc();
+		doc.text_blocks()
+			.filter_map(|block| block.inline())
+			.map(|text| text.as_str().to_owned())
+			.collect()
+	}
+
+	fn run(editor: &mut Editor, command: &Command) -> bool {
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(command, &mut env).expect("ran").is_some()
+	}
+
+	#[test]
+	fn up_and_down_swap_with_a_neighbour() {
+		let (mut editor, drag) = paragraphs(&["a", "b", "c"]);
+
+		assert!(run(&mut editor, &drag.up()));
+		assert_eq!(texts(&editor), ["a", "c", "b"]);
+
+		assert!(run(&mut editor, &drag.down()));
+		assert_eq!(texts(&editor), ["a", "b", "c"]);
+	}
+
+	#[test]
+	fn nothing_moves_past_the_edge_of_the_document() {
+		let (mut editor, drag) = paragraphs(&["a", "b"]);
+
+		assert!(!run(&mut editor, &drag.down()));
+		assert_eq!(texts(&editor), ["a", "b"]);
+	}
+
+	#[test]
+	fn move_to_counts_the_target_before_the_move() {
+		let (mut editor, drag) = paragraphs(&["a", "b", "c"]);
+
+		assert!(run(&mut editor, &drag.move_to(0)));
+		assert_eq!(texts(&editor), ["c", "a", "b"]);
+
+		assert!(run(&mut editor, &drag.move_to(99)));
+		assert_eq!(texts(&editor), ["a", "b", "c"]);
+
+		assert!(!run(&mut editor, &drag.move_to(2)));
+		assert!(!run(&mut editor, &drag.move_to(3)));
 	}
 }

@@ -66,18 +66,7 @@ impl InlineParser<'_, '_> {
 				break;
 			}
 
-			let consumed = match next {
-				'\\' => self.escape(rest),
-				'\n' => Some(self.newline()),
-				'`' => self.code_span(rest),
-				'*' | '_' | '~' | '=' => self.emphasis(rest, source),
-				'[' => self.link(rest),
-				'<' if cfg!(any(feature = "subscript", feature = "superscript")) => self.tag(rest),
-				'$' if cfg!(feature = "mathematics") => self.math(rest),
-				_ => None,
-			};
-
-			let consumed = consumed.unwrap_or_else(|| {
+			let consumed = self.construct(next, rest, source).unwrap_or_else(|| {
 				self.buffer.push(next);
 				next.len_utf8()
 			});
@@ -85,6 +74,22 @@ impl InlineParser<'_, '_> {
 		}
 
 		self.build.leave();
+	}
+
+	/// Read the construct `next` opens at the start of `rest`, a suffix of
+	/// `source`, returning how many bytes it used, or `None` when `next` is
+	/// plain text there.
+	fn construct(&mut self, next: char, rest: &str, source: &str) -> Option<usize> {
+		match next {
+			'\\' => self.escape(rest),
+			'\n' => Some(self.newline()),
+			'`' => self.code_span(rest),
+			'*' | '_' | '~' | '=' => self.emphasis(rest, source),
+			'[' => self.link(rest),
+			'<' => self.tag(rest),
+			'$' => self.math(rest),
+			_ => None,
+		}
 	}
 
 	fn hard_break(&mut self) {
@@ -175,12 +180,15 @@ impl InlineParser<'_, '_> {
 		Some(delimiter.len() + close + delimiter.len())
 	}
 
+	/// A `[label](href)` link. The destination ends at the `)` that is
+	/// neither escaped nor closing a `(` inside it, as in CommonMark, so
+	/// URLs with parentheses read whole.
 	fn link(&mut self, rest: &str) -> Option<usize> {
 		let label_end = matching_bracket(rest)?;
 		let after = &rest[label_end + 1..];
 		let target = after.strip_prefix('(')?;
-		let href_end = target.find(')')?;
-		let href = target[..href_end].trim();
+		let href_end = destination_end(target)?;
+		let href = unescape(target[..href_end].trim());
 		let label = &rest[1..label_end];
 		let attrs = Attrs::new().with("href", href);
 		self.with_mark("link", &attrs, |parser| parser.parse(label));
@@ -190,6 +198,10 @@ impl InlineParser<'_, '_> {
 
 	/// An inline `<sub>` or `<sup>` element and its content.
 	fn tag(&mut self, rest: &str) -> Option<usize> {
+		if !cfg!(any(feature = "subscript", feature = "superscript")) {
+			return None;
+		}
+
 		let (name, mark) = TAGS.iter().find(|(name, _)| {
 			rest[1..].starts_with(name) && rest[1 + name.len()..].starts_with('>')
 		})?;
@@ -206,6 +218,10 @@ impl InlineParser<'_, '_> {
 	/// cannot come before a digit; it also ends at the next `$`, so prices
 	/// such as `$5 and $6` stay text.
 	fn math(&mut self, rest: &str) -> Option<usize> {
+		if !cfg!(feature = "mathematics") {
+			return None;
+		}
+
 		let inner = &rest[1..];
 		let opens = inner
 			.chars()
@@ -279,8 +295,48 @@ fn closing(text: &str, delimiter: &str) -> Option<usize> {
 	None
 }
 
+/// The index of the `)` ending a link destination: the first that is not
+/// escaped with a backslash or closing a `(` inside the destination.
+fn destination_end(target: &str) -> Option<usize> {
+	let mut depth = 0_usize;
+	let mut escaped = false;
+
+	for (index, character) in target.char_indices() {
+		match (escaped, character) {
+			(true, _) => escaped = false,
+			(false, '\\') => escaped = true,
+			(false, '(') => depth += 1,
+			(false, ')') => {
+				let Some(outer) = depth.checked_sub(1) else {
+					return Some(index);
+				};
+
+				depth = outer;
+			}
+			_ => {}
+		}
+	}
+
+	None
+}
+
+/// `text` with its backslash escapes resolved: a backslash before ASCII
+/// punctuation stands for that character, and any other is itself.
+pub(super) fn unescape(text: &str) -> String {
+	let mut unescaped = String::with_capacity(text.len());
+	let mut characters = text.chars().peekable();
+
+	while let Some(character) = characters.next() {
+		let escaped = characters.next_if(|next| character == '\\' && next.is_ascii_punctuation());
+
+		unescaped.push(escaped.unwrap_or(character));
+	}
+
+	unescaped
+}
+
 /// The index of the `]` closing the `[` at the start of `text`.
-fn matching_bracket(text: &str) -> Option<usize> {
+pub(super) fn matching_bracket(text: &str) -> Option<usize> {
 	let mut depth = 0;
 	let mut escaped = false;
 

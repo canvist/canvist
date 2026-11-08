@@ -2,7 +2,42 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Hashtags: `#canvas`, marked as you type.
+//! # `canvist_extension_hashtag`
+//!
+//! Hashtags for the canvist editor, like Remirror's `hashtag` extension:
+//! `#canvas` text under a `hashtag` mark whose `tag` attribute holds the tag
+//! without `#`. TipTap has no hashtag extension.
+//!
+//! A tag is marked when the space or punctuation after it is typed, and in
+//! pasted text. Typing `#` starts a suggestion, built on
+//! [`canvist_extension_suggestion`]: the `hashtagSuggestion` query reports
+//! it, `insertHashtag` completes it, and Escape or
+//! `dismissHashtagSuggestion` dismisses it. The `hashtags` query lists
+//! every tag in the document. Its handle is a [`HashtagHandle`].
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_hashtag::Hashtag;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let hashtag = builder.add(Hashtag);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "Ship #rust, then #ca".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//! assert_eq!(hashtag.suggestion(editor.state()).as_deref(), Some("ca"));
+//!
+//! editor.run(&hashtag.insert("canvas"), &mut env)?;
+//! assert_eq!(hashtag.tags(editor.state()), ["canvas", "rust"]);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use std::collections::BTreeSet;
 
@@ -31,6 +66,7 @@ use canvist_core::commands;
 use canvist_core::mark_type;
 use canvist_extension_suggestion::Trigger;
 use canvist_model::Attrs;
+use canvist_model::Block;
 use canvist_model::InlineText;
 use canvist_model::Mark;
 use canvist_model::MarkSet;
@@ -56,7 +92,7 @@ const AFTER: &str = r"[\s.,;:!?)\]]";
 const AFTER_CHARS: &str = " \t\n.,;:!?)]";
 
 /// A `hashtag` mark over `#tag` text, with the tag (without `#`) in its
-/// `tag` attribute. Neither TipTap nor Remirror has one.
+/// `tag` attribute, as in Remirror.
 ///
 /// A tag is marked when the space or punctuation after it is typed, and in
 /// pasted text. Typing `#` starts a suggestion, reported by the
@@ -90,7 +126,7 @@ impl HashtagHandle {
 	}
 
 	/// Replace the suggestion, or insert at the caret, with `#tag` and a
-	/// space.
+	/// space. `tag` may start with `#`; an empty tag does not apply.
 	#[must_use]
 	pub fn insert(self, tag: &str) -> Command {
 		insert(tag)
@@ -117,6 +153,10 @@ fn insert(tag: &str) -> Command {
 	let tag = tag.trim_start_matches('#').to_owned();
 
 	command(move |state| {
+		if tag.is_empty() {
+			return Ok(None);
+		}
+
 		let kind = mark_type(state.schema(), HASHTAG, HASHTAG)?;
 		let marks = commands::active_marks(state).with(&hashtag(kind, &tag), state.schema());
 		let text = InlineText::plain(&format!("#{tag}"), marks);
@@ -136,7 +176,7 @@ fn tags(state: &EditorState) -> Vec<String> {
 	let doc = state.doc();
 	let tags: BTreeSet<String> = doc
 		.text_blocks()
-		.filter_map(canvist_model::Block::inline)
+		.filter_map(Block::inline)
 		.flat_map(InlineText::runs)
 		.filter_map(|run| {
 			run.marks
@@ -258,5 +298,56 @@ impl TypedExtension for Hashtag {
 		HashtagHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn typed(text: &str) -> Result<(Editor, HashtagHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let hashtag = builder.add(Hashtag);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), &mut env)?;
+		}
+
+		Ok((editor, hashtag))
+	}
+
+	#[test]
+	fn an_empty_tag_inserts_nothing() -> Result<(), EditorError> {
+		let (mut editor, hashtag) = typed("#")?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		for tag in ["", "#", "##"] {
+			assert!(
+				editor.run(&hashtag.insert(tag), &mut env)?.is_none(),
+				"{tag:?}"
+			);
+		}
+
+		assert_eq!(editor.state().doc().plain_text(), "#");
+		assert!(hashtag.tags(editor.state()).is_empty());
+		Ok(())
+	}
+
+	#[test]
+	fn typed_tags_end_at_a_terminator_and_list_once() -> Result<(), EditorError> {
+		let (editor, hashtag) = typed("#b. #a #b #c) a#d #e")?;
+
+		assert_eq!(hashtag.tags(editor.state()), ["a", "b", "c"]);
+		assert_eq!(hashtag.suggestion(editor.state()).as_deref(), Some("e"));
+		Ok(())
 	}
 }

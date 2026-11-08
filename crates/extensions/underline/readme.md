@@ -30,6 +30,26 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_underline
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_underline::Underline;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let underline = builder.add(Underline);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&underline.toggle(), &mut env)?;
+assert!(underline.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

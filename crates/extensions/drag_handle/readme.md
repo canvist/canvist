@@ -30,6 +30,34 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_drag_handle
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_extension_document::Document;
+use canvist_extension_drag_handle::DragHandle;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let drag = builder.add(DragHandle);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("first", &mut env)?;
+editor.run(&command(commands::split_block), &mut env)?;
+editor.insert_text("second", &mut env)?;
+editor.run(&drag.up(), &mut env)?;
+
+let doc = editor.state().doc();
+let first = doc.first_text_block().and_then(|id| doc.inline(id));
+assert_eq!(first.map(|text| text.as_str()), Some("second"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

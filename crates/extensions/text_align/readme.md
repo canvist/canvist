@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_text_align
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_text_align::Alignment;
+use canvist_extension_text_align::TextAlign;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let align = builder.add(TextAlign::default());
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&align.set(Alignment::Center), &mut env)?;
+assert_eq!(align.alignment(editor.state()), Some(Alignment::Center));
+
+editor.run(&align.toggle(Alignment::Center), &mut env)?;
+assert_eq!(align.alignment(editor.state()), None);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

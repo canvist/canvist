@@ -4,9 +4,12 @@
 )]
 //! # `canvist_extension_subscript`
 //!
-//! TipTap's `subscript` mark for the canvist editor. [`Subscript`] registers the
-//! mark with `toggleSubscript`, `setSubscript`, and `unsetSubscript`, the `isSubscript` query, and its keys
-//! and Markdown shortcuts. Its handle is a [`MarkHandle`].
+//! TipTap's `subscript` mark for the canvist editor, as in TipTap's
+//! `@tiptap/extension-subscript`. [`Subscript`] registers the mark with the
+//! `toggleSubscript`, `setSubscript`, and `unsetSubscript` commands and the
+//! `isSubscript` query, and `Mod-,` toggles it. When `superscript` is
+//! registered too, the two exclude each other. There are no input or paste
+//! rules. Its handle is a [`MarkHandle`].
 //!
 //! ```
 //! use std::time::Duration;
@@ -103,19 +106,61 @@ impl TypedExtension for Subscript {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Attrs;
 	use canvist_model::BlockSpec;
+	use canvist_model::Point;
+	use canvist_model::Selection;
+	use canvist_model::Value;
 
 	use super::*;
 
 	#[test]
-	fn every_pattern_compiles() {
-		let schema = Schema::builder()
-			.block(BlockSpec::text("paragraph"))
-			.mark(MarkSpec::new("subscript"))
+	fn toggle_adds_and_removes_the_mark() -> Result<(), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let subscript = builder.add(Subscript);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("ab", &mut env)?;
+		let block = editor.state().doc().children(None)[0];
+		editor.select(
+			Selection::text(Point::new(block, 0), Point::new(block, 2)),
+			&mut env,
+		)?;
+
+		editor.run(&subscript.toggle(), &mut env)?;
+		assert!(subscript.is_active(editor.state()));
+		assert_eq!(
+			editor.query("isSubscript", &Attrs::new())?,
+			Value::Bool(true)
+		);
+
+		editor.run(&subscript.toggle(), &mut env)?;
+		assert!(!subscript.is_active(editor.state()));
+		Ok(())
+	}
+
+	#[test]
+	fn excludes_superscript_when_it_is_registered() {
+		let paragraph = || Schema::builder().block(BlockSpec::text("paragraph"));
+		let alone = Subscript.schema(paragraph()).build().expect("valid schema");
+		let both = Subscript
+			.schema(paragraph().mark(MarkSpec::new("superscript")))
 			.build()
 			.expect("valid schema");
+		let subscript = both
+			.mark_type("subscript")
+			.expect("subscript is registered");
+		let superscript = both
+			.mark_type("superscript")
+			.expect("superscript is registered");
 
-		assert!(SUBSCRIPT.input_rules(&schema).is_ok());
-		assert!(SUBSCRIPT.paste_rules(&schema).is_ok());
+		assert!(alone.mark_type("subscript").is_some());
+		assert!(both.mark(subscript).excludes.contains(&superscript));
 	}
 }

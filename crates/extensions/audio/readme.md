@@ -30,6 +30,27 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_audio
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_audio::Audio;
+use canvist_model::Attrs;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let audio = builder.add(Audio);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let update = editor.run(&audio.insert("https://example.com/song.mp3", &Attrs::new()), &mut env)?;
+assert!(update.is_some());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

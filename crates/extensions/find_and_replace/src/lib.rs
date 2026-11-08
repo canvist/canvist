@@ -2,9 +2,37 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Find and replace: a search term held beside the document, its matches,
-//! and commands that step through and replace them.
-
+//! # `canvist_extension_find_and_replace`
+//!
+//! Find and replace for the canvist editor: a search term held beside the
+//! document, its matches, and commands that step through and replace them,
+//! as TipTap's search-and-replace extensions and Remirror's `find` offer it.
+//! [`FindAndReplace`] adds the `setSearchTerm`, `setCaseSensitive`,
+//! `nextSearchResult`, `previousSearchResult`, `replace`, and `replaceAll`
+//! commands and the `searchResults` query. It adds no nodes or marks.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_find_and_replace::FindAndReplace;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let find = builder.add(FindAndReplace);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("Cats chase cats.", &mut env)?;
+//! editor.run(&find.set_term("cat"), &mut env)?;
+//! assert_eq!(find.matches(editor.state()).len(), 2);
+//!
+//! editor.run(&find.replace_all("dog"), &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "dogs chase dogs.");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use std::ops::Range;
 
 use canvist_core::Command;
@@ -13,6 +41,7 @@ use canvist_core::CommandSpec;
 use canvist_core::EditKind;
 use canvist_core::EditorError;
 use canvist_core::EditorState;
+use canvist_core::EditorTransaction;
 use canvist_core::Extension;
 use canvist_core::Field;
 use canvist_core::QuerySpec;
@@ -24,6 +53,7 @@ use canvist_core::commands;
 use canvist_core::position;
 use canvist_model::Attrs;
 use canvist_model::BlockId;
+use canvist_model::InlineText;
 use canvist_model::MarkSet;
 use canvist_model::Point;
 use canvist_model::Schema;
@@ -60,10 +90,15 @@ impl SearchMatch {
 	/// The match as a text selection.
 	#[must_use]
 	pub fn selection(&self) -> Selection {
-		Selection::text(
-			Point::new(self.block, self.range.start),
-			Point::new(self.block, self.range.end),
-		)
+		Selection::text(self.start(), self.end())
+	}
+
+	const fn start(&self) -> Point {
+		Point::new(self.block, self.range.start)
+	}
+
+	const fn end(&self) -> Point {
+		Point::new(self.block, self.range.end)
 	}
 }
 
@@ -87,21 +122,19 @@ impl FindAndReplaceHandle {
 	/// Match case exactly, or ignore it.
 	#[must_use]
 	pub fn set_case_sensitive(self, case_sensitive: bool) -> Command {
-		command(move |state| {
-			commands::set_setting(state, CASE_SENSITIVE, Value::Bool(case_sensitive))
-		})
+		set_case_sensitive(case_sensitive)
 	}
 
 	/// Select the next match after the selection.
 	#[must_use]
 	pub fn next(self) -> Command {
-		command(|state| step(state, true))
+		next()
 	}
 
 	/// Select the previous match before the selection.
 	#[must_use]
 	pub fn previous(self) -> Command {
-		command(|state| step(state, false))
+		previous()
 	}
 
 	/// Replace the selected match with `replacement` and select the next.
@@ -157,7 +190,7 @@ fn fold(character: char, exact: bool) -> char {
 }
 
 /// The non-overlapping byte ranges of `term` in `text`, left to right.
-pub(crate) fn find_in(text: &str, term: &str, exact: bool) -> Vec<Range<u32>> {
+fn find_in(text: &str, term: &str, exact: bool) -> Vec<Range<u32>> {
 	let wanted: Vec<char> = term
 		.chars()
 		.map(|character| fold(character, exact))
@@ -207,10 +240,7 @@ fn matches(state: &EditorState) -> Vec<SearchMatch> {
 		.doc()
 		.text_blocks()
 		.flat_map(|block| {
-			let text = block
-				.inline()
-				.map(canvist_model::InlineText::as_str)
-				.unwrap_or_default();
+			let text = block.inline().map(InlineText::as_str).unwrap_or_default();
 			find_in(text, term, exact).into_iter().map(move |range| {
 				SearchMatch {
 					block: block.id(),
@@ -221,16 +251,32 @@ fn matches(state: &EditorState) -> Vec<SearchMatch> {
 		.collect()
 }
 
+/// The index of the match the selection covers exactly, whichever way it
+/// was selected.
 fn current(state: &EditorState, found: &[SearchMatch]) -> Option<usize> {
+	let selected = position::text_range(state.doc(), state.selection())?;
+
 	found
 		.iter()
-		.position(|candidate| candidate.selection() == state.selection())
+		.position(|candidate| candidate.start() == selected.from && candidate.end() == selected.to)
 }
 
 fn set_term(term: &str) -> Command {
 	let term = term.to_owned();
 
 	command(move |state| commands::set_setting(state, TERM, Value::from(term.as_str())))
+}
+
+fn set_case_sensitive(exact: bool) -> Command {
+	command(move |state| commands::set_setting(state, CASE_SENSITIVE, Value::Bool(exact)))
+}
+
+fn next() -> Command {
+	command(|state| step(state, true))
+}
+
+fn previous() -> Command {
+	command(|state| step(state, false))
 }
 
 /// Select the first match after the selection (`forward`) or the last one
@@ -242,24 +288,18 @@ fn step(state: &mut EditorState, forward: bool) -> CommandResult {
 		return Ok(None);
 	};
 
+	// Matches are never empty, so the selected match is neither after nor
+	// before itself.
 	let target = if forward {
 		found
 			.iter()
-			.find(|candidate| {
-				let start = Point::new(candidate.block, candidate.range.start);
-				position::compare_points(doc, start, range.to).is_ge()
-					&& candidate.selection() != state.selection()
-			})
+			.find(|candidate| position::compare_points(doc, candidate.start(), range.to).is_ge())
 			.or_else(|| found.first())
 	} else {
 		found
 			.iter()
 			.rev()
-			.find(|candidate| {
-				let end = Point::new(candidate.block, candidate.range.end);
-				position::compare_points(doc, end, range.from).is_le()
-					&& candidate.selection() != state.selection()
-			})
+			.find(|candidate| position::compare_points(doc, candidate.end(), range.from).is_le())
 			.or_else(|| found.last())
 	};
 
@@ -276,7 +316,7 @@ fn step(state: &mut EditorState, forward: bool) -> CommandResult {
 /// Replace one match's text with `replacement`, which takes the marks of
 /// the match's first character, so a bold word stays bold.
 fn replace_match(
-	tr: &mut canvist_core::EditorTransaction<'_>,
+	tr: &mut EditorTransaction<'_>,
 	found: &SearchMatch,
 	replacement: &str,
 ) -> Result<Point, EditorError> {
@@ -287,11 +327,7 @@ fn replace_match(
 		.cloned()
 		.unwrap_or_else(MarkSet::empty);
 	tr.delete_text(found.block, found.range.clone())?;
-	let end = tr.insert_text(
-		Point::new(found.block, found.range.start),
-		replacement,
-		marks,
-	)?;
+	let end = tr.insert_text(found.start(), replacement, marks)?;
 	Ok(end)
 }
 
@@ -389,12 +425,7 @@ impl Extension for FindAndReplace {
 		let case = CommandSpec::new(
 			"setCaseSensitive",
 			"Match case exactly, or ignore it.",
-			|args| {
-				let exact = args.bool("caseSensitive")?;
-				Ok(command(move |state| {
-					commands::set_setting(state, CASE_SENSITIVE, Value::Bool(exact))
-				}))
-			},
+			|args| Ok(set_case_sensitive(args.bool("caseSensitive")?)),
 		)
 		.arg(Field::required(
 			"caseSensitive",
@@ -420,12 +451,12 @@ impl Extension for FindAndReplace {
 			CommandSpec::simple(
 				"nextSearchResult",
 				"Select the next match after the selection, wrapping at the end.",
-				command(|state| step(state, true)),
+				next(),
 			),
 			CommandSpec::simple(
 				"previousSearchResult",
 				"Select the previous match before the selection, wrapping at the start.",
-				command(|state| step(state, false)),
+				previous(),
 			),
 			replace_spec,
 			replace_all_spec,
@@ -481,5 +512,70 @@ mod tests {
 	fn offsets_are_bytes_of_the_original_text() {
 		assert_eq!(find_in("Ça va, ça va", "ça", false), vec![0..3, 8..11]);
 		assert_eq!(find_in("日本語の日本", "日本", true), vec![0..6, 12..18]);
+	}
+
+	mod editing {
+		use std::time::Duration;
+
+		use canvist_core::Editor;
+		use canvist_core::Env;
+		use canvist_extension_document::Document;
+		use canvist_extension_paragraph::Paragraph;
+
+		use super::*;
+
+		fn searching(text: &str, term: &str) -> (Editor, FindAndReplaceHandle) {
+			let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+			let find = builder.add(FindAndReplace);
+			let mut editor = builder.build().expect("valid editor");
+			let mut env = Env::headless(Duration::ZERO);
+
+			editor.insert_text(text, &mut env).expect("typed");
+			editor
+				.run(&find.set_term(term), &mut env)
+				.expect("searching");
+
+			(editor, find)
+		}
+
+		#[test]
+		fn next_and_previous_wrap_around() {
+			let (mut editor, find) = searching("a b a b a", "a");
+			let mut env = Env::headless(Duration::ZERO);
+
+			editor.run(&find.next(), &mut env).expect("stepped");
+			assert_eq!(find.current(editor.state()), Some(0));
+
+			editor.run(&find.previous(), &mut env).expect("stepped");
+			assert_eq!(find.current(editor.state()), Some(2));
+
+			editor.run(&find.next(), &mut env).expect("stepped");
+			assert_eq!(find.current(editor.state()), Some(0));
+		}
+
+		#[test]
+		fn a_match_selected_backwards_is_current_and_replaced() {
+			let (mut editor, find) = searching("one two one", "one");
+			let mut env = Env::headless(Duration::ZERO);
+			let last = find.matches(editor.state())[1].clone();
+			let backwards = Selection::text(last.end(), last.start());
+
+			editor.select(backwards, &mut env).expect("selected");
+			assert_eq!(find.current(editor.state()), Some(1));
+
+			editor.run(&find.replace("1"), &mut env).expect("replaced");
+			assert_eq!(editor.state().doc().plain_text(), "one two 1");
+			assert_eq!(find.current(editor.state()), Some(0));
+		}
+
+		#[test]
+		fn replace_without_a_selected_match_only_selects_one() {
+			let (mut editor, find) = searching("one two one", "one");
+			let mut env = Env::headless(Duration::ZERO);
+
+			editor.run(&find.replace("1"), &mut env).expect("stepped");
+			assert_eq!(editor.state().doc().plain_text(), "one two one");
+			assert_eq!(find.current(editor.state()), Some(0));
+		}
 	}
 }

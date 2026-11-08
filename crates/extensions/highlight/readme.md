@@ -30,6 +30,29 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_highlight
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_highlight::Highlight;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let highlight = builder.add(Highlight::default());
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&highlight.set(Some("#fef08a")), &mut env)?;
+editor.insert_text("marked", &mut env)?;
+
+assert!(highlight.is_active(editor.state()));
+assert_eq!(highlight.color(editor.state()).as_deref(), Some("#fef08a"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

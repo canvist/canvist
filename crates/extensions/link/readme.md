@@ -30,6 +30,33 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_link
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_link::Link;
+use canvist_extension_paragraph::Paragraph;
+use canvist_model::Point;
+use canvist_model::Selection;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let link = builder.add(Link::default());
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "see https://canvist.dev ".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+let block = editor.state().doc().children(None)[0];
+editor.select(Selection::caret(Point::new(block, 10)), &mut env)?;
+assert_eq!(link.href(editor.state()).as_deref(), Some("https://canvist.dev"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

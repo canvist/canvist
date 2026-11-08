@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_history
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_history::History;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let history = builder.add(History);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("Hello", &mut env)?;
+editor.run(&history.undo(), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "");
+
+editor.run(&history.redo(), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "Hello");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

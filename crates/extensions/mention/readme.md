@@ -30,6 +30,34 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_mention
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_mention::Mention;
+use canvist_extension_mention::MentionTarget;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let mention = builder.add(Mention::default());
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "Hi @ad".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+assert_eq!(mention.suggestion(editor.state()).as_deref(), Some("ad"));
+
+let ada = MentionTarget { id: "7", label: Some("Ada") };
+editor.run(&mention.insert(ada), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "Hi \u{fffc} ", "the mention is an embed");
+assert_eq!(mention.suggestion(editor.state()), None);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

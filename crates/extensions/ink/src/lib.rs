@@ -2,9 +2,44 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Ink: freehand drawings in the flow of the document, drawn by the canvas
-//! itself.
-
+//! # `canvist_extension_ink`
+//!
+//! Ink for the canvist editor: freehand drawings in the flow of the
+//! document, drawn by the canvas itself. [`Ink`] adds an `ink` leaf block
+//! with `height` and `strokes` attributes, the `insertInk`, `addInkStroke`,
+//! `undoInkStroke`, and `clearInk` commands, and the `inks` query. It is
+//! canvas-native: neither TipTap nor Remirror has it, and `canvist_layout`
+//! paints the strokes rather than leaving a slot for the host.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_ink::DEFAULT_HEIGHT;
+//! use canvist_extension_ink::Ink;
+//! use canvist_extension_ink::InkStroke;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let ink = builder.add(Ink);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&ink.insert(DEFAULT_HEIGHT), &mut env)?;
+//! let drawing = ink.drawings(editor.state())[0];
+//! let stroke = InkStroke {
+//! 	points: &[10.0, 20.0, 200.0, 120.0],
+//! 	color: Some("#3b2cf5"),
+//! 	width: None,
+//! };
+//! editor.run(&ink.add_stroke(drawing, &stroke)?, &mut env)?;
+//!
+//! assert!(editor.can(&ink.undo_stroke(drawing), &mut env)?);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+use canvist_core::Args;
 use canvist_core::Command;
 use canvist_core::CommandResult;
 use canvist_core::CommandSpec;
@@ -18,16 +53,18 @@ use canvist_core::QuerySpec;
 use canvist_core::Registration;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_model::Attrs;
+use canvist_model::Block;
 use canvist_model::BlockId;
 use canvist_model::BlockSpec;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
 use canvist_model::Value;
 
-pub(crate) const INK: &str = "ink";
+const INK: &str = "ink";
 
 /// The width of a drawing's coordinate space, as `canvist_layout` scales
 /// it: a drawing this many units wide fills its column.
@@ -36,6 +73,8 @@ pub const INK_WIDTH: f32 = 1000.0;
 pub const DEFAULT_HEIGHT: i64 = 400;
 /// The tallest a drawing may be, in drawing units.
 const MAX_HEIGHT: i64 = 4000;
+/// Stored points are rounded to one part in this many drawing units.
+const POINT_PRECISION: f32 = 10.0;
 
 /// A canvas-native extension: `ink` blocks holding freehand strokes.
 ///
@@ -80,7 +119,8 @@ pub struct InkHandle {
 	reason = "handle methods require proof of registration"
 )]
 impl InkHandle {
-	/// Insert an empty drawing `height` units tall at the selection.
+	/// Insert an empty drawing `height` units tall at the selection, kept
+	/// from 1 to 4000 units, the range `insertInk` accepts.
 	#[must_use]
 	pub fn insert(self, height: i64) -> Command {
 		insert(height)
@@ -126,13 +166,16 @@ impl InkHandle {
 }
 
 fn insert(height: i64) -> Command {
+	let height = height.clamp(1, MAX_HEIGHT);
+
 	command(move |state| {
-		let kind = canvist_core::block_type(state.schema(), INK, INK)?;
+		let kind = block_type(state.schema(), INK, INK)?;
 		let attrs = if height == DEFAULT_HEIGHT {
 			Attrs::new()
 		} else {
 			Attrs::new().with("height", height)
 		};
+
 		commands::insert_leaf(state, kind, attrs)
 	})
 }
@@ -146,7 +189,7 @@ fn drawings(state: &EditorState) -> Vec<BlockId> {
 		.doc()
 		.iter()
 		.filter(|block| block.kind() == kind)
-		.map(canvist_model::Block::id)
+		.map(Block::id)
 		.collect()
 }
 
@@ -172,7 +215,7 @@ fn edit(
 	block: BlockId,
 	change: impl FnOnce(&mut Vec<Value>),
 ) -> CommandResult {
-	let kind = canvist_core::block_type(state.schema(), INK, INK)?;
+	let kind = block_type(state.schema(), INK, INK)?;
 	let Some(drawing) = state
 		.doc()
 		.block(block)
@@ -193,6 +236,14 @@ fn edit(
 	commands::set_block_attrs(state, block, &attrs)
 }
 
+/// An `addInkStroke` argument error.
+fn invalid(reason: &str) -> EditorError {
+	EditorError::InvalidArgs {
+		name: "addInkStroke".to_owned(),
+		reason: reason.to_owned(),
+	}
+}
+
 /// A stroke as stored: its points rounded to a tenth of a unit, which is
 /// finer than any screen draws a drawing and keeps documents small.
 /// Points must come in pairs of finite numbers; they are kept to the
@@ -202,55 +253,60 @@ fn stroke_value(
 	color: Option<&str>,
 	width: Option<f32>,
 ) -> Result<Value, EditorError> {
-	let invalid = |reason: &str| {
-		EditorError::InvalidArgs {
-			name: "addInkStroke".to_owned(),
-			reason: reason.to_owned(),
-		}
-	};
-
-	if points.is_empty()
-		|| !points.len().is_multiple_of(2)
-		|| points.iter().any(|point| !point.is_finite())
-	{
-		return Err(invalid("`points` must be `x, y` pairs of finite numbers"));
-	}
-
-	let rounded: Vec<Value> = points
-		.chunks_exact(2)
-		.flat_map(|point| [point[0].clamp(0.0, INK_WIDTH), point[1].max(0.0)])
-		.map(|point| Value::Float(f64::from((point * 10.0).round()) / 10.0))
-		.collect();
-	let mut stroke = Attrs::new().with("points", rounded);
+	let mut stroke = Attrs::new().with("points", points_value(points)?);
 
 	if let Some(color) = color {
-		let hex = color
-			.strip_prefix('#')
-			.filter(|hex| hex.len() == 6 && hex.chars().all(|digit| digit.is_ascii_hexdigit()));
-
-		if hex.is_none() {
-			return Err(invalid("`color` must be `#rrggbb`"));
-		}
-
-		stroke.set("color", color.to_ascii_lowercase());
+		stroke.set("color", color_value(color)?);
 	}
 
 	if let Some(width) = width {
-		if !(width.is_finite() && width > 0.0) {
-			return Err(invalid("`width` must be a positive number"));
-		}
-
-		// The shortest decimal that reads back as the same `f32`, so a width
-		// of 3.3 is stored as 3.3 rather than 3.299999952316284, and
-		// survives HTML and JSON text exactly.
-		let width = width
-			.to_string()
-			.parse::<f64>()
-			.unwrap_or_else(|_| f64::from(width));
-		stroke.set("width", width);
+		stroke.set("width", width_value(width)?);
 	}
 
 	Ok(Value::from(stroke))
+}
+
+/// The points rounded and kept to the drawing.
+fn points_value(points: &[f32]) -> Result<Vec<Value>, EditorError> {
+	let pairs = !points.is_empty() && points.len().is_multiple_of(2);
+
+	if !pairs || points.iter().any(|point| !point.is_finite()) {
+		return Err(invalid("`points` must be `x, y` pairs of finite numbers"));
+	}
+
+	let precision = f64::from(POINT_PRECISION);
+	let round = |point: f32| Value::Float(f64::from((point * POINT_PRECISION).round()) / precision);
+
+	Ok(points
+		.chunks_exact(2)
+		.flat_map(|point| [point[0].clamp(0.0, INK_WIDTH), point[1].max(0.0)])
+		.map(round)
+		.collect())
+}
+
+/// A `#rrggbb` colour, lowercased.
+fn color_value(color: &str) -> Result<String, EditorError> {
+	let hex = color.strip_prefix('#').unwrap_or_default();
+
+	if hex.len() != "rrggbb".len() || !hex.chars().all(|digit| digit.is_ascii_hexdigit()) {
+		return Err(invalid("`color` must be `#rrggbb`"));
+	}
+
+	Ok(color.to_ascii_lowercase())
+}
+
+/// A positive width, as the shortest decimal that reads back as the same
+/// `f32`, so a width of 3.3 is stored as 3.3 rather than 3.299999952316284,
+/// and survives HTML and JSON text exactly.
+fn width_value(width: f32) -> Result<f64, EditorError> {
+	if !(width.is_finite() && width > 0.0) {
+		return Err(invalid("`width` must be a positive number"));
+	}
+
+	Ok(width
+		.to_string()
+		.parse::<f64>()
+		.unwrap_or_else(|_| f64::from(width)))
 }
 
 /// Drawing `index` of the document, from an `ink` argument.
@@ -261,7 +317,7 @@ fn drawing_arg(state: &EditorState, index: usize) -> Option<BlockId> {
 /// The `ink` argument of command `name`: a place among the drawings, so
 /// never negative. A place past the last drawing is not an error; the
 /// command just does not apply, as the document may have changed.
-fn ink_index(args: &canvist_core::Args<'_>, name: &str) -> Result<usize, EditorError> {
+fn ink_index(args: &Args<'_>, name: &str) -> Result<usize, EditorError> {
 	usize::try_from(args.int("ink")?).map_err(|_| {
 		EditorError::InvalidArgs {
 			name: name.to_owned(),
@@ -278,29 +334,23 @@ fn ink_field() -> Field {
 	)
 }
 
-fn floats(args: &canvist_core::Args<'_>, key: &str) -> Result<Vec<f32>, EditorError> {
-	Ok(args
-		.get(key)?
-		.as_array()
-		.unwrap_or_default()
-		.iter()
-		.filter_map(|value| {
-			match value {
-				Value::Int(number) => Some(*number as f32),
-				Value::Float(number) => Some(*number as f32),
-				_ => None,
-			}
-		})
-		.collect())
+/// A number argument as drawing units, or `None` for anything else.
+fn number(value: &Value) -> Option<f32> {
+	match value {
+		Value::Int(number) => Some(*number as f32),
+		Value::Float(number) => Some(*number as f32),
+		_ => None,
+	}
 }
 
-fn add_stroke_command(args: &canvist_core::Args<'_>) -> Result<Command, EditorError> {
+fn floats(args: &Args<'_>, key: &str) -> Result<Vec<f32>, EditorError> {
+	let values = args.get(key)?.as_array().unwrap_or_default();
+	Ok(values.iter().filter_map(number).collect())
+}
+
+fn add_stroke_command(args: &Args<'_>) -> Result<Command, EditorError> {
 	let index = ink_index(args, "addInkStroke")?;
-	let width = match args.get("width")? {
-		Value::Int(width) => Some(*width as f32),
-		Value::Float(width) => Some(*width as f32),
-		_ => None,
-	};
+	let width = number(args.get("width")?);
 	let value = stroke_value(
 		&floats(args, "points")?,
 		args.optional_string("color")?,
@@ -317,7 +367,7 @@ fn add_stroke_command(args: &canvist_core::Args<'_>) -> Result<Command, EditorEr
 }
 
 fn by_index(
-	args: &canvist_core::Args<'_>,
+	args: &Args<'_>,
 	name: &str,
 	change: fn(&mut Vec<Value>),
 ) -> Result<Command, EditorError> {
@@ -487,27 +537,109 @@ impl TypedExtension for Ink {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
 	use super::*;
+
+	const LINE: InkStroke<'static> = InkStroke {
+		points: &[0.0, 0.0, 10.0, 10.0],
+		color: None,
+		width: None,
+	};
+
+	fn run(editor: &mut Editor, command: &Command) -> bool {
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(command, &mut env).expect("ran").is_some()
+	}
+
+	/// An editor holding one drawing `height` units tall.
+	fn drawing(height: i64) -> (Editor, InkHandle, BlockId) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let ink = builder.add(Ink);
+		let mut editor = builder.build().expect("valid editor");
+
+		assert!(run(&mut editor, &ink.insert(height)));
+		let block = ink.drawings(editor.state())[0];
+
+		(editor, ink, block)
+	}
+
+	fn attrs(editor: &Editor, block: BlockId) -> Attrs {
+		editor
+			.state()
+			.doc()
+			.block(block)
+			.expect("a drawing")
+			.attrs()
+			.clone()
+	}
 
 	#[test]
 	fn strokes_are_rounded_kept_to_the_page_and_validated() {
 		let stroke =
 			stroke_value(&[1.04, 2.06, 1200.0, -5.0], Some("#FF0000"), Some(3.0)).expect("valid");
 		let map = stroke.as_map().expect("a record");
+		let expected = [1.0, 2.1, f64::from(INK_WIDTH), 0.0].map(Value::Float);
 
-		assert_eq!(
-			map.get("points"),
-			Some(&Value::from(vec![
-				Value::Float(1.0),
-				Value::Float(2.1),
-				Value::Float(1000.0),
-				Value::Float(0.0),
-			]))
-		);
+		assert_eq!(map.get("points"), Some(&Value::from(expected.to_vec())));
 		assert_eq!(map.get("color"), Some(&Value::from("#ff0000")));
+		assert!(stroke_value(&[], None, None).is_err());
 		assert!(stroke_value(&[1.0], None, None).is_err());
 		assert!(stroke_value(&[1.0, f32::NAN], None, None).is_err());
 		assert!(stroke_value(&[1.0, 2.0], Some("red"), None).is_err());
+		assert!(stroke_value(&[1.0, 2.0], Some("ff0000"), None).is_err());
 		assert!(stroke_value(&[1.0, 2.0], None, Some(0.0)).is_err());
+	}
+
+	#[test]
+	fn widths_keep_their_shortest_decimal() {
+		assert_eq!(width_value(3.3).ok(), Some(3.3));
+		assert!(width_value(f32::INFINITY).is_err());
+	}
+
+	#[test]
+	fn heights_are_kept_to_the_range_the_command_accepts() {
+		let (editor, _, block) = drawing(0);
+		assert_eq!(height(&attrs(&editor, block)), 1);
+
+		let (editor, _, block) = drawing(MAX_HEIGHT * 2);
+		assert_eq!(height(&attrs(&editor, block)), MAX_HEIGHT);
+	}
+
+	#[test]
+	fn strokes_are_added_undone_and_cleared() {
+		let (mut editor, ink, block) = drawing(DEFAULT_HEIGHT);
+		let add = ink.add_stroke(block, &LINE).expect("valid stroke");
+
+		assert!(!run(&mut editor, &ink.undo_stroke(block)));
+		assert!(!run(&mut editor, &ink.clear(block)));
+
+		assert!(run(&mut editor, &add));
+		assert!(run(&mut editor, &add));
+		assert_eq!(strokes(&attrs(&editor, block)).len(), 2);
+
+		assert!(run(&mut editor, &ink.undo_stroke(block)));
+		assert_eq!(strokes(&attrs(&editor, block)).len(), 1);
+
+		assert!(run(&mut editor, &ink.clear(block)));
+		assert!(strokes(&attrs(&editor, block)).is_empty());
+	}
+
+	#[test]
+	fn strokes_only_go_on_drawings() {
+		let (mut editor, ink, _) = drawing(DEFAULT_HEIGHT);
+		let paragraph = editor
+			.state()
+			.doc()
+			.first_text_block()
+			.expect("a paragraph");
+		let add = ink.add_stroke(paragraph, &LINE).expect("valid stroke");
+
+		assert!(!run(&mut editor, &add));
 	}
 }

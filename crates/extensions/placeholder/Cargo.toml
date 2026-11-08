@@ -18,5 +18,9 @@ description = "canvist: Hint text in empty blocks, like TipTap's Placeholder"
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
+[dev-dependencies]
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
 [lints]
 workspace = true

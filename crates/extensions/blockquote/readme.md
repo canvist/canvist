@@ -22,12 +22,36 @@
 
 # canvist_extension_blockquote
 
-TipTap's `blockquote` block, with `> ` and `Mod-Shift-b`, for the [canvist](https://github.com/canvist/canvist) editor.
+TipTap's `blockquote` block, with `>` and `Mod-Shift-b`, for the [canvist](https://github.com/canvist/canvist) editor.
 
 Most apps get it through [`canvist_extensions`](../../canvist_extensions), which combines every extension behind Cargo features, or [`canvist`](../../canvist), the crate to install. Depend on this crate directly to compile only the extensions you register:
 
 ```sh
 cargo add canvist_extension_blockquote
+```
+
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_blockquote::Blockquote;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let quote = builder.add(Blockquote);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "> Quoted".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+assert!(quote.is_active(editor.state()));
+assert_eq!(editor.state().doc().plain_text(), "Quoted");
 ```
 
 ## License

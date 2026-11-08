@@ -14,6 +14,7 @@ use canvist_model::BlockId;
 use canvist_model::BlockTree;
 use canvist_model::BlockTypeId;
 use canvist_model::Document;
+use canvist_model::GridCell;
 use canvist_model::GridRect;
 use canvist_model::InlineText;
 use canvist_model::Point;
@@ -43,14 +44,16 @@ pub(crate) struct CellKinds {
 }
 
 impl CellKinds {
-	pub(crate) fn of(state: &EditorState) -> Result<Self, EditorError> {
+	/// The schema's cell and header cell types.
+	pub(crate) fn read(state: &EditorState) -> Result<Self, EditorError> {
 		Ok(Self {
 			cell: canvist_core::block_type(state.schema(), TABLE, CELL)?,
 			header: canvist_core::block_type(state.schema(), TABLE, HEADER)?,
 		})
 	}
 
-	const fn pick(self, header: bool) -> BlockTypeId {
+	/// The header cell type when `header`, or else the cell type.
+	pub(crate) const fn pick(self, header: bool) -> BlockTypeId {
 		if header { self.header } else { self.cell }
 	}
 }
@@ -84,7 +87,7 @@ pub(crate) fn add_column(state: &mut EditorState, after: bool) -> CommandResult 
 	let Some((context, rect)) = selected(state) else {
 		return Ok(None);
 	};
-	let kinds = CellKinds::of(state)?;
+	let kinds = CellKinds::read(state)?;
 	let column = if after { rect.right } else { rect.left };
 
 	state.change(EditKind::Structure, |tr| {
@@ -201,7 +204,7 @@ pub(crate) fn add_row(state: &mut EditorState, after: bool) -> CommandResult {
 	let Some((context, rect)) = selected(state) else {
 		return Ok(None);
 	};
-	let kinds = CellKinds::of(state)?;
+	let kinds = CellKinds::read(state)?;
 	let row_kind = canvist_core::block_type(state.schema(), TABLE, ROW)?;
 	let row = if after { rect.bottom } else { rect.top };
 
@@ -319,6 +322,7 @@ fn caret_near(tr: &mut EditorTransaction<'_>, table: BlockId, (row, column): (us
 	let map = &context.map;
 	let row = row.min(map.height().saturating_sub(1));
 	let column = column.min(map.width().saturating_sub(1));
+
 	let selection = match map.cell_at(row, column) {
 		Some(index) => Selection::caret(Point::new(first_text(tr.doc(), context.block(index)), 0)),
 		None => position::valid_selection(tr.doc(), tr.selection_before()),
@@ -374,48 +378,56 @@ pub(crate) fn merge_cells(state: &mut EditorState) -> CommandResult {
 		return Ok(None);
 	};
 	let cells = context.blocks_in(rect);
-	let Some(target) = context
+	let target = context
 		.map
 		.cell_at(rect.top, rect.left)
-		.map(|index| context.block(index))
-	else {
+		.map(|index| context.block(index));
+	let Some(target) = target.filter(|_| cells.len() >= 2) else {
 		return Ok(None);
 	};
-
-	if cells.len() < 2 {
-		return Ok(None);
-	}
-
 	let widths = merged_widths(state.doc(), &context, rect);
 
 	state.change(EditKind::Structure, |tr| {
-		let empty_target = is_empty_cell(tr.doc(), target);
-		let mut moved = false;
-
-		for &cell in cells.iter().filter(|&&cell| cell != target) {
-			if !is_empty_cell(tr.doc(), cell) {
-				let count = tr.doc().children(Some(cell)).len();
-				let end = tr.doc().children(Some(target)).len();
-				tr.move_blocks((Some(cell), 0, count), (Some(target), end))?;
-				moved = true;
-			}
-
-			let (row, index) = location(tr.doc(), cell)?;
-			tr.remove_blocks(row, index, 1)?;
-		}
-
-		if empty_target && moved {
-			tr.remove_blocks(Some(target), 0, 1)?;
-		}
-
+		move_into(tr, target, &cells)?;
 		update_cell(tr, target, |_, attrs| {
 			let attrs = with_span(attrs, "colspan", rect.right - rect.left);
 			with_colwidth(with_span(attrs, "rowspan", rect.bottom - rect.top), &widths)
 		})?;
+
 		let start = first_text(tr.doc(), target);
 		tr.set_selection(Selection::caret(Point::new(start, 0)));
 		Ok(true)
 	})
+}
+
+/// Move the content of every cell in `cells` but `target` to the end of
+/// `target`, in order, and remove those cells. An empty target gives up its
+/// empty paragraph when content arrives.
+fn move_into(
+	tr: &mut EditorTransaction<'_>,
+	target: BlockId,
+	cells: &[BlockId],
+) -> Result<(), EditorError> {
+	let empty_target = is_empty_cell(tr.doc(), target);
+	let mut moved = false;
+
+	for &cell in cells.iter().filter(|&&cell| cell != target) {
+		if !is_empty_cell(tr.doc(), cell) {
+			let count = tr.doc().children(Some(cell)).len();
+			let end = tr.doc().children(Some(target)).len();
+			tr.move_blocks((Some(cell), 0, count), (Some(target), end))?;
+			moved = true;
+		}
+
+		let (row, index) = location(tr.doc(), cell)?;
+		tr.remove_blocks(row, index, 1)?;
+	}
+
+	if empty_target && moved {
+		tr.remove_blocks(Some(target), 0, 1)?;
+	}
+
+	Ok(())
 }
 
 /// The width each column of `rect` was given, from the first cell in it to
@@ -460,25 +472,32 @@ pub(crate) fn split_cell(state: &mut EditorState) -> CommandResult {
 		})?;
 
 		for row in cell.rows() {
-			let (at, first) = if row == cell.row {
-				(cell.index + 1, cell.column + 1)
-			} else {
-				(context.map.insert_index(row, cell.column), cell.column)
-			};
-			let trees = (first..cell.column + cell.colspan)
+			// The cell itself keeps the first slot of its top row.
+			let top = row == cell.row;
+			let index = split_index(&context, cell, row);
+			let trees = (cell.columns().skip(usize::from(top)))
 				.map(|column| {
-					let attrs = with_colwidth(
-						Attrs::new(),
-						&widths[column - cell.column..=column - cell.column],
-					);
+					let offset = column - cell.column;
+					let attrs = with_colwidth(Attrs::new(), &widths[offset..=offset]);
 					empty_cell(tr, kind, attrs)
 				})
 				.collect::<Result<Vec<_>, _>>()?;
-			tr.insert_blocks(Some(context.rows[row]), at, trees)?;
+
+			tr.insert_blocks(Some(context.rows[row]), index, trees)?;
 		}
 
 		Ok(true)
 	})
+}
+
+/// Where among row `row`'s children the cells splitting `cell` go: after
+/// the cell itself in its top row, and where its column starts below.
+fn split_index(context: &TableContext, cell: GridCell, row: usize) -> usize {
+	if row == cell.row {
+		return cell.index + 1;
+	}
+
+	context.map.insert_index(row, cell.column)
 }
 
 /// Merge the selected cells, or split the merged cell holding the caret.
@@ -511,36 +530,16 @@ pub(crate) fn toggle_header(state: &mut EditorState, part: HeaderPart) -> Comman
 	let Some((context, rect)) = selected(state) else {
 		return Ok(None);
 	};
-	let kinds = CellKinds::of(state)?;
-	let doc = state.doc();
-	let cells = context.map.cells();
-	let all_headers = |first: fn(&canvist_model::GridCell) -> bool| {
-		cells
-			.iter()
-			.enumerate()
-			.filter(|(_, cell)| first(cell))
-			.all(|(index, _)| is_named(doc, context.block(index), &[HEADER]))
-	};
-	let header_row = all_headers(|cell| cell.row == 0);
-	let header_column = all_headers(|cell| cell.column == 0);
-	let targets: Vec<BlockId> = cells
-		.iter()
-		.enumerate()
-		.filter(|(index, cell)| {
-			match part {
-				HeaderPart::Row => cell.row == 0 && !(header_column && cell.column == 0),
-				HeaderPart::Column => cell.column == 0 && !(header_row && cell.row == 0),
-				HeaderPart::Cells => context.blocks_in(rect).contains(&context.block(*index)),
-			}
-		})
-		.map(|(index, _)| context.block(index))
-		.collect();
+	let kinds = CellKinds::read(state)?;
+	let targets = header_targets(state.doc(), &context, rect, part);
 
 	if targets.is_empty() {
 		return Ok(None);
 	}
 
-	let to_header = !targets.iter().all(|&cell| is_named(doc, cell, &[HEADER]));
+	let to_header = !targets
+		.iter()
+		.all(|&cell| is_named(state.doc(), cell, &[HEADER]));
 	let kind = kinds.pick(to_header);
 
 	state.change(EditKind::Structure, |tr| {
@@ -559,6 +558,39 @@ pub(crate) fn toggle_header(state: &mut EditorState, part: HeaderPart) -> Comman
 	})
 }
 
+/// The cells [`toggle_header`] switches for `part`, leaving out the corner
+/// cell when it belongs to the other header that is on.
+fn header_targets(
+	doc: &Document,
+	context: &TableContext,
+	rect: GridRect,
+	part: HeaderPart,
+) -> Vec<BlockId> {
+	let cells = context.map.cells();
+	let all_headers = |first: fn(&GridCell) -> bool| {
+		cells
+			.iter()
+			.enumerate()
+			.filter(|(_, cell)| first(cell))
+			.all(|(index, _)| is_named(doc, context.block(index), &[HEADER]))
+	};
+	let header_row = all_headers(|cell| cell.row == 0);
+	let header_column = all_headers(|cell| cell.column == 0);
+	let selected = context.blocks_in(rect);
+
+	(0..cells.len())
+		.map(|index| (cells[index], context.block(index)))
+		.filter(|(cell, block)| {
+			match part {
+				HeaderPart::Row => cell.row == 0 && !(header_column && cell.column == 0),
+				HeaderPart::Column => cell.column == 0 && !(header_row && cell.row == 0),
+				HeaderPart::Cells => selected.contains(block),
+			}
+		})
+		.map(|(_, block)| block)
+		.collect()
+}
+
 /// Set attribute `name` of every selected cell to `value`, or remove it
 /// when `value` is null.
 pub(crate) fn set_cell_attribute(
@@ -573,19 +605,22 @@ pub(crate) fn set_cell_attribute(
 
 	state.change(EditKind::Structure, |tr| {
 		for &cell in &cells {
-			update_cell(tr, cell, |_, mut attrs| {
-				if *value == Value::Null {
-					attrs.remove(name);
-				} else {
-					attrs.set(name, value.clone());
-				}
-
-				attrs
-			})?;
+			update_cell(tr, cell, |_, attrs| with_attr(attrs, name, value))?;
 		}
 
 		Ok(true)
 	})
+}
+
+/// `attrs` with `name` set to `value`, or without it when `value` is null.
+fn with_attr(mut attrs: Attrs, name: &str, value: &Value) -> Attrs {
+	if *value == Value::Null {
+		attrs.remove(name);
+	} else {
+		attrs.set(name, value.clone());
+	}
+
+	attrs
 }
 
 /// Whether `cell` holds nothing but one empty text block.

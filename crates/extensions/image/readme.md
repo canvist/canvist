@@ -30,6 +30,33 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_image
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_image::Image;
+use canvist_extension_paragraph::Paragraph;
+use canvist_model::Attrs;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let image = builder.add(Image);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let update = editor.run(&image.insert("https://example.com/cat.png", &Attrs::new()), &mut env)?;
+assert!(update.is_some());
+
+for character in "![A dog](dog.png)".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+let images = editor.state().doc().iter().filter(|block| block.attrs().get("src").is_some());
+assert_eq!(images.count(), 2);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

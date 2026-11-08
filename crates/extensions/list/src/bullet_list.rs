@@ -15,6 +15,7 @@ use canvist_core::Registration;
 use canvist_core::RuleMatch;
 use canvist_core::TypedExtension;
 use canvist_core::commands;
+use canvist_core::query;
 use canvist_model::BlockSpec;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
@@ -50,7 +51,7 @@ impl BulletListHandle {
 	/// Whether the selection is inside a bullet list.
 	#[must_use]
 	pub fn is_active(self, state: &EditorState) -> bool {
-		canvist_core::query::around(state, NAME).is_some()
+		query::around(state, NAME).is_some()
 	}
 }
 

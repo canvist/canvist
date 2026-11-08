@@ -2,36 +2,74 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Inline styles: the `textStyle` mark and the extensions that give it
-//! attributes, as in TipTap's `TextStyleKit`.
+//! # `canvist_extension_text_style`
 //!
-//! [`TextStyle`] registers a `textStyle` mark with no attributes of its own.
-//! [`Color`], [`BackgroundColor`], [`FontFamily`], [`FontSize`], and
-//! [`LineHeight`] each add one attribute to it, with a command to set it and
-//! one to clear it. A run carries at most one `textStyle` mark, so setting
-//! its colour keeps its font size, and clearing its last attribute removes
-//! the mark.
+//! Inline styles for the canvist editor: the `textStyle` mark and the
+//! extensions that give it attributes, as in TipTap's `TextStyleKit`.
+//!
+//! [`TextStyle`] registers a `textStyle` mark with no attributes of its own
+//! and a `removeEmptyTextStyle` command. The others each add one attribute to
+//! it, with a command to set it, one to clear it, and a query of the same
+//! name as the attribute that reads the value the selection shares:
+//!
+//! | Extension           | Attribute         | Commands                                         |
+//! | ------------------- | ----------------- | ------------------------------------------------ |
+//! | [`Color`]           | `color`           | `setColor`, `unsetColor`                         |
+//! | [`BackgroundColor`] | `backgroundColor` | `setBackgroundColor`, `unsetBackgroundColor`     |
+//! | [`FontFamily`]      | `fontFamily`      | `setFontFamily`, `unsetFontFamily`               |
+//! | [`FontSize`]        | `fontSize`        | `setFontSize`, `unsetFontSize`                   |
+//! | [`LineHeight`]      | `lineHeight`      | `setLineHeight`, `unsetLineHeight`               |
+//!
+//! A run carries at most one `textStyle` mark, so setting its colour keeps
+//! its font size, and clearing its last attribute removes the mark. Register
+//! [`TextStyle`] with at least one of the others.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_text_style::Color;
+//! use canvist_extension_text_style::TextStyle;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! builder.add(TextStyle);
+//! let color = builder.add(Color);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&color.set("#958df1"), &mut env)?;
+//! editor.insert_text("purple", &mut env)?;
+//!
+//! assert_eq!(color.value(editor.state()).as_deref(), Some("#958df1"));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+mod style_attr;
 
 use canvist_core::Command;
 use canvist_core::CommandSpec;
 use canvist_core::EditorError;
-use canvist_core::EditorState;
 use canvist_core::Extension;
-use canvist_core::Field;
 use canvist_core::NodeKind;
 use canvist_core::NodeMeta;
-use canvist_core::QuerySpec;
 use canvist_core::Registration;
 use canvist_core::TypedExtension;
-use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
-use canvist_core::query;
+use canvist_core::mark_type;
 use canvist_model::Attrs;
 use canvist_model::MarkSpec;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
 use canvist_model::Value;
+pub use style_attr::BackgroundColor;
+pub use style_attr::Color;
+pub use style_attr::FontFamily;
+pub use style_attr::FontSize;
+pub use style_attr::LineHeight;
+pub use style_attr::StyleAttrHandle;
 
 /// The mark every style attribute lives on.
 const TEXT_STYLE: &str = "textStyle";
@@ -67,7 +105,7 @@ fn is_empty(attrs: &Attrs) -> bool {
 
 fn remove_empty() -> Command {
 	command(|state| {
-		let kind = canvist_core::mark_type(state.schema(), TEXT_STYLE, TEXT_STYLE)?;
+		let kind = mark_type(state.schema(), TEXT_STYLE, TEXT_STYLE)?;
 		let update = |current: Option<&Attrs>| current.filter(|attrs| !is_empty(attrs)).cloned();
 		commands::update_mark_attrs(state, kind, &update)
 	})
@@ -110,238 +148,111 @@ impl TypedExtension for TextStyle {
 	}
 }
 
-/// Everything that distinguishes one style attribute from another.
-#[derive(Debug)]
-struct StyleAttr {
-	/// The extension name.
-	extension: &'static str,
-	/// The attribute on `textStyle`, which is also the query name.
-	attr: &'static str,
-	/// The set and unset command names.
-	commands: [&'static str; 2],
-	/// What the attribute holds, for its argument docs.
-	doc: &'static str,
-}
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
 
-/// Typed access to a style attribute extension such as [`Color`].
-#[derive(Clone, Copy, Debug)]
-pub struct StyleAttrHandle {
-	def: &'static StyleAttr,
-	_registration: Registration,
-}
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::query;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
 
-impl StyleAttrHandle {
-	/// Set the attribute on the selection, keeping its other styles. At a
-	/// caret, it applies to the next typed text.
-	#[must_use]
-	pub fn set(self, value: &str) -> Command {
-		self.def.set(value)
+	use super::*;
+
+	struct Styled {
+		editor: Editor,
+		color: StyleAttrHandle,
+		size: StyleAttrHandle,
 	}
 
-	/// Clear the attribute from the selection, removing text styles left
-	/// with no attributes.
-	#[must_use]
-	pub fn unset(self) -> Command {
-		self.def.unset()
-	}
+	/// An editor holding `text` in red at 18px, with all of it selected.
+	fn styled(text: &str) -> Styled {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		builder.add(TextStyle);
+		let color = builder.add(Color);
+		let size = builder.add(FontSize);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
 
-	/// The value every selected character shares, if they share one.
-	#[must_use]
-	pub fn value(self, state: &EditorState) -> Option<String> {
-		self.def.value(state)
-	}
-}
+		editor.insert_text(text, &mut env).expect("typed");
+		editor
+			.run(&command(commands::select_all), &mut env)
+			.expect("selected");
+		editor.run(&color.set("red"), &mut env).expect("coloured");
+		editor.run(&size.set("18px"), &mut env).expect("sized");
 
-impl StyleAttr {
-	fn set(&'static self, value: &str) -> Command {
-		let value = Value::from(value);
-		command(move |state| {
-			let kind = canvist_core::mark_type(state.schema(), self.extension, TEXT_STYLE)?;
-			let update = |current: Option<&Attrs>| {
-				let attrs = current.cloned().unwrap_or_default();
-				Some(attrs.with(self.attr, value.clone()))
-			};
-			commands::update_mark_attrs(state, kind, &update)
-		})
-	}
-
-	/// Remove the attribute (an absent attribute is its default, null), and
-	/// the mark with it when nothing else is set.
-	fn unset(&'static self) -> Command {
-		command(move |state| {
-			let kind = canvist_core::mark_type(state.schema(), self.extension, TEXT_STYLE)?;
-			let update = |current: Option<&Attrs>| {
-				let mut attrs = current?.clone();
-				attrs.remove(self.attr);
-				(!is_empty(&attrs)).then_some(attrs)
-			};
-			commands::update_mark_attrs(state, kind, &update)
-		})
-	}
-
-	fn value(&self, state: &EditorState) -> Option<String> {
-		let value = query::shared_mark_attr(state, TEXT_STYLE, self.attr)?;
-		value.as_str().map(str::to_owned)
-	}
-
-	fn field(&self, required: bool) -> Field {
-		if required {
-			Field::required(self.attr, ValueType::String, self.doc)
-		} else {
-			Field::optional(
-				self.attr,
-				ValueType::nullable(ValueType::String),
-				Value::Null,
-				self.doc,
-			)
+		Styled {
+			editor,
+			color,
+			size,
 		}
 	}
 
-	fn node(&self) -> Vec<NodeMeta> {
-		vec![NodeMeta::new(NodeKind::Mark, TEXT_STYLE).attr(self.field(false))]
+	fn has_text_style(editor: &Editor) -> bool {
+		query::mark_active(editor.state(), TEXT_STYLE)
 	}
 
-	fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
-		schema.mark_attrs(&[TEXT_STYLE], Attrs::new().with(self.attr, Value::Null))
+	#[test]
+	fn setting_one_style_keeps_the_others() {
+		let Styled {
+			editor,
+			color,
+			size,
+		} = styled("styled");
+
+		assert_eq!(color.value(editor.state()).as_deref(), Some("red"));
+		assert_eq!(size.value(editor.state()).as_deref(), Some("18px"));
 	}
 
-	fn commands(&'static self) -> Vec<CommandSpec> {
-		let [set, unset] = self.commands;
-		let set_spec = CommandSpec::new(
-			set,
-			"Set the style on the selection, keeping its other styles.",
-			move |args| Ok(self.set(args.string(self.attr)?)),
+	#[test]
+	fn clearing_the_last_style_removes_the_mark() {
+		let Styled {
+			mut editor,
+			color,
+			size,
+		} = styled("styled");
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.run(&color.unset(), &mut env).expect("cleared");
+		assert_eq!(color.value(editor.state()), None);
+		assert!(has_text_style(&editor));
+
+		editor.run(&size.unset(), &mut env).expect("cleared");
+		assert!(!has_text_style(&editor));
+	}
+
+	#[test]
+	fn a_mixed_selection_shares_no_value() {
+		let Styled {
+			mut editor, color, ..
+		} = styled("styled");
+		let mut env = Env::headless(Duration::ZERO);
+		let block = editor
+			.state()
+			.doc()
+			.first_text_block()
+			.expect("a paragraph");
+		let selection = canvist_model::Selection::text(
+			canvist_model::Point::new(block, 0),
+			canvist_model::Point::new(block, 3),
 		);
 
-		vec![
-			set_spec.arg(self.field(true)),
-			CommandSpec::simple(unset, "Clear the style from the selection.", self.unset()),
-		]
+		editor.select(selection, &mut env).expect("selected");
+		editor.run(&color.set("blue"), &mut env).expect("coloured");
+		editor
+			.run(&command(commands::select_all), &mut env)
+			.expect("selected");
+
+		assert_eq!(color.value(editor.state()), None);
 	}
 
-	fn queries(&'static self) -> Vec<QuerySpec> {
-		vec![QuerySpec::new(
-			self.attr,
-			"The value every selected character shares, or null.",
-			ValueType::nullable(ValueType::String),
-			move |state, _| Ok(self.value(state).map_or(Value::Null, Value::from)),
-		)]
-	}
+	#[test]
+	fn empty_means_every_attribute_is_null() {
+		let empty = Attrs::new().with("color", Value::Null);
 
-	fn handle(&'static self, registration: Registration) -> StyleAttrHandle {
-		StyleAttrHandle {
-			def: self,
-			_registration: registration,
-		}
+		assert!(is_empty(&empty));
+		assert!(is_empty(&Attrs::new()));
+		assert!(!is_empty(&empty.with("fontSize", Value::from("18px"))));
 	}
 }
-
-static COLOR: StyleAttr = StyleAttr {
-	extension: "color",
-	attr: "color",
-	commands: ["setColor", "unsetColor"],
-	doc: "The text colour, any CSS colour such as `#958df1`.",
-};
-
-static BACKGROUND_COLOR: StyleAttr = StyleAttr {
-	extension: "backgroundColor",
-	attr: "backgroundColor",
-	commands: ["setBackgroundColor", "unsetBackgroundColor"],
-	doc: "The background colour behind the text, any CSS colour.",
-};
-
-static FONT_FAMILY: StyleAttr = StyleAttr {
-	extension: "fontFamily",
-	attr: "fontFamily",
-	commands: ["setFontFamily", "unsetFontFamily"],
-	doc: "The CSS font family list, such as `Inter, sans-serif`.",
-};
-
-static FONT_SIZE: StyleAttr = StyleAttr {
-	extension: "fontSize",
-	attr: "fontSize",
-	commands: ["setFontSize", "unsetFontSize"],
-	doc: "The font size, such as `18px`.",
-};
-
-static LINE_HEIGHT: StyleAttr = StyleAttr {
-	extension: "lineHeight",
-	attr: "lineHeight",
-	commands: ["setLineHeight", "unsetLineHeight"],
-	doc: "The line height as a multiple of the font size, such as `1.5`.",
-};
-
-/// Declares a style attribute extension: a unit struct whose [`Extension`]
-/// and [`TypedExtension`] delegate to its [`StyleAttr`].
-macro_rules! style_attr {
-	($(#[$meta:meta])* $type:ident, $def:expr) => {
-		$(#[$meta])*
-		#[derive(Clone, Copy, Debug, Default)]
-		pub struct $type;
-
-		impl Extension for $type {
-			fn name(&self) -> &'static str {
-				$def.extension
-			}
-
-			fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
-				$def.schema(schema)
-			}
-
-			fn nodes(&self) -> Vec<NodeMeta> {
-				$def.node()
-			}
-
-			fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
-				Ok($def.commands())
-			}
-
-			fn queries(&self, _schema: &Schema) -> Result<Vec<QuerySpec>, EditorError> {
-				Ok($def.queries())
-			}
-		}
-
-		impl TypedExtension for $type {
-			type Handle = StyleAttrHandle;
-
-			fn handle(&self, registration: Registration) -> StyleAttrHandle {
-				$def.handle(registration)
-			}
-		}
-	};
-}
-
-style_attr!(
-	/// The text colour, as a `color` attribute on `textStyle`: `setColor`,
-	/// `unsetColor`.
-	Color,
-	COLOR
-);
-
-style_attr!(
-	/// The background behind text, as a `backgroundColor` attribute on
-	/// `textStyle`: `setBackgroundColor`, `unsetBackgroundColor`.
-	BackgroundColor,
-	BACKGROUND_COLOR
-);
-
-style_attr!(
-	/// The font family, as a `fontFamily` attribute on `textStyle`:
-	/// `setFontFamily`, `unsetFontFamily`.
-	FontFamily,
-	FONT_FAMILY
-);
-
-style_attr!(
-	/// The font size, as a `fontSize` attribute on `textStyle`:
-	/// `setFontSize`, `unsetFontSize`.
-	FontSize,
-	FONT_SIZE
-);
-
-style_attr!(
-	/// The line height, as a `lineHeight` attribute on `textStyle`:
-	/// `setLineHeight`, `unsetLineHeight`.
-	LineHeight,
-	LINE_HEIGHT
-);

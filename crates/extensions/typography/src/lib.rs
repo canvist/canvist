@@ -2,19 +2,46 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Typography: smart quotes, dashes, arrows, fractions, and symbols as you
-//! type.
+//! # `canvist_extension_typography`
 //!
-//! The rules are TipTap's, plus Remirror's `<->` arrow. A rule whose
-//! pattern has a capture group replaces only that group, so `1/2 ` becomes
-//! `½ ` and keeps its space. Backspace straight after a rule fires puts
-//! back what was typed.
+//! Smart punctuation as you type for the canvist editor, as in TipTap's
+//! `@tiptap/extension-typography`. [`Typography`] adds no nodes, marks, or
+//! commands, only input rules: `--` becomes `—`, `...` becomes `…`, straight
+//! quotes curl, `->` becomes `→`, `(c)` becomes `©`, `1/2 ` becomes `½ `, and
+//! so on. The rules are TipTap's, under TipTap's option names, plus
+//! Remirror's `<->` arrow. [`Typography::without`] turns rules off and
+//! [`Typography::with_output`] changes what one produces.
+//!
+//! A rule whose pattern has a capture group replaces only that group, so
+//! `1/2 ` becomes `½ ` and keeps its space. Backspace straight after a rule
+//! fires puts back what was typed. Rules never fire inside inline code.
 //!
 //! Input rules only run when the typed character is punctuation or white
 //! space, so typing letters and digits never pays for them. TipTap's rules
 //! that end in a digit (`2x3`, `^2`, `^3`) therefore fire on the space or
 //! punctuation typed after them instead.
-
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_typography::Typography;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! builder.add(Typography::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "wait -- \"what\"...".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! assert_eq!(editor.state().doc().plain_text(), "wait — “what”…");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use std::sync::Arc;
 
 use canvist_core::CommandResult;
@@ -123,7 +150,7 @@ const RULES: [Rule; 23] = [
 /// Smart punctuation as you type, as in TipTap's Typography.
 ///
 /// ```
-/// use canvist_extensions::Typography;
+/// use canvist_extension_typography::Typography;
 ///
 /// // Keep straight quotes and use guillemets for `<<` and `>>`.
 /// let typography = Typography::default()
@@ -147,7 +174,8 @@ impl Typography {
 		self
 	}
 
-	/// Make the rule named `name` produce `output` instead.
+	/// Make the rule named `name` produce `output` instead. A later call
+	/// for the same rule replaces an earlier one.
 	#[must_use]
 	pub fn with_output(mut self, name: &'static str, output: &str) -> Self {
 		self.outputs.push((name, Arc::from(output)));
@@ -168,7 +196,7 @@ impl Typography {
 				let output = self
 					.outputs
 					.iter()
-					.find(|(name, _)| *name == rule.name)
+					.rfind(|(name, _)| *name == rule.name)
 					.map_or_else(|| Arc::from(rule.output), |(_, output)| output.clone());
 				(rule, output)
 			})
@@ -189,6 +217,23 @@ fn in_inline_code(state: &EditorState) -> bool {
 		.schema()
 		.mark_type("code")
 		.is_some_and(|code| commands::active_marks(state).get(code).is_some())
+}
+
+/// The input rule for `rule`, producing `output`.
+fn input_rule(rule: Rule, output: Arc<str>) -> Result<InputRule, EditorError> {
+	let boundary = if rule.bounded { BOUNDARY } else { "" };
+	let pattern = format!("{}{boundary}$", rule.pattern);
+	let mut input = InputRule::new(&pattern, move |state, found| replace(state, found, &output))?;
+
+	if let Some(trigger) = rule.trigger {
+		input = input.on(trigger);
+	}
+
+	if rule.bounded {
+		input = input.lookback(BOUNDED_LOOKBACK);
+	}
+
+	Ok(input)
 }
 
 /// Replace capture group 1 of `found` (or the whole match) with `output`,
@@ -245,25 +290,7 @@ impl Extension for Typography {
 
 	fn input_rules(&self, _schema: &Schema) -> Result<Vec<InputRule>, EditorError> {
 		self.rules()
-			.map(|(rule, output)| {
-				let pattern = if rule.bounded {
-					format!("{}{BOUNDARY}$", rule.pattern)
-				} else {
-					format!("{}$", rule.pattern)
-				};
-				let mut input =
-					InputRule::new(&pattern, move |state, found| replace(state, found, &output))?;
-
-				if let Some(trigger) = rule.trigger {
-					input = input.on(trigger);
-				}
-
-				if rule.bounded {
-					input = input.lookback(BOUNDED_LOOKBACK);
-				}
-
-				Ok(input)
-			})
+			.map(|(rule, output)| input_rule(rule, output))
 			.collect()
 	}
 }
@@ -293,5 +320,26 @@ mod tests {
 			.expect("patterns compile");
 
 		assert_eq!(rules.len(), RULES.len());
+	}
+
+	#[test]
+	fn the_last_output_for_a_rule_wins() {
+		let typography = Typography::default()
+			.with_output("emDash", "–")
+			.with_output("emDash", "―");
+		let (_, output) = typography
+			.rules()
+			.find(|(rule, _)| rule.name == "emDash")
+			.expect("emDash is on");
+
+		assert_eq!(&*output, "―");
+	}
+
+	#[test]
+	fn turned_off_rules_are_skipped() {
+		let typography = Typography::default().without(&["emDash", "ellipsis"]);
+
+		assert_eq!(typography.rule_names().count(), RULES.len() - 2);
+		assert!(!typography.rule_names().any(|name| name == "emDash"));
 	}
 }

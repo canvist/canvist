@@ -4,9 +4,11 @@
 )]
 //! # `canvist_extension_paragraph`
 //!
-//! TipTap's `paragraph` node for the canvist editor: the default text block,
-//! which Enter creates and an empty document starts with. It adds
-//! `setParagraph`, the `isParagraph` query, and `Mod-Alt-0`.
+//! TipTap's `paragraph` node for the canvist editor, as in TipTap's
+//! `@tiptap/extension-paragraph`. [`Paragraph`] registers the default text
+//! block, which Enter creates and an empty document starts with, along with
+//! the `setParagraph` command, the `isParagraph` query, and `Mod-Alt-0`,
+//! which turns the selected text blocks back into paragraphs.
 //!
 //! ```
 //! use std::time::Duration;
@@ -40,6 +42,7 @@ use canvist_core::QuerySpec;
 use canvist_core::Registration;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_model::Attrs;
@@ -79,7 +82,7 @@ impl ParagraphHandle {
 
 fn set() -> Command {
 	command(|state| {
-		let paragraph = canvist_core::block_type(state.schema(), "paragraph", "paragraph")?;
+		let paragraph = block_type(state.schema(), "paragraph", "paragraph")?;
 		commands::set_block_type(state, paragraph, &Attrs::new())
 	})
 }
@@ -136,5 +139,64 @@ impl TypedExtension for Paragraph {
 		ParagraphHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+
+	use super::*;
+
+	/// Another text block, registered before the paragraph.
+	struct Title;
+
+	impl Extension for Title {
+		fn name(&self) -> &'static str {
+			"title"
+		}
+
+		fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
+			schema.block(BlockSpec::text("title"))
+		}
+	}
+
+	#[test]
+	fn is_the_default_text_block_whatever_the_order() -> Result<(), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Title);
+		let paragraph = builder.add(Paragraph);
+		let editor = builder.build()?;
+
+		assert!(paragraph.is_active(editor.state()));
+		assert_eq!(
+			editor.schema().default_text_block(),
+			block_type(editor.schema(), "paragraph", "paragraph")?
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn set_turns_other_text_blocks_into_paragraphs() -> Result<(), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Title);
+		let paragraph = builder.add(Paragraph);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+		let title = block_type(editor.schema(), "title", "title")?;
+		let to_title = command(move |state| commands::set_block_type(state, title, &Attrs::new()));
+
+		editor.run(&to_title, &mut env)?;
+		assert!(!paragraph.is_active(editor.state()));
+		assert_eq!(
+			editor.query("isParagraph", &Attrs::new())?,
+			Value::Bool(false)
+		);
+
+		editor.run(&paragraph.set(), &mut env)?;
+		assert!(paragraph.is_active(editor.state()));
+		Ok(())
 	}
 }

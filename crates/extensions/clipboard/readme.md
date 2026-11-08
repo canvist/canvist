@@ -30,6 +30,23 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_clipboard
 ```
 
+## Usage
+
+Each reader and writer takes the schema of the editor the content is for:
+
+```rust
+use canvist_extension_clipboard::from_html;
+use canvist_extension_clipboard::to_markdown;
+
+let schema = editor.schema().clone();
+let slice = from_html(&schema, "<p>Some <b>bold</b> text</p>");
+
+assert_eq!(to_markdown(&schema, &slice), "Some **bold** text");
+editor.paste(slice, &mut env)?;
+```
+
+The StarterKit's markup is always understood. Each Cargo feature, such as `table`, `image`, or `highlight`, adds the markup of the extension of the same name; without it, that markup reads and writes as plain HTML or Markdown. `canvist_extensions` turns each feature on with its extension.
+
 ## License
 
 [Unlicense](https://unlicense.org)

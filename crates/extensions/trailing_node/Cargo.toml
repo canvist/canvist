@@ -18,5 +18,10 @@ description = "canvist: Keeps a paragraph at the end of the document, like TipTa
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
+[dev-dependencies]
+canvist_extension_blockquote = { workspace = true }
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
 [lints]
 workspace = true

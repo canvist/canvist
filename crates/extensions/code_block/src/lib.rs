@@ -2,7 +2,44 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Code blocks.
+//! # `canvist_extension_code_block`
+//!
+//! TipTap's `codeBlock` node for the canvist editor, as in TipTap's
+//! `@tiptap/extension-code-block`. [`CodeBlock`] registers a text block with
+//! a nullable `language` attribute, the `toggleCodeBlock` and
+//! `setCodeBlock` commands (each taking an optional `language`), and the
+//! `isCodeBlock` and `codeBlockLanguage` queries.
+//!
+//! Typing ```` ``` ```` or `~~~`, an optional lowercase language, and a
+//! space at the start of a block starts a code block, and `Mod-Alt-c`
+//! toggles one. Inside, Enter inserts a line break, Enter at the end after
+//! two empty lines leaves the block (TipTap's `exitOnTripleEnter`), and
+//! Backspace in an empty block turns it back into a paragraph. Input and
+//! paste rules do not run inside code.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_code_block::CodeBlock;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let code = builder.add(CodeBlock);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "```rust fn main() {}".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! assert!(code.is_active(editor.state()));
+//! assert_eq!(code.language(editor.state()).as_deref(), Some("rust"));
+//! assert_eq!(editor.state().doc().plain_text(), "fn main() {}");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -37,10 +74,11 @@ use canvist_model::Value;
 
 /// A `codeBlock` text block with a `language` attribute.
 ///
-/// Enter inserts a line break; pressing it on a third empty line leaves the
-/// block. ```` ``` ```` or `~~~` followed by an optional language and a
-/// space starts one, `Mod-Alt-c` toggles one, and Backspace in an empty one
-/// turns it back into a paragraph. Input and paste rules do not run inside.
+/// Enter inserts a line break (replacing any selected text); pressing it at
+/// the end after two empty lines leaves the block. ```` ``` ```` or `~~~`
+/// followed by an optional language and a space starts one, `Mod-Alt-c`
+/// toggles one, and Backspace in an empty one turns it back into a
+/// paragraph. Input and paste rules do not run inside.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CodeBlock;
 
@@ -94,7 +132,7 @@ fn language_attrs(language: Option<&str>) -> Attrs {
 fn toggle(language: Option<&str>) -> Command {
 	let attrs = language_attrs(language);
 	command(move |state| {
-		let code = block_type(state.schema(), "codeBlock", "codeBlock")?;
+		let code = CodeBlock::kind(state.schema())?;
 		commands::toggle_block_type(state, code, &attrs)
 	})
 }
@@ -102,7 +140,7 @@ fn toggle(language: Option<&str>) -> Command {
 fn set(language: Option<&str>) -> Command {
 	let attrs = language_attrs(language);
 	command(move |state| {
-		let code = block_type(state.schema(), "codeBlock", "codeBlock")?;
+		let code = CodeBlock::kind(state.schema())?;
 		commands::set_block_type(state, code, &attrs)
 	})
 }
@@ -130,8 +168,20 @@ fn caret_in(state: &EditorState, kind: BlockTypeId) -> Option<Point> {
 }
 
 /// Enter inside a code block: a line break, or leave the block when the
-/// caret ends two empty lines.
+/// caret ends two empty lines. Selected text inside one code block is
+/// replaced by the line break rather than splitting the block.
 fn enter(state: &mut EditorState, kind: BlockTypeId) -> CommandResult {
+	if let Selection::Text { anchor, head } = state.selection()
+		&& anchor != head
+		&& anchor.block == head.block
+		&& state
+			.doc()
+			.block(head.block)
+			.is_some_and(|block| block.kind() == kind)
+	{
+		return commands::insert_text(state, "\n");
+	}
+
 	let Some(caret) = caret_in(state, kind) else {
 		return Ok(None);
 	};
@@ -244,8 +294,8 @@ impl Extension for CodeBlock {
 	fn input_rules(&self, schema: &Schema) -> Result<Vec<InputRule>, EditorError> {
 		let kind = Self::kind(schema)?;
 		Ok(vec![
-			InputRule::block_type(r"^```([a-z]+)?[\s\n]$", kind, language)?,
-			InputRule::block_type(r"^~~~([a-z]+)?[\s\n]$", kind, language)?,
+			InputRule::block_type(r"^```([a-z]+)?\s$", kind, language)?,
+			InputRule::block_type(r"^~~~([a-z]+)?\s$", kind, language)?,
 		])
 	}
 
@@ -261,5 +311,135 @@ impl TypedExtension for CodeBlock {
 		CodeBlockHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::BaseKeymap;
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn editor() -> Result<(Editor, CodeBlockHandle), EditorError> {
+		let mut builder = Editor::builder()
+			.extension(Document)
+			.extension(Paragraph)
+			.extension(BaseKeymap);
+		let code = builder.add(CodeBlock);
+		Ok((builder.build()?, code))
+	}
+
+	fn type_text(editor: &mut Editor, text: &str, env: &mut Env<'_>) -> Result<(), EditorError> {
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), env)?;
+		}
+
+		Ok(())
+	}
+
+	fn press(editor: &mut Editor, key: &str, env: &mut Env<'_>) -> CommandResult {
+		editor.handle_key(KeyPress::plain(key), env)
+	}
+
+	#[test]
+	fn fences_start_a_block_with_an_optional_language() -> Result<(), EditorError> {
+		for (typed, language) in [
+			("``` ", None),
+			("~~~js ", Some("js")),
+			("```rust ", Some("rust")),
+		] {
+			let (mut editor, code) = editor()?;
+			let mut env = Env::headless(Duration::ZERO);
+			type_text(&mut editor, typed, &mut env)?;
+
+			assert!(code.is_active(editor.state()), "{typed}");
+			assert_eq!(
+				code.language(editor.state()).as_deref(),
+				language,
+				"{typed}"
+			);
+			assert_eq!(editor.state().doc().plain_text(), "", "{typed}");
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn enter_replaces_selected_code_with_a_line_break() -> Result<(), EditorError> {
+		let (mut editor, code) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(&code.set(None), &mut env)?;
+		editor.insert_text("abcd", &mut env)?;
+		let block = editor.state().doc().children(None)[0];
+		let middle = Selection::text(Point::new(block, 1), Point::new(block, 3));
+		editor.select(middle, &mut env)?;
+
+		press(&mut editor, "Enter", &mut env)?;
+
+		assert_eq!(editor.state().doc().children(None), [block]);
+		assert_eq!(editor.state().doc().plain_text(), "a\nd");
+		assert!(code.is_active(editor.state()));
+		Ok(())
+	}
+
+	#[test]
+	fn enter_leaves_after_two_empty_lines_at_the_end() -> Result<(), EditorError> {
+		let (mut editor, code) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(&code.set(Some("rust")), &mut env)?;
+		editor.insert_text("x", &mut env)?;
+
+		press(&mut editor, "Enter", &mut env)?;
+		press(&mut editor, "Enter", &mut env)?;
+		assert!(code.is_active(editor.state()));
+		assert_eq!(editor.state().doc().plain_text(), "x\n\n");
+
+		press(&mut editor, "Enter", &mut env)?;
+		assert!(!code.is_active(editor.state()));
+		assert_eq!(editor.state().doc().plain_text(), "x\n");
+		Ok(())
+	}
+
+	#[test]
+	fn enter_in_the_middle_never_leaves() -> Result<(), EditorError> {
+		let (mut editor, code) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(&code.set(None), &mut env)?;
+		editor.insert_text("\n\nx", &mut env)?;
+		let block = editor.state().doc().children(None)[0];
+		editor.select(Selection::caret(Point::new(block, 2)), &mut env)?;
+
+		press(&mut editor, "Enter", &mut env)?;
+
+		assert!(code.is_active(editor.state()));
+		assert_eq!(editor.state().doc().plain_text(), "\n\n\nx");
+		Ok(())
+	}
+
+	#[test]
+	fn backspace_turns_an_empty_block_into_a_paragraph() -> Result<(), EditorError> {
+		let (mut editor, code) = editor()?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(&code.toggle(Some("rust")), &mut env)?;
+		assert_eq!(
+			editor.query("codeBlockLanguage", &Attrs::new())?,
+			Value::from("rust")
+		);
+
+		press(&mut editor, "Backspace", &mut env)?;
+
+		assert!(!code.is_active(editor.state()));
+		assert_eq!(
+			editor.query("codeBlockLanguage", &Attrs::new())?,
+			Value::Null
+		);
+		Ok(())
 	}
 }

@@ -5,7 +5,9 @@
 //! # `canvist_extension_audio`
 //!
 //! TipTap's `audio` block for the canvist editor: an audio player the host
-//! draws in the slot the canvas reserves, inserted with `setAudio`.
+//! draws in the slot the canvas reserves. [`Audio`] adds the `audio` block,
+//! with `src`, `controls`, `autoplay`, `loop`, and `muted`, and the
+//! `setAudio` command. Its handle is a [`MediaHandle`].
 //!
 //! ```
 //! use std::time::Duration;

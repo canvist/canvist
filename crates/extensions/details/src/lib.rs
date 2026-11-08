@@ -2,7 +2,46 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Details: a summary that opens and closes the content below it.
+//! # `canvist_extension_details`
+//!
+//! TipTap's Details for the canvist editor, as in
+//! `@tiptap/extension-details`: a summary that opens and closes the content
+//! below it. [`Details`] adds the `details` block, with an `open`
+//! attribute, holding a `detailsSummary` text block and a `detailsContent`
+//! block, TipTap's three nodes in one extension.
+//!
+//! `setDetails` wraps the selected blocks, `unsetDetails` unwraps them,
+//! `toggleDetailsOpen` opens or closes the details, and the `detailsOpen`
+//! query reports whether it is open. Enter in the summary opens it and
+//! moves into the content; Backspace at the start of the summary unwraps
+//! it. Its handle is a [`DetailsHandle`].
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_details::Details;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let details = builder.add(Details);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("The answer", &mut env)?;
+//! editor.run(&details.set(), &mut env)?;
+//! editor.insert_text("Spoiler", &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "Spoiler\nThe answer");
+//! assert_eq!(details.is_open(editor.state()), Some(true));
+//!
+//! editor.run(&details.toggle_open(), &mut env)?;
+//! assert_eq!(details.is_open(editor.state()), Some(false));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+
+use std::ops::Range;
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -11,6 +50,7 @@ use canvist_core::CommandSpec;
 use canvist_core::EditKind;
 use canvist_core::EditorError;
 use canvist_core::EditorState;
+use canvist_core::EditorTransaction;
 use canvist_core::Extension;
 use canvist_core::Field;
 use canvist_core::NodeKind;
@@ -21,12 +61,14 @@ use canvist_core::Registration;
 use canvist_core::TypedExtension;
 use canvist_core::Update;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_core::position;
 use canvist_core::position::Stop;
 use canvist_core::query;
 use canvist_model::Attrs;
+use canvist_model::Block;
 use canvist_model::BlockId;
 use canvist_model::BlockSpec;
 use canvist_model::BlockTree;
@@ -104,16 +146,14 @@ fn open_state(state: &EditorState) -> Option<bool> {
 }
 
 fn set(state: &mut EditorState) -> CommandResult {
-	let details = canvist_core::block_type(state.schema(), DETAILS, DETAILS)?;
-	let summary = canvist_core::block_type(state.schema(), DETAILS, SUMMARY)?;
-	let content = canvist_core::block_type(state.schema(), DETAILS, CONTENT)?;
+	let details = block_type(state.schema(), DETAILS, DETAILS)?;
+	let summary = block_type(state.schema(), DETAILS, SUMMARY)?;
+	let content = block_type(state.schema(), DETAILS, CONTENT)?;
 	let doc = state.doc();
 	let Some((parent, range)) = selected_siblings(state) else {
 		return Ok(None);
 	};
-	let parent_kind = parent
-		.and_then(|id| doc.block(id))
-		.map(canvist_model::Block::kind);
+	let parent_kind = parent.and_then(|id| doc.block(id)).map(Block::kind);
 	let movable = doc.children(parent)[range.clone()].iter().all(|&id| {
 		doc.block(id)
 			.is_some_and(|block| doc.schema().allows_child(Some(content), block.kind()))
@@ -143,12 +183,16 @@ fn set(state: &mut EditorState) -> CommandResult {
 }
 
 /// The selected sibling blocks: their parent and index range.
-fn selected_siblings(state: &EditorState) -> Option<(Option<BlockId>, std::ops::Range<usize>)> {
+fn selected_siblings(state: &EditorState) -> Option<(Option<BlockId>, Range<usize>)> {
 	let doc = state.doc();
 	let range = position::text_range(doc, state.selection())?;
 	position::sibling_range(doc, range.from.block, range.to.block)
 }
 
+/// Replace the details around the selection with its summary, as a
+/// paragraph, and then its content's blocks. An empty summary leaves no
+/// paragraph behind, and the caret goes to the start of whichever block now
+/// comes first.
 fn unset(state: &mut EditorState) -> CommandResult {
 	let paragraph = state.schema().default_text_block();
 	let doc = state.doc();
@@ -159,6 +203,7 @@ fn unset(state: &mut EditorState) -> CommandResult {
 	let Some(index) = doc.index_in_parent(details) else {
 		return Ok(None);
 	};
+
 	let children = doc.children(Some(details)).to_vec();
 	let summary = children
 		.first()
@@ -186,6 +231,7 @@ fn unset(state: &mut EditorState) -> CommandResult {
 		}
 
 		tr.remove_blocks(parent, index, 1)?;
+
 		let first = tr.doc().children(parent).get(index).copied();
 		let caret = caret.or_else(|| first.map(|block| Point::new(block, 0)));
 
@@ -219,10 +265,12 @@ fn set_open(
 	};
 	let kind = block.kind();
 	let attrs = block.attrs().clone().with("open", open);
+
 	let head = match state.selection() {
 		Selection::Text { head, .. } => head.block,
 		Selection::Blocks { head, .. } => head,
 	};
+
 	let in_summary = Some(head) == summary;
 	let caret = summary
 		.filter(|_| !open && !in_summary)
@@ -240,7 +288,8 @@ fn set_open(
 }
 
 /// Enter in a summary: open the details and move to the start of its
-/// content, adding a paragraph when the content is empty.
+/// content, adding a paragraph when the content is empty. Content that
+/// starts with an atomic block, such as an image, selects it.
 fn enter(state: &mut EditorState) -> CommandResult {
 	let Some(caret) = state.selection().as_caret() else {
 		return Ok(None);
@@ -249,18 +298,14 @@ fn enter(state: &mut EditorState) -> CommandResult {
 	let Some(details) = summary_of(doc, caret.block) else {
 		return Ok(None);
 	};
-	let Some(&content) = doc.children(Some(details)).get(1) else {
+	let (Some(block), Some(&content)) = (doc.block(details), doc.children(Some(details)).get(1))
+	else {
 		return Ok(None);
 	};
+	let kind = block.kind();
+	let attrs = block.attrs().clone().with("open", true);
 	let first = doc.children(Some(content)).first().copied();
 	let paragraph = doc.schema().default_text_block();
-	let attrs = doc
-		.block(details)
-		.map(|block| block.attrs().clone().with("open", true));
-	let kind = doc.block(details).map(canvist_model::Block::kind);
-	let (Some(attrs), Some(kind)) = (attrs, kind) else {
-		return Ok(None);
-	};
 
 	state.change(EditKind::Structure, |tr| {
 		tr.set_block(details, kind, attrs)?;
@@ -275,8 +320,15 @@ fn enter(state: &mut EditorState) -> CommandResult {
 			)?;
 			id
 		};
-		let start = first_text(tr.doc(), target);
-		tr.set_selection(Selection::caret(Point::new(start, 0)));
+
+		let start = first_descendant(tr.doc(), target);
+		let selection = if tr.doc().inline(start).is_some() {
+			Selection::caret(Point::new(start, 0))
+		} else {
+			Selection::block(start)
+		};
+
+		tr.set_selection(selection);
 		Ok(true)
 	})
 }
@@ -346,6 +398,7 @@ fn delete(state: &mut EditorState) -> CommandResult {
 		Some(Stop::Text(next)) => summary_of(doc, next.block),
 		_ => None,
 	};
+
 	let Some(details) = next else {
 		return Ok(None);
 	};
@@ -379,11 +432,11 @@ fn repair(state: &mut EditorState) -> CommandResult {
 	let broken: Vec<BlockId> = doc
 		.iter()
 		.filter(|block| block.kind() == details)
-		.map(canvist_model::Block::id)
+		.map(Block::id)
 		.filter(|&id| {
 			let children = doc.children(Some(id)).iter();
 			!children
-				.filter_map(|&child| doc.block(child).map(canvist_model::Block::kind))
+				.filter_map(|&child| doc.block(child).map(Block::kind))
 				.eq(shape)
 		})
 		.collect();
@@ -408,11 +461,11 @@ fn repair(state: &mut EditorState) -> CommandResult {
 
 /// [`repair`] one details block.
 fn reshape(
-	tr: &mut canvist_core::EditorTransaction<'_>,
+	tr: &mut EditorTransaction<'_>,
 	details: BlockId,
 	(summary, content, paragraph): (BlockTypeId, BlockTypeId, BlockTypeId),
 ) -> Result<(), EditorError> {
-	let kind_at = |tr: &canvist_core::EditorTransaction<'_>, index: usize| {
+	let kind_at = |tr: &EditorTransaction<'_>, index: usize| {
 		let doc = tr.doc();
 		let id = doc.children(Some(details)).get(index).copied()?;
 		Some((id, doc.block(id)?.kind()))
@@ -446,13 +499,13 @@ fn reshape(
 		if kind == content {
 			let moved = tr.doc().children(Some(extra)).len();
 			tr.move_blocks((Some(extra), 0, moved), (Some(main), end))?;
-			tr.remove_blocks(Some(details), 2, 1)?;
 		} else {
 			let text = tr.doc().inline(extra).cloned().unwrap_or_default();
 			let id = tr.allocate_id()?;
 			tr.insert_blocks(Some(main), end, vec![BlockTree::text(id, paragraph, text)])?;
-			tr.remove_blocks(Some(details), 2, 1)?;
 		}
+
+		tr.remove_blocks(Some(details), 2, 1)?;
 	}
 
 	if tr.doc().children(Some(main)).is_empty() {
@@ -478,8 +531,8 @@ fn summary_of(doc: &canvist_model::Document, id: BlockId) -> Option<BlockId> {
 	position::parent_of(doc, id).filter(|_| is_named(doc, id, SUMMARY))
 }
 
-/// The first text block in `id`, or `id` itself.
-fn first_text(doc: &canvist_model::Document, id: BlockId) -> BlockId {
+/// The deepest first descendant of `id`, or `id` itself.
+fn first_descendant(doc: &canvist_model::Document, id: BlockId) -> BlockId {
 	let mut block = id;
 
 	while let Some(&first) = doc.children(Some(block)).first() {
@@ -549,7 +602,7 @@ impl Extension for Details {
 	}
 
 	/// Only an edit that changes a child list can break a details' shape,
-	/// so typing never pays for the walk [`repair`] takes.
+	/// so typing never pays for the walk that repairs a broken one.
 	fn after_update(&self, state: &mut EditorState, update: &Update) -> CommandResult {
 		if !update.commit.structural {
 			return Ok(None);
@@ -576,3 +629,6 @@ impl TypedExtension for Details {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests;

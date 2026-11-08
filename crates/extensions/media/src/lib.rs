@@ -10,25 +10,31 @@
 //! Each is an atomic block whose attributes say what to show. The canvas
 //! reserves a slot for it, and the host draws the picture, player, or file
 //! card there, as a node view does in TipTap. A [`MediaBlock`] describes
-//! one, so an extension for another kind of media is a few lines of data:
+//! one: its name, the [`MediaAttr`]s it stores, the command that inserts
+//! it, and which sources it [accepts](MediaBlock::accepts). Its methods
+//! fill in the [`Extension`](canvist_core::Extension) methods, and its
+//! [`MediaHandle`] inserts one, so an extension for another kind of media
+//! is a few lines of data:
 //!
 //! ```
+//! use std::time::Duration;
+//!
 //! use canvist_core::CommandSpec;
 //! use canvist_core::Editor;
 //! use canvist_core::EditorError;
+//! use canvist_core::Env;
 //! use canvist_core::Extension;
 //! use canvist_core::NodeMeta;
 //! use canvist_core::Registration;
 //! use canvist_core::TypedExtension;
+//! use canvist_extension_document::Document;
 //! use canvist_extension_media::MediaAttr;
 //! use canvist_extension_media::MediaBlock;
 //! use canvist_extension_media::MediaHandle;
+//! use canvist_extension_paragraph::Paragraph;
 //! use canvist_model::Attrs;
-//! use canvist_model::BlockSpec;
 //! use canvist_model::Schema;
 //! use canvist_model::SchemaBuilder;
-//! # use std::time::Duration;
-//! # use canvist_core::Env;
 //!
 //! static VIMEO: MediaBlock = MediaBlock {
 //! 	name: "vimeo",
@@ -49,7 +55,7 @@
 //! 	}
 //!
 //! 	fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
-//! 		VIMEO.schema(schema.block(BlockSpec::text("paragraph")))
+//! 		VIMEO.schema(schema)
 //! 	}
 //!
 //! 	fn nodes(&self) -> Vec<NodeMeta> {
@@ -69,10 +75,10 @@
 //! 	}
 //! }
 //!
-//! let mut builder = Editor::builder();
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
 //! let vimeo = builder.add(Vimeo);
 //! let mut editor = builder.build()?;
-//! # let mut env = Env::headless(Duration::ZERO);
+//! let mut env = Env::headless(Duration::ZERO);
 //!
 //! let inserted = editor.run(&vimeo.insert("https://vimeo.com/1", &Attrs::new()), &mut env)?;
 //! assert!(inserted.is_some());
@@ -90,13 +96,13 @@ use canvist_core::NodeKind;
 use canvist_core::NodeMeta;
 use canvist_core::Registration;
 use canvist_core::ValueType;
+use canvist_core::block_type;
 use canvist_core::command;
 use canvist_core::commands;
 use canvist_model::Attrs;
 use canvist_model::BlockSpec;
 use canvist_model::SchemaBuilder;
 use canvist_model::Value;
-pub use canvist_model::video_kind;
 
 /// The value a media attribute starts with.
 #[derive(Clone, Copy, Debug)]
@@ -115,7 +121,9 @@ enum Kind {
 	Flag,
 }
 
-/// One attribute of a media block.
+/// One attribute of a media block: its name, type, starting value, and the
+/// description hosts show for it. Build one with [`text`](Self::text),
+/// [`number`](Self::number), or [`flag`](Self::flag).
 #[derive(Clone, Copy, Debug)]
 pub struct MediaAttr {
 	name: &'static str,
@@ -136,8 +144,8 @@ impl MediaAttr {
 		}
 	}
 
-	/// A number, such as a width in pixels, that starts at `default` or
-	/// null.
+	/// A number, such as a width in pixels, that starts at `default` or,
+	/// without one, null. It takes any number, whole or not.
 	#[must_use]
 	pub const fn number(name: &'static str, default: Option<u16>, doc: &'static str) -> Self {
 		let default = match default {
@@ -164,15 +172,8 @@ impl MediaAttr {
 		}
 	}
 
-	/// The attribute's name.
-	#[must_use]
-	pub const fn name(self) -> &'static str {
-		self.name
-	}
-
 	/// The value the attribute starts with.
-	#[must_use]
-	pub fn default_value(self) -> Value {
+	fn default_value(self) -> Value {
 		match self.default {
 			Initial::Null => Value::Null,
 			Initial::Bool(flag) => Value::Bool(flag),
@@ -189,11 +190,19 @@ impl MediaAttr {
 		}
 	}
 
+	/// The attribute's type: null only where it starts null.
 	fn value_type(self) -> ValueType {
 		match self.default {
 			Initial::Null => ValueType::nullable(self.present_type()),
 			_ => self.present_type(),
 		}
+	}
+
+	/// Whether an inserted block stores `value`: one of the attribute's
+	/// type that differs from its default, since an absent attribute is its
+	/// default.
+	fn keeps(self, value: &Value) -> bool {
+		self.value_type().accepts(value) && *value != self.default_value()
 	}
 
 	/// The attribute as a node attribute, or as a command argument: the
@@ -208,20 +217,23 @@ impl MediaAttr {
 	}
 }
 
-/// Everything that distinguishes one media block from another.
+/// Everything that distinguishes one media block from another. Keep it in
+/// a `static`: the command and the handle borrow it for good.
 #[derive(Debug)]
 pub struct MediaBlock {
-	/// The block and extension name, as in TipTap.
+	/// The block and extension name, as in TipTap, such as `image`.
 	pub name: &'static str,
-	/// The command that inserts one.
+	/// The command that inserts one, such as `setImage`.
 	pub command: &'static str,
-	/// What the command does.
+	/// What the command does, for hosts listing it.
 	pub doc: &'static str,
-	/// The attributes; the first is the source, which the command needs.
+	/// The attributes, in the order hosts list them. The first is the
+	/// source, a [`MediaAttr::text`] such as `src` that the command
+	/// requires, so there must be at least one.
 	pub attrs: &'static [MediaAttr],
 	/// Which sources the block may show, when not every URL is safe to,
-	/// such as a video player's `<iframe>`. Inserting another source does
-	/// not apply.
+	/// such as a video player's `<iframe>`. Inserting any other source
+	/// does not apply. `None` accepts every source.
 	pub accepts: Option<fn(&str) -> bool>,
 }
 
@@ -234,7 +246,10 @@ pub struct MediaHandle {
 
 impl MediaHandle {
 	/// Insert a block showing `src`, with these other attributes, at the
-	/// selection, as a horizontal rule is. Unknown attributes are dropped.
+	/// selection, as a horizontal rule is. Attributes the block lacks, or
+	/// whose value is not of its type, are dropped, and so are ones equal
+	/// to their default. A source the block does not
+	/// [accept](MediaBlock::accepts) does not apply.
 	#[must_use]
 	pub fn insert(self, src: &str, attrs: &Attrs) -> Command {
 		self.block.insert(src, attrs)
@@ -242,12 +257,8 @@ impl MediaHandle {
 }
 
 impl MediaBlock {
-	/// The command inserting `src` with `attrs`. Attributes the type lacks
-	/// are dropped, and so are ones equal to their default, since an absent
-	/// attribute is its default. A source the block does not
-	/// [accept](Self::accepts) does not apply.
-	#[must_use]
-	pub fn insert(&'static self, src: &str, attrs: &Attrs) -> Command {
+	/// The command [`MediaHandle::insert`] describes.
+	fn insert(&'static self, src: &str, attrs: &Attrs) -> Command {
 		if self.accepts.is_some_and(|accepts| !accepts(src)) {
 			return command(|_| Ok(None));
 		}
@@ -258,19 +269,20 @@ impl MediaBlock {
 			.filter(|(key, value)| {
 				self.attrs
 					.iter()
-					.any(|attr| attr.name == *key && attr.default_value() != **value)
+					.any(|attr| attr.name == *key && attr.keeps(value))
 			})
 			.map(|(key, value)| (key, value.clone()))
 			.collect();
 		attrs.set(source, src);
 
 		command(move |state| {
-			let kind = canvist_core::block_type(state.schema(), self.name, self.name)?;
+			let kind = block_type(state.schema(), self.name, self.name)?;
 			commands::insert_leaf(state, kind, attrs.clone())
 		})
 	}
 
-	/// The block, for [`Extension::schema`](canvist_core::Extension::schema).
+	/// The atomic block, with every attribute at its default, for
+	/// [`Extension::schema`](canvist_core::Extension::schema).
 	#[must_use]
 	pub fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
 		let attrs = self
@@ -293,7 +305,8 @@ impl MediaBlock {
 		]
 	}
 
-	/// The insert command, for
+	/// The insert command, taking the source and then every other
+	/// attribute as optional arguments, for
 	/// [`Extension::commands`](canvist_core::Extension::commands).
 	#[must_use]
 	pub fn commands(&'static self) -> Vec<CommandSpec> {
@@ -324,3 +337,6 @@ impl MediaBlock {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests;

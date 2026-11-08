@@ -4,9 +4,11 @@
 )]
 //! # `canvist_extension_file`
 //!
-//! Remirror's `file` block for the canvist editor: an attachment card the
-//! host draws in the slot the canvas reserves, with the file's name, type,
-//! and size. Insert one with `insertFile`.
+//! Remirror's `file` block for the canvist editor, as in
+//! `@remirror/extension-file`: an attachment card the host draws in the
+//! slot the canvas reserves. [`File`] adds the `file` block, with `url`,
+//! `fileName`, `fileType`, and `fileSize`, and the `insertFile` command.
+//! TipTap has no file attachment. Its handle is a [`MediaHandle`].
 //!
 //! ```
 //! use std::time::Duration;
@@ -23,7 +25,8 @@
 //! let mut editor = builder.build()?;
 //! let mut env = Env::headless(Duration::ZERO);
 //!
-//! let update = editor.run(&file.insert("https://example.com/report.pdf", &Attrs::new()), &mut env)?;
+//! let attrs = Attrs::new().with("fileName", "report.pdf").with("fileSize", 2048);
+//! let update = editor.run(&file.insert("https://example.com/report.pdf", &attrs), &mut env)?;
 //! assert!(update.is_some());
 //! # Ok::<(), canvist_core::EditorError>(())
 //! ```

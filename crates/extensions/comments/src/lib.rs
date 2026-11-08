@@ -2,9 +2,40 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Comments: ranges of text tied to discussion threads that live outside
-//! the document.
-
+//! # `canvist_extension_comments`
+//!
+//! Comments for the canvist editor: ranges of text tied to discussion
+//! threads that live outside the document, anchored as TipTap's Comments
+//! and Remirror's annotations anchor them. [`Comments`] adds a `comment` mark
+//! whose `threads` attribute lists thread ids, the `setComment` and
+//! `unsetComment` commands, and the `activeComments` and `comments` queries.
+//! The threads themselves, their messages, authors, and resolution, belong
+//! to the host.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_core::command;
+//! use canvist_core::commands;
+//! use canvist_extension_comments::Comments;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let comments = builder.add(Comments);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("Ship it", &mut env)?;
+//! editor.run(&command(commands::select_all), &mut env)?;
+//! editor.run(&comments.set("thread-1"), &mut env)?;
+//!
+//! let threads = comments.threads(editor.state());
+//! assert_eq!(threads, [("thread-1".to_owned(), "Ship it".to_owned())]);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use canvist_core::Command;
 use canvist_core::CommandResult;
 use canvist_core::CommandSpec;
@@ -21,6 +52,7 @@ use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_core::mark_type;
 use canvist_core::position;
 use canvist_model::Attrs;
 use canvist_model::BlockId;
@@ -32,6 +64,7 @@ use canvist_model::MarkTypeId;
 use canvist_model::RunRef;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
+use canvist_model::Selection;
 use canvist_model::Value;
 
 const COMMENT: &str = "comment";
@@ -120,7 +153,7 @@ fn set(thread: &str) -> Command {
 			return Ok(None);
 		}
 
-		let kind = canvist_core::mark_type(state.schema(), COMMENT, COMMENT)?;
+		let kind = mark_type(state.schema(), COMMENT, COMMENT)?;
 
 		if covers(state, kind, &thread) {
 			return Ok(None);
@@ -184,7 +217,7 @@ fn runs_with_threads(
 
 /// Remove `thread` from every comment mark in the document.
 fn remove_everywhere(state: &mut EditorState, thread: &str) -> CommandResult {
-	let kind = canvist_core::mark_type(state.schema(), COMMENT, COMMENT)?;
+	let kind = mark_type(state.schema(), COMMENT, COMMENT)?;
 	let edits: Vec<_> = runs_with_threads(state.doc(), kind)
 		.filter(|(_, _, ids)| ids.iter().any(|id| id == thread))
 		.map(|(block, run, mut ids)| {
@@ -215,7 +248,7 @@ fn active(state: &EditorState) -> Vec<String> {
 	let Some(kind) = state.schema().mark_type(COMMENT) else {
 		return Vec::new();
 	};
-	let canvist_model::Selection::Text { head, .. } = state.selection() else {
+	let Selection::Text { head, .. } = state.selection() else {
 		return Vec::new();
 	};
 	let Some(text) = state.doc().inline(head.block) else {
@@ -244,7 +277,8 @@ fn active(state: &EditorState) -> Vec<String> {
 }
 
 /// Every thread in the document, in order of first appearance, with the
-/// text it covers joined across runs and blocks.
+/// text it covers joined across runs and blocks. Embeds such as mentions
+/// add no text.
 fn threads(state: &EditorState) -> Vec<(String, String)> {
 	let Some(kind) = state.schema().mark_type(COMMENT) else {
 		return Vec::new();
@@ -252,15 +286,22 @@ fn threads(state: &EditorState) -> Vec<(String, String)> {
 	let mut found: Vec<(String, String)> = Vec::new();
 
 	for (_, run, threads) in runs_with_threads(state.doc(), kind) {
+		let text = if run.embed.is_some() { "" } else { run.text };
+
 		for id in threads {
-			match found.iter_mut().find(|(known, _)| *known == id) {
-				Some((_, covered)) => covered.push_str(run.text),
-				None => found.push((id, run.text.to_owned())),
-			}
+			cover(&mut found, id, text);
 		}
 	}
 
 	found
+}
+
+/// Add `text` to what thread `id` covers, listing the thread if it is new.
+fn cover(found: &mut Vec<(String, String)>, id: String, text: &str) {
+	match found.iter_mut().find(|(known, _)| *known == id) {
+		Some((_, covered)) => covered.push_str(text),
+		None => found.push((id, text.to_owned())),
+	}
 }
 
 fn thread_field() -> Field {
@@ -348,5 +389,123 @@ impl TypedExtension for Comments {
 		CommentsHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::query;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Point;
+
+	use super::*;
+
+	/// An editor holding `text` in one paragraph.
+	fn commented(text: &str) -> (Editor, CommentsHandle) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let comments = builder.add(Comments);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.insert_text(text, &mut env).expect("typed");
+
+		(editor, comments)
+	}
+
+	/// The point before the first `needle` in the paragraph, or after it.
+	fn point(editor: &Editor, needle: &str, after: bool) -> Point {
+		let doc = editor.state().doc();
+		let block = doc.first_text_block().expect("a block");
+		let start = doc.plain_text().find(needle).expect("present");
+		let offset = if after { start + needle.len() } else { start };
+
+		Point::new(block, u32::try_from(offset).expect("short"))
+	}
+
+	/// Select from the start of `start` to the end of `end`.
+	fn select(editor: &mut Editor, start: &str, end: &str) {
+		let selection = Selection::text(point(editor, start, false), point(editor, end, true));
+
+		editor
+			.select(selection, &mut Env::headless(Duration::ZERO))
+			.expect("selected");
+	}
+
+	/// Put the caret just before `before`.
+	fn caret(editor: &mut Editor, before: &str) {
+		let selection = Selection::caret(point(editor, before, false));
+
+		editor
+			.select(selection, &mut Env::headless(Duration::ZERO))
+			.expect("selected");
+	}
+
+	fn run(editor: &mut Editor, command: &Command) -> bool {
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(command, &mut env).expect("ran").is_some()
+	}
+
+	#[test]
+	fn overlapping_threads_share_text() {
+		let (mut editor, comments) = commented("one two three");
+
+		select(&mut editor, "one", "two");
+		assert!(run(&mut editor, &comments.set("a")));
+		select(&mut editor, "two", "three");
+		assert!(run(&mut editor, &comments.set("b")));
+
+		caret(&mut editor, "wo");
+		assert_eq!(comments.active(editor.state()), ["a", "b"]);
+		assert_eq!(
+			comments.threads(editor.state()),
+			[
+				("a".to_owned(), "one two".to_owned()),
+				("b".to_owned(), "two three".to_owned()),
+			]
+		);
+	}
+
+	#[test]
+	fn setting_a_thread_twice_or_at_a_caret_changes_nothing() {
+		let (mut editor, comments) = commented("text");
+
+		select(&mut editor, "text", "text");
+		assert!(run(&mut editor, &comments.set("a")));
+		assert!(!run(&mut editor, &comments.set("a")));
+
+		caret(&mut editor, "xt");
+		assert!(!run(&mut editor, &comments.set("b")));
+	}
+
+	#[test]
+	fn unset_removes_one_thread_and_keeps_the_others() {
+		let (mut editor, comments) = commented("text");
+
+		select(&mut editor, "text", "text");
+		run(&mut editor, &comments.set("a"));
+		run(&mut editor, &comments.set("b"));
+
+		assert!(run(&mut editor, &comments.unset("a")));
+		assert_eq!(comments.active(editor.state()), ["b"]);
+
+		assert!(run(&mut editor, &comments.unset("b")));
+		assert!(!query::mark_active(editor.state(), COMMENT));
+		assert!(!run(&mut editor, &comments.unset("b")));
+	}
+
+	#[test]
+	fn the_caret_at_a_block_start_reads_the_next_character() {
+		let (mut editor, comments) = commented("text");
+
+		select(&mut editor, "t", "t");
+		run(&mut editor, &comments.set("a"));
+		caret(&mut editor, "text");
+
+		assert_eq!(comments.active(editor.state()), ["a"]);
 	}
 }

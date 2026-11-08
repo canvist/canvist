@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_mathematics
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_mathematics::Mathematics;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let math = builder.add(Mathematics);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "Area: $$\\pi r^2$$".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+assert_eq!(editor.state().doc().plain_text(), "Area: \u{fffc}", "the formula is an embed");
+
+editor.run(&math.insert_inline("e^{i\\pi}"), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "Area: \u{fffc}\u{fffc}");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

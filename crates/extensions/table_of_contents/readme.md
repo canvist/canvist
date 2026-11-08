@@ -30,6 +30,36 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_table_of_contents
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_heading::Heading;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_table_of_contents::TableOfContents;
+
+let mut builder = Editor::builder()
+	.extension(Document)
+	.extension(Paragraph)
+	.extension(Heading::default());
+let toc = builder.add(TableOfContents);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "## Intro".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+let entries = toc.entries(editor.state());
+assert_eq!(entries.len(), 1);
+assert_eq!((entries[0].text.as_str(), entries[0].number.as_str()), ("Intro", "1"));
+assert!(entries[0].active);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

@@ -2,7 +2,38 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Hard line breaks inside a block.
+//! # `canvist_extension_hard_break`
+//!
+//! TipTap's `hardBreak` node for the canvist editor, as in TipTap's
+//! `@tiptap/extension-hard-break`. [`HardBreak`] registers an inline embed
+//! for a line break that stays inside its block, like `<br>`, and the
+//! `setHardBreak` command. `Shift-Enter` and `Mod-Enter` insert one. The
+//! break carries the marks active at the caret, so formatting continues on
+//! the next line, as with TipTap's `keepMarks`.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_hard_break::HardBreak;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let hard_break = builder.add(HardBreak);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("one", &mut env)?;
+//! editor.run(&hard_break.insert(), &mut env)?;
+//! editor.insert_text("two", &mut env)?;
+//!
+//! // One block, with the break shown as the object replacement character.
+//! assert_eq!(editor.state().doc().children(None).len(), 1);
+//! assert_eq!(editor.state().doc().plain_text(), "one\u{fffc}two");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -90,5 +121,38 @@ impl TypedExtension for HardBreak {
 		HardBreakHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_core::Modifiers;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	#[test]
+	fn shift_and_mod_enter_insert_a_break() -> Result<(), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		builder.add(HardBreak);
+		let mut editor = builder.build()?;
+		let mut env = Env::headless(Duration::ZERO);
+		let ctrl = Modifiers {
+			ctrl: true,
+			..Modifiers::NONE
+		};
+
+		editor.handle_key(KeyPress::new("Enter", Modifiers::SHIFT), &mut env)?;
+		editor.handle_key(KeyPress::new("Enter", ctrl), &mut env)?;
+
+		assert_eq!(editor.state().doc().children(None).len(), 1);
+		assert_eq!(editor.state().doc().plain_text(), "\u{fffc}\u{fffc}");
+		Ok(())
 	}
 }

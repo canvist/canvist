@@ -2,8 +2,43 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Clearing formatting: marks off the text, blocks back to paragraphs.
-
+//! # `canvist_extension_clear_formatting`
+//!
+//! Clearing formatting for the canvist editor: marks off the text, blocks
+//! back to paragraphs. [`ClearFormatting`] adds TipTap's `unsetAllMarks` and
+//! `clearNodes` commands, and `clearFormatting`, which does both as one undo
+//! step like Remirror's clear formatting, bound to `Mod-\` as in Google
+//! Docs. It adds no nodes or marks.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_core::command;
+//! use canvist_core::commands;
+//! use canvist_extension_bold::Bold;
+//! use canvist_extension_clear_formatting::ClearFormatting;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let bold = builder.add(Bold);
+//! let clear = builder.add(ClearFormatting);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "**loud**".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! editor.run(&command(commands::select_all), &mut env)?;
+//! assert!(bold.is_active(editor.state()));
+//!
+//! editor.run(&clear.clear(), &mut env)?;
+//! assert!(!bold.is_active(editor.state()));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use canvist_core::Binding;
 use canvist_core::Command;
 use canvist_core::CommandResult;
@@ -82,9 +117,7 @@ fn unset_all_marks(state: &mut EditorState) -> CommandResult {
 		});
 	}
 
-	let kinds: Vec<_> = (0..state.schema().marks().len())
-		.map(|index| state.schema().marks()[index].id)
-		.collect();
+	let kinds: Vec<_> = state.schema().marks().iter().map(|mark| mark.id).collect();
 	let doc = state.doc();
 	let marked = ranges.iter().any(|(block, range)| {
 		doc.inline(*block)
@@ -192,13 +225,9 @@ fn fold(update: &mut Option<Update>, next: Option<Update>) {
 
 fn clear(state: &mut EditorState) -> CommandResult {
 	state.atomic(|state| {
-		let marks = unset_all_marks(state)?;
-		let nodes = clear_nodes(state)?;
-
-		Ok(match (marks, nodes) {
-			(Some(marks), Some(nodes)) => Some(marks.then(nodes)),
-			(marks, nodes) => marks.or(nodes),
-		})
+		let mut update = unset_all_marks(state)?;
+		fold(&mut update, clear_nodes(state)?);
+		Ok(update)
 	})
 }
 
@@ -239,5 +268,65 @@ impl TypedExtension for ClearFormatting {
 		ClearFormattingHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::query;
+	use canvist_extension_bold::Bold;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	/// An editor holding `text` in a paragraph, all of it selected.
+	fn selected(text: &str) -> (Editor, ClearFormattingHandle) {
+		let mut builder = Editor::builder()
+			.extension(Document)
+			.extension(Paragraph)
+			.extension(Bold);
+		let clear = builder.add(ClearFormatting);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+
+		for character in text.chars() {
+			editor
+				.insert_text(&character.to_string(), &mut env)
+				.expect("typed");
+		}
+
+		editor
+			.run(&command(commands::select_all), &mut env)
+			.expect("selected");
+
+		(editor, clear)
+	}
+
+	#[test]
+	fn plain_text_has_nothing_to_clear() {
+		let (mut editor, clear) = selected("plain");
+		let mut env = Env::headless(Duration::ZERO);
+
+		assert!(!editor.can(&clear.unset_all_marks(), &mut env).expect("ran"));
+		assert!(!editor.can(&clear.clear_nodes(), &mut env).expect("ran"));
+		assert!(!editor.can(&clear.clear(), &mut env).expect("ran"));
+	}
+
+	#[test]
+	fn clearing_keeps_the_text_and_one_undo_step_restores_the_marks() {
+		let (mut editor, clear) = selected("**loud**");
+		let mut env = Env::headless(Duration::ZERO);
+
+		assert!(editor.run(&clear.clear(), &mut env).expect("ran").is_some());
+		assert_eq!(editor.state().doc().plain_text(), "loud");
+		assert!(!query::mark_active(editor.state(), "bold"));
+
+		editor.undo(&mut env).expect("undone");
+		assert!(query::mark_active(editor.state(), "bold"));
 	}
 }

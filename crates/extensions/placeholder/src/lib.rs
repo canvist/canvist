@@ -2,8 +2,40 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Placeholder text in empty blocks.
-
+//! # `canvist_extension_placeholder`
+//!
+//! Hint text in empty blocks for the canvist editor, such as "Write
+//! something …", as in TipTap's `@tiptap/extension-placeholder`.
+//! [`Placeholder`] adds no nodes or marks: it adds the `setPlaceholder`
+//! command and the `placeholder` query, and its handle lists which empty
+//! blocks show the text. The `show_only_current` and `include_children`
+//! options are TipTap's `showOnlyCurrent` and `includeChildren`.
+//!
+//! The placeholder is never part of the document: hosts pass
+//! [`PlaceholderHandle::placeholders`] to the layout, which draws it.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_placeholder::Placeholder;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let placeholder = builder.add(Placeholder::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&placeholder.set("Say hello"), &mut env)?;
+//! let shown = placeholder.placeholders(editor.state());
+//! assert_eq!(shown.first().map(|(_, text)| &**text), Some("Say hello"));
+//!
+//! editor.insert_text("Hello", &mut env)?;
+//! assert!(placeholder.placeholders(editor.state()).is_empty());
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use std::sync::Arc;
 
 use canvist_core::Command;
@@ -18,7 +50,9 @@ use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_model::Block;
 use canvist_model::BlockId;
+use canvist_model::InlineText;
 use canvist_model::Schema;
 use canvist_model::Selection;
 use canvist_model::Value;
@@ -84,10 +118,8 @@ impl PlaceholderHandle {
 impl Placeholder {
 	/// The text in force: one set at run time, or the configured text.
 	fn text_in(&self, state: &EditorState) -> Arc<str> {
-		match state.settings().get(TEXT).and_then(Value::as_str) {
-			Some(text) => Arc::from(text),
-			None => Arc::from(self.text),
-		}
+		let text = state.settings().get(TEXT).and_then(Value::as_str);
+		Arc::from(text.unwrap_or(self.text))
 	}
 
 	/// Whether `block` is an empty text block that may show a placeholder.
@@ -97,9 +129,7 @@ impl Placeholder {
 			.block(block)
 			.is_some_and(|block| block.parent().is_none());
 
-		doc.inline(block)
-			.is_some_and(canvist_model::InlineText::is_empty)
-			&& (self.include_children || top_level)
+		doc.inline(block).is_some_and(InlineText::is_empty) && (self.include_children || top_level)
 	}
 
 	fn placeholders(&self, state: &EditorState) -> Vec<(BlockId, Arc<str>)> {
@@ -107,11 +137,7 @@ impl Placeholder {
 		let blocks: Vec<BlockId> = if self.show_only_current {
 			current_block(state).into_iter().collect()
 		} else {
-			state
-				.doc()
-				.text_blocks()
-				.map(canvist_model::Block::id)
-				.collect()
+			state.doc().text_blocks().map(Block::id).collect()
 		};
 
 		blocks
@@ -178,5 +204,65 @@ impl TypedExtension for Placeholder {
 			config: *self,
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	/// An editor with two empty paragraphs and the caret in the second.
+	fn two_empty_paragraphs(config: Placeholder) -> (Editor, PlaceholderHandle) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let placeholder = builder.add(config);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor
+			.run(&command(commands::split_block), &mut env)
+			.expect("split");
+
+		(editor, placeholder)
+	}
+
+	#[test]
+	fn only_the_caret_block_shows_it_by_default() {
+		let (editor, placeholder) = two_empty_paragraphs(Placeholder::default());
+		let shown = placeholder.placeholders(editor.state());
+
+		assert_eq!(shown.len(), 1);
+		assert_eq!(Some(shown[0].0), current_block(editor.state()));
+		assert_eq!(&*shown[0].1, DEFAULT_TEXT);
+	}
+
+	#[test]
+	fn every_empty_block_shows_it_when_asked() {
+		let config = Placeholder {
+			show_only_current: false,
+			..Placeholder::default()
+		};
+		let (editor, placeholder) = two_empty_paragraphs(config);
+
+		assert_eq!(placeholder.placeholders(editor.state()).len(), 2);
+	}
+
+	#[test]
+	fn a_text_selection_shows_none() {
+		let (mut editor, placeholder) = two_empty_paragraphs(Placeholder::default());
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor
+			.run(&command(commands::select_all), &mut env)
+			.expect("selected");
+
+		assert!(placeholder.placeholders(editor.state()).is_empty());
+		assert_eq!(Placeholder::default().current(editor.state()), None);
 	}
 }

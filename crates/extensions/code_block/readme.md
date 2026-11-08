@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_code_block
 ```
 
+## Usage
+
+````rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_code_block::CodeBlock;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let code = builder.add(CodeBlock);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "```rust fn main() {}".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+assert!(code.is_active(editor.state()));
+assert_eq!(code.language(editor.state()).as_deref(), Some("rust"));
+assert_eq!(editor.state().doc().plain_text(), "fn main() {}");
+````
+
 ## License
 
 [Unlicense](https://unlicense.org)

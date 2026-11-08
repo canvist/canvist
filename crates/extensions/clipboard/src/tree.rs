@@ -19,6 +19,7 @@ use canvist_model::Value;
 
 use super::MAX_PARSE_DEPTH;
 use super::NestingLimitExceeded;
+use super::features::gated;
 
 /// The name of the embed that breaks a line.
 pub(super) const HARD_BREAK: &str = "hardBreak";
@@ -41,25 +42,20 @@ pub(super) fn plain_text(schema: &Schema, text: &InlineText) -> String {
 pub(super) fn embed_text(schema: &Schema, embed: &Embed) -> String {
 	let text = |key: &str| embed.attrs.get(key).and_then(Value::as_str);
 
-	match schema.embed(embed.kind).name.as_ref() {
+	match gated(schema.embed(embed.kind).name.as_ref()) {
 		HARD_BREAK => "\n".to_owned(),
-		"mention" if cfg!(feature = "mention") => {
+		"mention" => {
 			let trigger = text("mentionSuggestionChar").unwrap_or("@");
 			let label = text("label").or_else(|| text("id")).unwrap_or_default();
 			format!("{trigger}{label}")
 		}
-		"inlineMath" if cfg!(feature = "mathematics") => {
-			format!("${}$", text("latex").unwrap_or_default())
-		}
-		"emoji" if cfg!(feature = "emoji") => {
-			text("emoji").map_or_else(
-				|| {
-					text("name")
-						.map(|name| format!(":{name}:"))
-						.unwrap_or_default()
-				},
-				str::to_owned,
-			)
+		"inlineMath" => format!("${}$", text("latex").unwrap_or_default()),
+		"emoji" => {
+			let shortcode = || text("name").map(|name| format!(":{name}:"));
+			text("emoji")
+				.map(str::to_owned)
+				.or_else(shortcode)
+				.unwrap_or_default()
 		}
 		_ => String::new(),
 	}
@@ -77,12 +73,6 @@ pub(super) struct Builder<'s> {
 /// A table's rows without the empty ones no cell above spans across,
 /// which hold nothing.
 fn spanned_rows(rows: Vec<BlockTree>) -> Vec<BlockTree> {
-	let cells = |row: &BlockTree| {
-		match &row.content {
-			TreeContent::Blocks(cells) => cells.len(),
-			_ => 0,
-		}
-	};
 	let span = |cell: &BlockTree, key: &str| {
 		cell.attrs
 			.get(key)
@@ -91,11 +81,7 @@ fn spanned_rows(rows: Vec<BlockTree>) -> Vec<BlockTree> {
 			.unwrap_or(1)
 	};
 	let map = canvist_model::TableMap::new(rows.iter().map(|row| {
-		let cells = match &row.content {
-			TreeContent::Blocks(cells) => cells.as_slice(),
-			_ => &[],
-		};
-		cells
+		children(row)
 			.iter()
 			.map(|cell| (span(cell, "colspan"), span(cell, "rowspan")))
 	}));
@@ -103,10 +89,19 @@ fn spanned_rows(rows: Vec<BlockTree>) -> Vec<BlockTree> {
 	rows.into_iter()
 		.enumerate()
 		.filter(|(index, row)| {
-			cells(row) > 0 || (0..map.width()).any(|column| map.cell_at(*index, column).is_some())
+			!children(row).is_empty()
+				|| (0..map.width()).any(|column| map.cell_at(*index, column).is_some())
 		})
 		.map(|(_, row)| row)
 		.collect()
+}
+
+/// A container's children, or none for any other block.
+fn children(tree: &BlockTree) -> &[BlockTree] {
+	match &tree.content {
+		TreeContent::Blocks(children) => children,
+		TreeContent::Inline(_) | TreeContent::Leaf => &[],
+	}
 }
 
 impl<'s> Builder<'s> {
@@ -200,11 +195,16 @@ impl<'s> Builder<'s> {
 		let first = children
 			.next_if(|child| child.kind == summary)
 			.unwrap_or_else(|| self.text("detailsSummary", Attrs::new(), InlineText::new()));
+		// Content blocks already there give up their children to the one.
 		let mut rest: Vec<BlockTree> = children
 			.flat_map(|child| {
+				if child.kind != content {
+					return vec![child];
+				}
+
 				match child.content {
-					TreeContent::Blocks(blocks) if child.kind == content => blocks,
-					_ => vec![child],
+					TreeContent::Blocks(blocks) => blocks,
+					TreeContent::Inline(_) | TreeContent::Leaf => vec![child],
 				}
 			})
 			.collect();
@@ -367,16 +367,24 @@ impl<'s> Builder<'s> {
 	/// Turn a block `parent` rejects into something it accepts.
 	fn reshape(&mut self, parent: Option<BlockTypeId>, tree: BlockTree) -> Vec<BlockTree> {
 		match tree.content {
-			TreeContent::Inline(text) => {
-				let Some(kind) = self.text_type(parent) else {
-					return Vec::new();
-				};
-				let attrs = self.schema.block(kind).attrs.clone();
-				vec![BlockTree::text(tree.id, kind, text).with_attrs(attrs)]
-			}
+			TreeContent::Inline(text) => self.retype(parent, tree.id, text).into_iter().collect(),
 			TreeContent::Blocks(children) => self.fit(parent, children),
 			TreeContent::Leaf => Vec::new(),
 		}
+	}
+
+	/// Text as the first text block type `parent` accepts, if it accepts
+	/// one.
+	fn retype(
+		&self,
+		parent: Option<BlockTypeId>,
+		id: BlockId,
+		text: InlineText,
+	) -> Option<BlockTree> {
+		let kind = self.text_type(parent)?;
+		let attrs = self.schema.block(kind).attrs.clone();
+
+		Some(BlockTree::text(id, kind, text).with_attrs(attrs))
 	}
 
 	fn text_type(&self, parent: Option<BlockTypeId>) -> Option<BlockTypeId> {

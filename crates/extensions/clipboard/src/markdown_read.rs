@@ -10,7 +10,9 @@ use canvist_model::Schema;
 use canvist_model::Value;
 
 use super::NestingLimitExceeded;
+use super::markdown_inline::matching_bracket;
 use super::markdown_inline::parse_inline;
+use super::markdown_inline::unescape;
 use super::tree::Builder;
 
 /// Parse Markdown into a slice for `schema`: ATX headings, paragraphs,
@@ -43,6 +45,10 @@ fn marker_indent(line: &str) -> Option<usize> {
 	(indent <= 3).then_some(indent)
 }
 
+/// The deepest heading Markdown has.
+const MAX_HEADING: usize = 6;
+
+/// An ATX heading's level and text, without an optional closing sequence.
 fn heading(line: &str) -> Option<(usize, &str)> {
 	let trimmed = &line[marker_indent(line)?..];
 	let level = trimmed
@@ -51,7 +57,7 @@ fn heading(line: &str) -> Option<(usize, &str)> {
 		.count();
 	let rest = &trimmed[level..];
 
-	if !(1..=6).contains(&level) || !(rest.is_empty() || rest.starts_with(' ')) {
+	if !(1..=MAX_HEADING).contains(&level) || !(rest.is_empty() || rest.starts_with(' ')) {
 		return None;
 	}
 
@@ -125,11 +131,15 @@ struct Item<'a> {
 	content: &'a str,
 }
 
+/// The most digits an ordered list item's number has, as in CommonMark.
+const MAX_DIGITS: usize = 9;
+
+/// The list item `line` opens, if it opens one.
 fn item(line: &str) -> Option<Item<'_>> {
 	let indent = marker_indent(line)?;
 	let trimmed = &line[indent..];
 	let digits = trimmed.chars().take_while(char::is_ascii_digit).count();
-	let (ordered, marker, number, width) = if digits > 0 && digits <= 9 {
+	let (ordered, marker, number, width) = if (1..=MAX_DIGITS).contains(&digits) {
 		let delimiter = trimmed[digits..]
 			.chars()
 			.next()
@@ -265,30 +275,46 @@ fn flush_paragraph(build: &mut Builder<'_>, paragraph: &mut Vec<&str>, trees: &m
 }
 
 /// The attributes of a paragraph that is only an image, `![alt](src
-/// "title")`, which reads as an image block.
+/// "title")`, which reads as an image block. The alt text may hold
+/// brackets in pairs, and each part may hold backslash escapes.
 fn image(source: &str) -> Option<Attrs> {
-	let rest = source.trim().strip_prefix("![")?;
-	let (alt, rest) = rest.split_once("](")?;
-	let target = rest.strip_suffix(')')?;
+	let rest = source.trim().strip_prefix('!')?;
+	let alt_end = rest
+		.starts_with('[')
+		.then(|| matching_bracket(rest))
+		.flatten()?;
+	let target = rest[alt_end + 1..].strip_prefix('(')?.strip_suffix(')')?;
+
 	let (src, title) = match target.split_once(char::is_whitespace) {
-		Some((src, title)) => (src, Some(title.trim().trim_matches(['"', '\'']))),
+		Some((src, title)) => (src, Some(image_title(title))),
 		None => (target, None),
 	};
 
-	if src.is_empty() || src.contains(char::is_whitespace) || alt.contains(']') {
+	if src.is_empty() {
 		return None;
 	}
 
-	let text = |text: Option<&str>| {
+	let text = |text: Option<String>| {
 		text.filter(|text| !text.is_empty())
 			.map_or(Value::Null, Value::from)
 	};
+
 	Some(
 		Attrs::new()
-			.with("src", src)
-			.with("alt", text(Some(alt)))
+			.with("src", unescape(src))
+			.with("alt", text(Some(unescape(&rest[1..alt_end]))))
 			.with("title", text(title)),
 	)
+}
+
+/// An image title: the text inside its quotes, unescaped.
+fn image_title(title: &str) -> String {
+	let title = title.trim();
+	let quoted = ['"', '\'']
+		.into_iter()
+		.find_map(|quote| title.strip_prefix(quote)?.strip_suffix(quote));
+
+	unescape(quoted.unwrap_or_else(|| title.trim_matches(['"', '\''])))
 }
 
 /// Parse the block starting at `lines[0]`, returning how many lines it
@@ -439,10 +465,12 @@ fn pipe_cells(line: &str) -> Option<Vec<&str>> {
 	}
 
 	let inner = trimmed.strip_prefix('|').unwrap_or(trimmed);
+
 	let inner = match inner.strip_suffix('|') {
 		Some(rest) if !rest.ends_with('\\') => rest,
 		_ => inner,
 	};
+
 	let mut cells = Vec::new();
 	let mut start = 0;
 	let mut escaped = false;
@@ -551,10 +579,12 @@ fn details(build: &mut Builder<'_>, lines: &[&str], open: bool) -> (usize, Vec<B
 	} else {
 		inner
 	};
+
 	// The summary line is HTML, as the writer escapes it, not Markdown.
-	let summary_text = super::html_read::decode(summary_text.unwrap_or_default());
+	let summary_text = super::html_token::decode(summary_text.unwrap_or_default());
 	let summary_inline = InlineText::plain(&summary_text, MarkSet::empty());
 	let summary = build.text("detailsSummary", Attrs::new(), summary_inline);
+
 	let mut content = blocks(build, body);
 
 	if content.is_empty() {

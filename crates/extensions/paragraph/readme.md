@@ -30,6 +30,26 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_paragraph
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document);
+let paragraph = builder.add(Paragraph);
+let mut editor = builder.build()?;
+
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("Hello", &mut env)?;
+assert!(paragraph.is_active(editor.state()));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

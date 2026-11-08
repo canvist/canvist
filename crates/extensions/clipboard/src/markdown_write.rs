@@ -1,6 +1,8 @@
 //! Slices to Markdown (CommonMark with GitHub's strikethrough and task
 //! lists).
 
+use std::fmt::Write;
+
 use canvist_core::Slice;
 use canvist_model::Attrs;
 use canvist_model::BlockTree;
@@ -9,7 +11,9 @@ use canvist_model::Mark;
 use canvist_model::Schema;
 use canvist_model::TreeContent;
 use canvist_model::Value;
+use canvist_model::is_safe_link_url;
 
+use super::features::gated;
 use super::tree::HARD_BREAK;
 
 /// Serialize a slice to Markdown. Highlights use `==`, and subscripts and
@@ -37,14 +41,7 @@ fn rendered<'t>(schema: &Schema, trees: &'t [BlockTree]) -> Vec<(String, &'t Blo
 	let mut previous = None;
 
 	for tree in trees {
-		let marker =
-			list_markers(schema.block(tree.kind).name.as_ref()).map(|(main, alternate)| {
-				if previous == Some(main) {
-					alternate
-				} else {
-					main
-				}
-			});
+		let marker = list_marker(schema.block(tree.kind).name.as_ref(), previous);
 		let text = block(schema, tree, marker.unwrap_or('-'));
 
 		if !text.is_empty() {
@@ -56,30 +53,38 @@ fn rendered<'t>(schema: &Schema, trees: &'t [BlockTree]) -> Vec<(String, &'t Blo
 	out
 }
 
-/// The default and alternate marker for a list type.
-fn list_markers(name: &str) -> Option<(char, char)> {
-	match name {
-		"bulletList" | "taskList" => Some(('-', '*')),
-		"orderedList" => Some(('.', ')')),
-		_ => None,
-	}
+/// The marker for a list of type `name` after a list marked `previous`:
+/// its default, or its alternate when the list before used the default.
+fn list_marker(name: &str, previous: Option<char>) -> Option<char> {
+	let (main, alternate) = match name {
+		"bulletList" | "taskList" => ('-', '*'),
+		"orderedList" => ('.', ')'),
+		_ => return None,
+	};
+
+	Some(if previous == Some(main) {
+		alternate
+	} else {
+		main
+	})
 }
 
+/// One block's Markdown. A table a pipe table cannot hold and an ink
+/// drawing, which Markdown has no syntax for, are written as HTML.
 fn block(schema: &Schema, tree: &BlockTree, marker: char) -> String {
-	let name = schema.block(tree.kind).name.as_ref();
+	let name = gated(schema.block(tree.kind).name.as_ref());
 
-	match &tree.content {
-		TreeContent::Inline(text) => text_block(schema, name, &tree.attrs, text),
-		TreeContent::Blocks(_) if cfg!(feature = "table") && (name == "table") => {
-			table(schema, tree)
+	match (&tree.content, name) {
+		(TreeContent::Inline(text), _) => text_block(schema, name, &tree.attrs, text),
+		(TreeContent::Blocks(_), "table") => table(schema, tree),
+		(TreeContent::Blocks(children), _) => {
+			container(schema, name, &tree.attrs, children, marker)
 		}
-		TreeContent::Blocks(children) => container(schema, name, &tree.attrs, children, marker),
-
-		TreeContent::Leaf if name == "horizontalRule" => "---".to_owned(),
-		TreeContent::Leaf if cfg!(feature = "ink") && (name == "ink") => {
+		(TreeContent::Leaf, "horizontalRule") => "---".to_owned(),
+		(TreeContent::Leaf, "ink") => {
 			super::html_write::to_html(schema, &Slice::new(vec![tree.clone()]))
 		}
-		TreeContent::Leaf => media(name, &tree.attrs),
+		(TreeContent::Leaf, _) => media(name, &tree.attrs),
 	}
 }
 
@@ -89,39 +94,79 @@ fn media(name: &str, attrs: &Attrs) -> String {
 	let text = |key: &str| attrs.get(key).and_then(Value::as_str).unwrap_or_default();
 
 	match name {
-		"image" if cfg!(feature = "image") => {
+		"image" => {
 			let title = attrs
 				.get("title")
 				.and_then(Value::as_str)
-				.map(|title| format!(" \"{title}\""))
+				.map(|title| format!(" \"{}\"", escape_title(title)))
 				.unwrap_or_default();
-			format!("![{}]({}{title})", escape(text("alt")), text("src"))
+			let alt = escape(&one_line(text("alt")));
+			format!("![{alt}]({}{title})", destination(text("src")))
 		}
-		// A video that is not on its site was never embeddable; HTML drops
-		// its source too.
-		"youtube" | "twitch"
-			if cfg!(any(feature = "youtube", feature = "twitch"))
-				&& super::html_read::video_kind(text("src")) != Some(name) =>
-		{
-			String::new()
-		}
-		"youtube" | "twitch" | "audio"
-			if cfg!(any(
-				feature = "youtube",
-				feature = "twitch",
-				feature = "audio"
-			)) =>
-		{
-			format!("[{0}]({0})", text("src"))
-		}
-		"file" if cfg!(feature = "file") => {
+		"youtube" | "twitch" => video_link(name, text("src")),
+		"audio" => link(text("src"), text("src")),
+		"file" => {
 			// A link needs text to be read, and to be read back at all.
 			let name = Some(text("fileName")).filter(|name| !name.is_empty());
-			format!("[{}]({})", escape(name.unwrap_or(text("url"))), text("url"))
+			link(name.unwrap_or(text("url")), text("url"))
 		}
-		"blockMath" if cfg!(feature = "mathematics") => format!("$$\n{}\n$$", text("latex")),
+		"blockMath" => format!("$$\n{}\n$$", text("latex")),
 		_ => String::new(),
 	}
+}
+
+/// A video as a link to its source, or nothing when the source is not on
+/// the video's own site: such a video was never embeddable, and HTML drops
+/// its source too.
+fn video_link(name: &str, src: &str) -> String {
+	if super::html_role::video_kind(src) != Some(name) {
+		return String::new();
+	}
+
+	link(src, src)
+}
+
+/// A link to `url` reading `text`, on one line.
+fn link(text: &str, url: &str) -> String {
+	format!("[{}]({})", escape(&one_line(text)), destination(url))
+}
+
+/// `text` with its line breaks as spaces, for text that must stay on one
+/// line, such as a link's, where a line break could start a new block.
+fn one_line(text: &str) -> String {
+	text.replace(['\r', '\n'], " ")
+}
+
+/// A link or image destination that ends where Markdown reads it to: the
+/// characters that would close or open it are escaped, and whitespace and
+/// control characters, which a destination cannot hold, are
+/// percent-encoded.
+fn destination(url: &str) -> String {
+	let mut escaped = String::with_capacity(url.len());
+
+	for character in url.chars() {
+		if character.is_whitespace() || character.is_control() {
+			for byte in character.encode_utf8(&mut [0; 4]).bytes() {
+				let _ = write!(escaped, "%{byte:02X}");
+			}
+
+			continue;
+		}
+
+		if matches!(character, '\\' | '(' | ')' | '<' | '>') {
+			escaped.push('\\');
+		}
+
+		escaped.push(character);
+	}
+
+	escaped
+}
+
+/// An image title for its double quotes: on one line, with quotes and
+/// backslashes escaped.
+fn escape_title(title: &str) -> String {
+	one_line(title).replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 /// The deepest heading Markdown has.
@@ -147,12 +192,15 @@ fn text_block(schema: &Schema, name: &str, attrs: &Attrs, text: &InlineText) -> 
 			format!("{} {content}", "#".repeat(level as usize))
 		}
 		"codeBlock" => {
+			// The reader keeps an info string's first word, and a line break
+			// in it would end the fence.
 			let language = attrs
 				.get("language")
 				.and_then(Value::as_str)
+				.and_then(|language| language.split_whitespace().next())
 				.unwrap_or_default();
 			let code = super::tree::plain_text(schema, text);
-			let fence = if code.contains("```") { "~~~" } else { "```" };
+			let fence = code_block_fence(&code, language);
 			format!("{fence}{language}\n{code}\n{fence}")
 		}
 		// Hard breaks start new lines, and each must not read as a block.
@@ -166,6 +214,28 @@ fn text_block(schema: &Schema, name: &str, attrs: &Attrs, text: &InlineText) -> 
 	}
 }
 
+/// A fence no line of `code` can close: backticks, or tildes when the code
+/// holds a backtick fence or the info string a backtick, which a backtick
+/// fence's cannot; three of them, or one more than the longest run of them
+/// in the code.
+fn code_block_fence(code: &str, language: &str) -> String {
+	let marker = if code.contains("```") || language.contains('`') {
+		'~'
+	} else {
+		'`'
+	};
+
+	let longest = code
+		.split(|character| character != marker)
+		.map(str::len)
+		.max()
+		.unwrap_or(0);
+
+	marker.to_string().repeat(longest.max(2) + 1)
+}
+
+/// A container's children, prefixed as a quote or a callout, wrapped as
+/// details, or marked as list items, and otherwise as they are.
 fn container(
 	schema: &Schema,
 	name: &str,
@@ -175,31 +245,34 @@ fn container(
 ) -> String {
 	match name {
 		"blockquote" => prefix_lines(&blocks(schema, children, "\n\n"), "> ", ">"),
-		"callout" if cfg!(feature = "callout") => {
+		"callout" => {
 			let alert = alert_of(attrs.get("type").and_then(Value::as_str).unwrap_or("info"));
 			let content = blocks(schema, children, "\n\n");
 			prefix_lines(&format!("[!{alert}]\n{content}"), "> ", ">")
 		}
-		"details" if cfg!(feature = "details") => details(schema, attrs, children),
+		"details" => details(schema, attrs, children),
 		"bulletList" => list(schema, children, |_| format!("{marker} ")),
-		"taskList" => {
-			list(schema, children, |item| {
-				let checked = item.attrs.get("checked").and_then(Value::as_bool) == Some(true);
-				let box_ = if checked { "[x]" } else { "[ ]" };
-				format!("{marker} {box_} ")
-			})
-		}
+		"taskList" => list(schema, children, |item| task_marker(item, marker)),
 		"orderedList" => {
-			let start = attrs.get("start").and_then(Value::as_int).unwrap_or(1);
-			let mut number = start;
+			let mut number = attrs.get("start").and_then(Value::as_int).unwrap_or(1);
+
 			list(schema, children, move |_| {
 				let item_marker = format!("{number}{marker} ");
-				number += 1;
+				// A pasted `start` can be the largest number there is.
+				number = number.saturating_add(1);
 				item_marker
 			})
 		}
 		_ => blocks(schema, children, "\n\n"),
 	}
+}
+
+/// A task item's bullet and checkbox.
+fn task_marker(item: &BlockTree, marker: char) -> String {
+	let checked = item.attrs.get("checked").and_then(Value::as_bool) == Some(true);
+	let checkbox = if checked { "[x]" } else { "[ ]" };
+
+	format!("{marker} {checkbox} ")
 }
 
 /// A table as a GitHub pipe table when one can hold it exactly: a full grid
@@ -211,46 +284,61 @@ fn table(schema: &Schema, tree: &BlockTree) -> String {
 		.unwrap_or_else(|| super::html_write::to_html(schema, &Slice::new(vec![tree.clone()])))
 }
 
+/// The header row and its delimiter row, then a line per body row, or
+/// `None` as soon as a row cannot be one.
 fn pipe_table(schema: &Schema, tree: &BlockTree) -> Option<String> {
 	let TreeContent::Blocks(rows) = &tree.content else {
 		return None;
 	};
-	let mut lines = Vec::new();
-	let mut columns = Vec::new();
+	let Some((header, body)) = rows.split_first() else {
+		return Some(String::new());
+	};
+	// A pipe table aligns whole columns, as their header cells say.
+	let columns = row_aligns(header, table_width(rows))?;
+	let delimiters: Vec<&str> = columns.iter().map(|align| delimiter(*align)).collect();
+	let mut lines = vec![
+		pipe_row(schema, header, true)?,
+		format!("| {} |", delimiters.join(" | ")),
+	];
 
-	for (index, row) in rows.iter().enumerate() {
-		let TreeContent::Blocks(cells) = &row.content else {
-			return None;
-		};
-
-		if cells.is_empty() || cells.len() != table_width(rows) {
-			return None;
-		}
-
-		// A pipe table aligns whole columns, as their header cells say.
-		let aligns: Vec<Option<&str>> = cells.iter().map(cell_align).collect();
-
-		if aligns.contains(&Some("justify")) || (index > 0 && aligns != columns) {
+	for row in body {
+		if row_aligns(row, columns.len())? != columns {
 			return None;
 		}
 
-		if index == 0 {
-			columns.clone_from(&aligns);
-		}
-
-		let texts = cells
-			.iter()
-			.map(|cell| pipe_cell(schema, cell, index == 0))
-			.collect::<Option<Vec<_>>>()?;
-		lines.push(format!("| {} |", texts.join(" | ")));
-
-		if index == 0 {
-			let delimiters: Vec<&str> = columns.iter().map(|align| delimiter(*align)).collect();
-			lines.push(format!("| {} |", delimiters.join(" | ")));
-		}
+		lines.push(pipe_row(schema, row, false)?);
 	}
 
 	Some(lines.join("\n"))
+}
+
+/// The alignment of each of a row's cells, or `None` unless it has `width`
+/// cells and none is justified, which a pipe table cannot say.
+fn row_aligns(row: &BlockTree, width: usize) -> Option<Vec<Option<&str>>> {
+	let TreeContent::Blocks(cells) = &row.content else {
+		return None;
+	};
+
+	if cells.is_empty() || cells.len() != width {
+		return None;
+	}
+
+	let aligns: Vec<Option<&str>> = cells.iter().map(cell_align).collect();
+
+	(!aligns.contains(&Some("justify"))).then_some(aligns)
+}
+
+/// One row of a pipe table, or `None` when a cell cannot be one.
+fn pipe_row(schema: &Schema, row: &BlockTree, header: bool) -> Option<String> {
+	let TreeContent::Blocks(cells) = &row.content else {
+		return None;
+	};
+	let texts = cells
+		.iter()
+		.map(|cell| pipe_cell(schema, cell, header))
+		.collect::<Option<Vec<_>>>()?;
+
+	Some(format!("| {} |", texts.join(" | ")))
 }
 
 /// How many cells the first row of a table has.
@@ -483,28 +571,28 @@ fn same_in_markdown(schema: &Schema, a: &Mark, b: &Mark) -> bool {
 fn delimiters(schema: &Schema, mark: &Mark) -> Option<(String, String)> {
 	let pair = |delimiter: &str| Some((delimiter.to_owned(), delimiter.to_owned()));
 
-	match schema.mark(mark.kind).name.as_ref() {
+	match gated(schema.mark(mark.kind).name.as_ref()) {
 		"bold" => pair("**"),
 		"italic" => pair("*"),
 		"strike" => pair("~~"),
 		"code" => pair("`"),
-		"highlight" if cfg!(feature = "highlight") => pair("=="),
-		"subscript" if cfg!(feature = "subscript") => {
-			Some(("<sub>".to_owned(), "</sub>".to_owned()))
-		}
-		"superscript" if cfg!(feature = "superscript") => {
-			Some(("<sup>".to_owned(), "</sup>".to_owned()))
-		}
-		"link" => {
-			let href = mark
-				.attrs
-				.get("href")
-				.and_then(Value::as_str)
-				.unwrap_or_default();
-			Some(("[".to_owned(), format!("]({href})")))
-		}
+		"highlight" => pair("=="),
+		"subscript" => Some(("<sub>".to_owned(), "</sub>".to_owned())),
+		"superscript" => Some(("<sup>".to_owned(), "</sup>".to_owned())),
+		"link" => link_delimiters(&mark.attrs),
 		_ => None,
 	}
+}
+
+/// A link's delimiters around its text. As in HTML, a link whose scheme
+/// could run code keeps its text but not its target.
+fn link_delimiters(attrs: &Attrs) -> Option<(String, String)> {
+	let href = attrs
+		.get("href")
+		.and_then(Value::as_str)
+		.unwrap_or_default();
+
+	is_safe_link_url(href).then(|| ("[".to_owned(), format!("]({})", destination(href))))
 }
 
 /// A run's text split into leading whitespace, content, and trailing

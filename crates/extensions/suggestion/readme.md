@@ -30,6 +30,36 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_suggestion
 ```
 
+## Usage
+
+```rust
+use std::sync::Arc;
+
+use canvist_core::EditorState;
+use canvist_core::commands;
+use canvist_extension_suggestion::Trigger;
+use canvist_model::BlockSpec;
+use canvist_model::Document;
+use canvist_model::InlineText;
+use canvist_model::MarkSet;
+use canvist_model::Schema;
+
+const MENTION: Trigger = Trigger { name: "mention", char: '@', allow_spaces: false };
+
+let schema = Arc::new(Schema::builder().block(BlockSpec::text("paragraph")).build()?);
+let mut state = EditorState::new(Document::new(schema, 1))?;
+commands::insert_text(&mut state, "Hi @ad")?;
+
+let found = MENTION.find(&state).expect("a suggestion");
+assert_eq!(found.query, "ad");
+assert_eq!(found.range, 3..6);
+
+let picked = InlineText::plain("@Ada", MarkSet::empty());
+canvist_extension_suggestion::replace(&mut state, Some(found), picked)?;
+assert_eq!(state.doc().plain_text(), "Hi @Ada ");
+assert!(MENTION.find(&state).is_none());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

@@ -2,7 +2,47 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Mentions: `@Ada`, an atomic inline embed with an id and a label.
+//! # `canvist_extension_mention`
+//!
+//! TipTap's `mention` node for the canvist editor, as in
+//! `@tiptap/extension-mention`: `@Ada`, an atomic inline embed with an `id`,
+//! a `label`, and the `mentionSuggestionChar` that started it.
+//!
+//! Typing `@` starts a suggestion, built on
+//! [`canvist_extension_suggestion`]: the `mentionSuggestion` query reports
+//! what follows it, the host shows matching people, and `insertMention`
+//! replaces `@query` with the mention and a space. Escape, or
+//! `dismissMentionSuggestion`, dismisses the suggestion, and Backspace
+//! right after a mention turns it back into its trigger character. The
+//! trigger and whether the query may hold spaces are [`Mention`]'s fields.
+//! Its handle is a [`MentionHandle`].
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_mention::Mention;
+//! use canvist_extension_mention::MentionTarget;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let mention = builder.add(Mention::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "Hi @ad".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//! assert_eq!(mention.suggestion(editor.state()).as_deref(), Some("ad"));
+//!
+//! let ada = MentionTarget { id: "7", label: Some("Ada") };
+//! editor.run(&mention.insert(ada), &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "Hi \u{fffc} ", "the mention is an embed");
+//! assert_eq!(mention.suggestion(editor.state()), None);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use canvist_core::Binding;
 use canvist_core::Command;
@@ -21,12 +61,13 @@ use canvist_core::Registration;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
+use canvist_core::commands;
+use canvist_core::embed_type;
 use canvist_extension_suggestion::Trigger;
 use canvist_model::Attrs;
 use canvist_model::Embed;
 use canvist_model::EmbedSpec;
 use canvist_model::InlineText;
-use canvist_model::MarkSet;
 use canvist_model::Point;
 use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
@@ -115,8 +156,8 @@ impl Mention {
 			.with("mentionSuggestionChar", self.char.to_string());
 
 		command(move |state| {
-			let kind = canvist_core::embed_type(state.schema(), MENTION, MENTION)?;
-			let marks = canvist_core::commands::active_marks(state);
+			let kind = embed_type(state.schema(), MENTION, MENTION)?;
+			let marks = commands::active_marks(state);
 			let embed = InlineText::embed(
 				Embed {
 					kind,
@@ -141,7 +182,7 @@ impl Mention {
 }
 
 /// Replace the mention just before the caret with the character that
-/// started it.
+/// started it, in the mention's marks.
 fn reopen(state: &mut EditorState, default_char: char) -> CommandResult {
 	let Some(caret) = state.selection().as_caret() else {
 		return Ok(None);
@@ -157,9 +198,9 @@ fn reopen(state: &mut EditorState, default_char: char) -> CommandResult {
 		.find(|run| run.range.end == caret.offset)
 		.and_then(|run| {
 			let embed = run.embed.filter(|embed| embed.kind == kind)?;
-			Some((run.range.start, embed.clone()))
+			Some((run.range.start, embed.clone(), run.marks.clone()))
 		});
-	let Some((start, mention)) = mention else {
+	let Some((start, mention, marks)) = mention else {
 		return Ok(None);
 	};
 	let trigger = mention
@@ -169,7 +210,7 @@ fn reopen(state: &mut EditorState, default_char: char) -> CommandResult {
 		.map_or_else(|| default_char.to_string(), str::to_owned);
 	state.change(EditKind::Deleting, |tr| {
 		tr.delete_text(caret.block, start..caret.offset)?;
-		let end = tr.insert_text(Point::new(caret.block, start), &trigger, MarkSet::empty())?;
+		let end = tr.insert_text(Point::new(caret.block, start), &trigger, marks)?;
 		tr.set_selection(Selection::caret(end));
 		Ok(true)
 	})
@@ -278,5 +319,113 @@ impl TypedExtension for Mention {
 			config: *self,
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Mark;
+	use canvist_model::MarkSpec;
+
+	use super::*;
+
+	/// A `bold` mark and nothing else, to check marks carry over.
+	struct Bold;
+
+	impl Extension for Bold {
+		fn name(&self) -> &'static str {
+			"bold"
+		}
+
+		fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
+			schema.mark(MarkSpec::new("bold"))
+		}
+	}
+
+	fn editor(config: Mention) -> Result<(Editor, MentionHandle), EditorError> {
+		let mut builder = Editor::builder()
+			.extension(Document)
+			.extension(Paragraph)
+			.extension(Bold);
+		let mention = builder.add(config);
+		Ok((builder.build()?, mention))
+	}
+
+	fn env() -> Env<'static> {
+		Env::headless(Duration::ZERO)
+	}
+
+	fn type_text(editor: &mut Editor, text: &str) -> Result<(), EditorError> {
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), &mut env())?;
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn a_configured_trigger_may_allow_spaces() -> Result<(), EditorError> {
+		let config = Mention {
+			char: '+',
+			allow_spaces: true,
+		};
+		let (mut editor, mention) = editor(config)?;
+		type_text(&mut editor, "+Ada Lo")?;
+
+		assert_eq!(
+			mention.suggestion(editor.state()).as_deref(),
+			Some("Ada Lo")
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn escape_dismisses_the_suggestion() -> Result<(), EditorError> {
+		let (mut editor, mention) = editor(Mention::default())?;
+		type_text(&mut editor, "@ad")?;
+		editor.handle_key(KeyPress::plain("Escape"), &mut env())?;
+
+		assert_eq!(mention.suggestion(editor.state()), None);
+		Ok(())
+	}
+
+	#[test]
+	fn backspace_reopens_with_the_mentions_own_trigger_and_marks() -> Result<(), EditorError> {
+		let (mut editor, mention) = editor(Mention {
+			char: '+',
+			allow_spaces: false,
+		})?;
+		let bold = editor.schema().mark_type("bold").expect("a bold mark");
+		let set_bold = command(move |state| commands::set_mark(state, &Mark::new(bold)));
+		editor.run(&set_bold, &mut env())?;
+		let target = MentionTarget {
+			id: "7",
+			label: None,
+		};
+		editor.run(&mention.insert(target), &mut env())?;
+
+		let block = editor.state().doc().children(None)[0];
+		let after = Selection::caret(Point::new(
+			block,
+			canvist_model::EMBED_CHAR.len_utf8() as u32,
+		));
+		editor.select(after, &mut env())?;
+
+		editor.handle_key(KeyPress::plain("Backspace"), &mut env())?;
+		assert_eq!(editor.state().doc().plain_text(), "+ ");
+		assert_eq!(mention.suggestion(editor.state()).as_deref(), Some(""));
+
+		let text = editor.state().doc().inline(block).expect("a text block");
+		let trigger = text.runs().next().expect("a run");
+		assert_eq!(trigger.text, "+");
+		assert!(trigger.marks.get(bold).is_some(), "still bold");
+		Ok(())
 	}
 }

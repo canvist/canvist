@@ -2,8 +2,51 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Tables: TipTap's `table`, `tableRow`, `tableCell`, and `tableHeader`,
-//! with merged cells, header rows and columns, and Tab between cells.
+//! # `canvist_extension_table`
+//!
+//! TipTap's tables for the canvist editor, as in TipTap's
+//! `@tiptap/extension-table`: [`Table`] registers `table`, `tableRow`,
+//! `tableCell`, and `tableHeader`, with merged cells, header rows and
+//! columns, and Tab between cells.
+//!
+//! Cells hold blocks and carry `colspan`, `rowspan`, and `colwidth`
+//! attributes. The `insertTable` command makes a table of empty cells;
+//! `addColumnBefore`, `addRowAfter`, and the like grow it, `deleteColumn`,
+//! `deleteRow`, and `deleteTable` shrink it, `mergeCells` and `splitCell`
+//! merge and split cells, the `toggleHeader…` commands switch cells to
+//! header cells and back, and `setCellAttribute` sets any cell attribute.
+//! The `tableCell` query, and [`TableHandle::cell`], say where the
+//! selection head sits. [`TableHandle`] offers each command typed.
+//!
+//! After every structural change, the tables it touched are kept well
+//! formed, as TipTap's `fixTables` keeps them: every cell holds a block, and
+//! every row covers every column. Tab moves to the next cell, adding a row
+//! past the last, and Backspace and Delete never join text across a cell's
+//! edge.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_table::Table;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let table = builder.add(Table);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&table.insert(2, 3, true), &mut env)?;
+//! editor.run(&table.add_column_after(), &mut env)?;
+//!
+//! let cell = table.cell(editor.state()).expect("the caret is in the first cell");
+//! assert!(cell.header);
+//! assert_eq!((cell.row, cell.column), (0, 0));
+//! assert_eq!((cell.rows, cell.columns), (2, 4));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 mod context;
 mod edit;
@@ -34,6 +77,7 @@ use canvist_model::Attrs;
 use canvist_model::BlockId;
 use canvist_model::BlockSpec;
 use canvist_model::BlockTree;
+use canvist_model::BlockTypeId;
 use canvist_model::Document;
 use canvist_model::InlineText;
 use canvist_model::Point;
@@ -105,7 +149,8 @@ pub struct TableCell {
 impl TableHandle {
 	/// Insert a table of `rows` by `cols` empty cells at the selection, the
 	/// first row of header cells when `header_row`, with the caret in the
-	/// first cell.
+	/// first cell. Does nothing unless both are from 1 to 1000, as
+	/// `insertTable` requires.
 	#[must_use]
 	pub fn insert(self, rows: usize, cols: usize, header_row: bool) -> Command {
 		insert_table(rows, cols, header_row)
@@ -231,14 +276,20 @@ fn cell_info(state: &EditorState) -> Option<TableCell> {
 	})
 }
 
+/// Insert a table of `rows` by `cols` empty cells at the selection, unless
+/// either is outside `1..=MAX_SIZE` or the selection's parent cannot hold a
+/// table, then put the caret in its first cell.
 fn insert_table(rows: usize, cols: usize, header_row: bool) -> Command {
 	command(move |state| {
-		let kinds = (
-			canvist_core::block_type(state.schema(), TABLE, TABLE)?,
-			canvist_core::block_type(state.schema(), TABLE, ROW)?,
-			canvist_core::block_type(state.schema(), TABLE, CELL)?,
-			canvist_core::block_type(state.schema(), TABLE, HEADER)?,
-		);
+		let size = 1..=MAX_SIZE as usize;
+
+		if !size.contains(&rows) || !size.contains(&cols) {
+			return Ok(None);
+		}
+
+		let table_kind = canvist_core::block_type(state.schema(), TABLE, TABLE)?;
+		let row_kind = canvist_core::block_type(state.schema(), TABLE, ROW)?;
+		let cell_kinds = edit::CellKinds::read(state)?;
 		let doc = state.doc();
 		let Some(range) = position::text_range(doc, state.selection()) else {
 			return Ok(None);
@@ -247,57 +298,69 @@ fn insert_table(rows: usize, cols: usize, header_row: bool) -> Command {
 			.and_then(|parent| doc.block(parent))
 			.map(canvist_model::Block::kind);
 
-		if !doc.schema().allows_child(parent, kinds.0) {
+		if !doc.schema().allows_child(parent, table_kind) {
 			return Ok(None);
 		}
 
 		let paragraph = doc.schema().default_text_block();
-		// Placeholder ids: pasting gives every block a fresh one.
-		let mut seq = 0;
-		let mut next = || {
-			seq += 1;
-			BlockId::new(0, seq)
-		};
-		let table_rows = (0..rows)
-			.map(|row| {
-				let kind = if row == 0 && header_row {
-					kinds.3
-				} else {
-					kinds.2
-				};
-				let cells = (0..cols)
-					.map(|_| {
-						let text = BlockTree::text(next(), paragraph, InlineText::new());
-						BlockTree::container(next(), kind, vec![text])
-					})
-					.collect();
-				BlockTree::container(next(), kinds.1, cells)
-			})
-			.collect();
-		let table = BlockTree::container(next(), kinds.0, table_rows);
+		let cells = |row: usize| cell_kinds.pick(row == 0 && header_row);
+		let table = table_tree([table_kind, row_kind, paragraph], (rows, cols), cells);
 
-		state.atomic(|state| {
-			let Some(pasted) = commands::replace_selection(state, Slice::new(vec![table]))? else {
-				return Ok(None);
-			};
-			let Some(inserted) = inserted_table(&pasted, kinds.0) else {
-				return Ok(Some(pasted));
-			};
-			let start = edit::first_text(state.doc(), inserted);
-			let caret = state.change(EditKind::Selection, |tr| {
-				tr.set_selection(Selection::caret(Point::new(start, 0)));
-				Ok(true)
-			})?;
-
-			Ok(Some(
-				caret.map_or(pasted.clone(), |caret| pasted.then(caret)),
-			))
-		})
+		state.atomic(|state| paste_table(state, table, table_kind))
 	})
 }
 
+/// A table of `rows` by `cols` cells, each holding an empty paragraph, of
+/// the table, row, and paragraph types given first, with `cells` giving
+/// each row's cell type. Its ids are placeholders: pasting gives every
+/// block a fresh one.
+fn table_tree(
+	[table, row_kind, paragraph]: [BlockTypeId; 3],
+	(rows, cols): (usize, usize),
+	cells: impl Fn(usize) -> BlockTypeId,
+) -> BlockTree {
+	let mut seq = 0;
+	let mut next = || {
+		seq += 1;
+		BlockId::new(0, seq)
+	};
+	let table_rows = (0..rows)
+		.map(|row| {
+			let row_cells = (0..cols)
+				.map(|_| {
+					let text = BlockTree::text(next(), paragraph, InlineText::new());
+					BlockTree::container(next(), cells(row), vec![text])
+				})
+				.collect();
+			BlockTree::container(next(), row_kind, row_cells)
+		})
+		.collect();
+
+	BlockTree::container(next(), table, table_rows)
+}
+
+/// Paste `table` over the selection, then put the caret in its first cell.
+fn paste_table(state: &mut EditorState, table: BlockTree, kind: BlockTypeId) -> CommandResult {
+	let Some(pasted) = commands::replace_selection(state, Slice::new(vec![table]))? else {
+		return Ok(None);
+	};
+	let Some(inserted) = inserted_table(&pasted, kind) else {
+		return Ok(Some(pasted));
+	};
+	let start = edit::first_text(state.doc(), inserted);
+	let caret = state.change(EditKind::Selection, |tr| {
+		tr.set_selection(Selection::caret(Point::new(start, 0)));
+		Ok(true)
+	})?;
+
+	Ok(Some(match caret {
+		Some(caret) => pasted.then(caret),
+		None => pasted,
+	}))
+}
+
 /// The table an update inserted.
-fn inserted_table(update: &Update, table: canvist_model::BlockTypeId) -> Option<BlockId> {
+fn inserted_table(update: &Update, table: BlockTypeId) -> Option<BlockId> {
 	update.commit.steps.iter().find_map(|step| {
 		match step {
 			Step::InsertBlocks { blocks, .. } => {
@@ -339,42 +402,30 @@ fn fix(state: &mut EditorState, tables: &[BlockId]) -> CommandResult {
 	let doc = state.doc();
 	let cell = canvist_core::block_type(state.schema(), TABLE, CELL)?;
 	let paragraph = doc.schema().default_text_block();
-	let mut empty_cells = Vec::new();
-	let mut short_rows = Vec::new();
-
-	for &table in tables {
-		let context = TableContext::new(doc, table);
-		empty_cells.extend(
-			context
-				.cells
-				.iter()
-				.flatten()
-				.copied()
-				.filter(|&id| doc.children(Some(id)).is_empty()),
-		);
-
-		for (row, missing) in context.map.missing().into_iter().enumerate() {
-			if missing > 0
-				&& let Some(&id) = context.rows.get(row)
-			{
-				short_rows.push((id, doc.children(Some(id)).len(), missing));
-			}
-		}
-	}
+	let contexts: Vec<TableContext> = tables
+		.iter()
+		.map(|&table| TableContext::new(doc, table))
+		.collect();
+	let empty_cells: Vec<BlockId> = contexts
+		.iter()
+		.flat_map(|context| empty_cells(doc, context))
+		.collect();
+	let short_rows: Vec<ShortRow> = contexts
+		.iter()
+		.flat_map(|context| short_rows(doc, context))
+		.collect();
 
 	if empty_cells.is_empty() && short_rows.is_empty() {
 		return Ok(None);
 	}
 
 	let selection = state.selection();
+
 	state.change(EditKind::Structure, |tr| {
 		for &id in &empty_cells {
 			let text = tr.allocate_id()?;
-			tr.insert_blocks(
-				Some(id),
-				0,
-				vec![BlockTree::text(text, paragraph, InlineText::new())],
-			)?;
+			let paragraph = BlockTree::text(text, paragraph, InlineText::new());
+			tr.insert_blocks(Some(id), 0, vec![paragraph])?;
 		}
 
 		for &(row, end, missing) in &short_rows {
@@ -387,6 +438,33 @@ fn fix(state: &mut EditorState, tables: &[BlockId]) -> CommandResult {
 		tr.set_selection(position::valid_selection(tr.doc(), selection));
 		Ok(true)
 	})
+}
+
+/// A row short of its table's width: the row, how many cells it has, and
+/// how many it lacks.
+type ShortRow = (BlockId, usize, usize);
+
+/// The cells of a table that hold no block.
+fn empty_cells(doc: &Document, context: &TableContext) -> Vec<BlockId> {
+	context
+		.cells
+		.iter()
+		.flatten()
+		.copied()
+		.filter(|&id| doc.children(Some(id)).is_empty())
+		.collect()
+}
+
+/// The rows of a table that do not cover every column.
+fn short_rows(doc: &Document, context: &TableContext) -> Vec<ShortRow> {
+	context
+		.map
+		.missing()
+		.into_iter()
+		.zip(&context.rows)
+		.filter(|&(missing, _)| missing > 0)
+		.map(|(missing, &row)| (row, doc.children(Some(row)).len(), missing))
+		.collect()
 }
 
 fn fix_all(state: &mut EditorState) -> CommandResult {
@@ -442,12 +520,151 @@ fn cell_type() -> ValueType {
 	]))
 }
 
-fn simple(
-	name: &'static str,
-	doc: &'static str,
-	run: fn(&mut EditorState) -> CommandResult,
-) -> CommandSpec {
-	CommandSpec::simple(name, doc, command(run))
+/// A command that takes no arguments: its name, what it does, and how.
+type SimpleCommand = (
+	&'static str,
+	&'static str,
+	fn(&mut EditorState) -> CommandResult,
+);
+
+/// The commands that change a table's shape or its header cells.
+const SHAPE_COMMANDS: [SimpleCommand; 13] = [
+	(
+		"addColumnBefore",
+		"Add a column left of the selected cells.",
+		|state| edit::add_column(state, false),
+	),
+	(
+		"addColumnAfter",
+		"Add a column right of the selected cells.",
+		|state| edit::add_column(state, true),
+	),
+	(
+		"deleteColumn",
+		"Delete the selected columns.",
+		edit::delete_column,
+	),
+	(
+		"addRowBefore",
+		"Add a row above the selected cells.",
+		|state| edit::add_row(state, false),
+	),
+	(
+		"addRowAfter",
+		"Add a row below the selected cells.",
+		|state| edit::add_row(state, true),
+	),
+	("deleteRow", "Delete the selected rows.", edit::delete_row),
+	(
+		"deleteTable",
+		"Delete the table around the selection.",
+		edit::delete_table,
+	),
+	(
+		"mergeCells",
+		"Merge the selected cells into one.",
+		edit::merge_cells,
+	),
+	(
+		"splitCell",
+		"Split the merged cell holding the selection.",
+		edit::split_cell,
+	),
+	(
+		"mergeOrSplit",
+		"Merge the selected cells, or split the merged cell holding the caret.",
+		edit::merge_or_split,
+	),
+	(
+		"toggleHeaderRow",
+		"Toggle header cells for the first row.",
+		|state| edit::toggle_header(state, HeaderPart::Row),
+	),
+	(
+		"toggleHeaderColumn",
+		"Toggle header cells for the first column.",
+		|state| edit::toggle_header(state, HeaderPart::Column),
+	),
+	(
+		"toggleHeaderCell",
+		"Toggle header cells for the selected cells.",
+		|state| edit::toggle_header(state, HeaderPart::Cells),
+	),
+];
+
+/// The commands that move between cells, and `fixTables`, which come after
+/// `setCellAttribute`.
+const OTHER_COMMANDS: [SimpleCommand; 3] = [
+	("goToNextCell", "Select the next cell's content.", |state| {
+		navigate::go_to_cell(state, true)
+	}),
+	(
+		"goToPreviousCell",
+		"Select the previous cell's content.",
+		|state| navigate::go_to_cell(state, false),
+	),
+	(
+		"fixTables",
+		"Give every short row of every table empty cells up to its width.",
+		fix_all,
+	),
+];
+
+/// The `insertTable` command, which takes the table's size.
+fn insert_table_spec() -> CommandSpec {
+	CommandSpec::new(
+		"insertTable",
+		"Insert a table of empty cells at the selection, with the caret in the first cell.",
+		|args| {
+			Ok(insert_table(
+				size_arg(args, "rows")?,
+				size_arg(args, "cols")?,
+				args.bool("withHeaderRow")?,
+			))
+		},
+	)
+	.arg(Field::optional(
+		"rows",
+		ValueType::Int,
+		3,
+		"How many rows, from 1 to 1000.",
+	))
+	.arg(Field::optional(
+		"cols",
+		ValueType::Int,
+		3,
+		"How many columns, from 1 to 1000.",
+	))
+	.arg(Field::optional(
+		"withHeaderRow",
+		ValueType::Bool,
+		true,
+		"Whether the first row is header cells.",
+	))
+}
+
+/// The `setCellAttribute` command, which takes an attribute and its value.
+fn cell_attribute_spec() -> CommandSpec {
+	CommandSpec::new(
+		"setCellAttribute",
+		"Set an attribute of the selected cells, or remove it when the value is null.",
+		|args| {
+			let value = args
+				.optional_string("value")?
+				.map_or(Value::Null, Value::from);
+			Ok(cell_attribute(args.string("name")?, value))
+		},
+	)
+	.arg(Field::required(
+		"name",
+		ValueType::String,
+		"The attribute, such as `backgroundColor`.",
+	))
+	.arg(Field::required(
+		"value",
+		ValueType::nullable(ValueType::String),
+		"Its value, or null to remove it.",
+	))
 }
 
 impl Extension for Table {
@@ -509,134 +726,14 @@ impl Extension for Table {
 	}
 
 	fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
-		let insert = CommandSpec::new(
-			"insertTable",
-			"Insert a table of empty cells at the selection, with the caret in the first cell.",
-			|args| {
-				Ok(insert_table(
-					size_arg(args, "rows")?,
-					size_arg(args, "cols")?,
-					args.bool("withHeaderRow")?,
-				))
-			},
-		)
-		.arg(Field::optional(
-			"rows",
-			ValueType::Int,
-			3,
-			"How many rows, from 1 to 1000.",
-		))
-		.arg(Field::optional(
-			"cols",
-			ValueType::Int,
-			3,
-			"How many columns, from 1 to 1000.",
-		))
-		.arg(Field::optional(
-			"withHeaderRow",
-			ValueType::Bool,
-			true,
-			"Whether the first row is header cells.",
-		));
-		let attribute = CommandSpec::new(
-			"setCellAttribute",
-			"Set an attribute of the selected cells, or remove it when the value is null.",
-			|args| {
-				let value = args
-					.optional_string("value")?
-					.map_or(Value::Null, Value::from);
-				Ok(cell_attribute(args.string("name")?, value))
-			},
-		)
-		.arg(Field::required(
-			"name",
-			ValueType::String,
-			"The attribute, such as `backgroundColor`.",
-		))
-		.arg(Field::required(
-			"value",
-			ValueType::nullable(ValueType::String),
-			"Its value, or null to remove it.",
-		));
+		let simple =
+			|&(name, doc, run): &SimpleCommand| CommandSpec::simple(name, doc, command(run));
+		let commands = std::iter::once(insert_table_spec())
+			.chain(SHAPE_COMMANDS.iter().map(simple))
+			.chain(std::iter::once(cell_attribute_spec()))
+			.chain(OTHER_COMMANDS.iter().map(simple));
 
-		Ok(vec![
-			insert,
-			simple(
-				"addColumnBefore",
-				"Add a column left of the selected cells.",
-				|state| edit::add_column(state, false),
-			),
-			simple(
-				"addColumnAfter",
-				"Add a column right of the selected cells.",
-				|state| edit::add_column(state, true),
-			),
-			simple(
-				"deleteColumn",
-				"Delete the selected columns.",
-				edit::delete_column,
-			),
-			simple(
-				"addRowBefore",
-				"Add a row above the selected cells.",
-				|state| edit::add_row(state, false),
-			),
-			simple(
-				"addRowAfter",
-				"Add a row below the selected cells.",
-				|state| edit::add_row(state, true),
-			),
-			simple("deleteRow", "Delete the selected rows.", edit::delete_row),
-			simple(
-				"deleteTable",
-				"Delete the table around the selection.",
-				edit::delete_table,
-			),
-			simple(
-				"mergeCells",
-				"Merge the selected cells into one.",
-				edit::merge_cells,
-			),
-			simple(
-				"splitCell",
-				"Split the merged cell holding the selection.",
-				edit::split_cell,
-			),
-			simple(
-				"mergeOrSplit",
-				"Merge the selected cells, or split the merged cell holding the caret.",
-				edit::merge_or_split,
-			),
-			simple(
-				"toggleHeaderRow",
-				"Toggle header cells for the first row.",
-				|state| edit::toggle_header(state, HeaderPart::Row),
-			),
-			simple(
-				"toggleHeaderColumn",
-				"Toggle header cells for the first column.",
-				|state| edit::toggle_header(state, HeaderPart::Column),
-			),
-			simple(
-				"toggleHeaderCell",
-				"Toggle header cells for the selected cells.",
-				|state| edit::toggle_header(state, HeaderPart::Cells),
-			),
-			attribute,
-			simple("goToNextCell", "Select the next cell's content.", |state| {
-				navigate::go_to_cell(state, true)
-			}),
-			simple(
-				"goToPreviousCell",
-				"Select the previous cell's content.",
-				|state| navigate::go_to_cell(state, false),
-			),
-			simple(
-				"fixTables",
-				"Give every short row of every table empty cells up to its width.",
-				fix_all,
-			),
-		])
+		Ok(commands.collect())
 	}
 
 	fn queries(&self, _schema: &Schema) -> Result<Vec<QuerySpec>, EditorError> {

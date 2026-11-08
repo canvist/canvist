@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_youtube
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_youtube::Youtube;
+use canvist_model::Attrs;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let youtube = builder.add(Youtube);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let update = editor.run(&youtube.insert("https://youtu.be/dQw4w9WgXcQ", &Attrs::new()), &mut env)?;
+assert!(update.is_some());
+
+let refused = editor.run(&youtube.insert("https://example.com/video", &Attrs::new()), &mut env)?;
+assert!(refused.is_none());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

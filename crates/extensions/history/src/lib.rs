@@ -2,7 +2,37 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Undo and redo keys.
+//! # `canvist_extension_history`
+//!
+//! Undo and redo for the canvist editor, like TipTap's `UndoRedo`
+//! extension (once `@tiptap/extension-history`). [`History`] registers the
+//! `undo` and `redo` commands and binds `Mod-z` to undo and `Mod-Shift-z`
+//! and `Mod-y` to redo. The history itself belongs to the editor (see
+//! [`canvist_core::History`]), so the same keys drive a collaborative
+//! history.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_history::History;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let history = builder.add(History);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("Hello", &mut env)?;
+//! editor.run(&history.undo(), &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "");
+//!
+//! editor.run(&history.redo(), &mut env)?;
+//! assert_eq!(editor.state().doc().plain_text(), "Hello");
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
 use std::sync::Arc;
 
@@ -83,5 +113,56 @@ impl TypedExtension for History {
 		HistoryHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_core::Modifiers;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	#[test]
+	fn keys_undo_and_redo_on_each_platform() -> Result<(), EditorError> {
+		let ctrl = Modifiers {
+			ctrl: true,
+			..Modifiers::NONE
+		};
+		let cmd = Modifiers {
+			meta: true,
+			..Modifiers::NONE
+		};
+
+		for (platform, held) in [(Platform::Other, ctrl), (Platform::Apple, cmd)] {
+			let mut editor = Editor::builder()
+				.extension(Document)
+				.extension(Paragraph)
+				.extension(History)
+				.platform(platform)
+				.build()?;
+			let mut env = Env::headless(Duration::ZERO);
+			let shifted = Modifiers {
+				shift: true,
+				..held
+			};
+			editor.insert_text("Hello", &mut env)?;
+
+			editor.handle_key(KeyPress::new("z", held), &mut env)?;
+			assert_eq!(editor.state().doc().plain_text(), "", "{platform:?}");
+			editor.handle_key(KeyPress::new("z", shifted), &mut env)?;
+			assert_eq!(editor.state().doc().plain_text(), "Hello", "{platform:?}");
+			editor.handle_key(KeyPress::new("z", held), &mut env)?;
+			editor.handle_key(KeyPress::new("y", held), &mut env)?;
+			assert_eq!(editor.state().doc().plain_text(), "Hello", "{platform:?}");
+		}
+
+		Ok(())
 	}
 }

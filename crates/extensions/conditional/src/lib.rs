@@ -2,8 +2,41 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Conditional text: words that only some versions of a document keep.
-
+//! # `canvist_extension_conditional`
+//!
+//! Conditional text for the canvist editor: words that only some versions of
+//! a document keep, such as a sentence for one audience or the handle a
+//! person goes by on one network. [`Conditional`] adds a `conditional` mark
+//! with a `when` attribute, the `setConditional`, `insertConditional`,
+//! `toggleConditional`, and `unsetConditional` commands, and the
+//! `isConditional` and `conditionalWhen` queries. Neither TipTap nor Remirror
+//! has it; it is shaped like their link mark, a non-inclusive mark with one
+//! attribute.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_core::command;
+//! use canvist_core::commands;
+//! use canvist_extension_conditional::Conditional;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let conditional = builder.add(Conditional);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("@canvist", &mut env)?;
+//! editor.run(&command(commands::select_all), &mut env)?;
+//! editor.run(&conditional.set("instagram"), &mut env)?;
+//!
+//! assert_eq!(conditional.when(editor.state()).as_deref(), Some("instagram"));
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+use canvist_core::Args;
 use canvist_core::Command;
 use canvist_core::CommandSpec;
 use canvist_core::EditorError;
@@ -18,6 +51,7 @@ use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_core::mark_type;
 use canvist_core::query;
 use canvist_model::Attrs;
 use canvist_model::InlineText;
@@ -94,7 +128,7 @@ impl ConditionalHandle {
 }
 
 fn mark(state: &EditorState, when: &str) -> Result<Mark, EditorError> {
-	let kind = canvist_core::mark_type(state.schema(), CONDITIONAL, CONDITIONAL)?;
+	let kind = mark_type(state.schema(), CONDITIONAL, CONDITIONAL)?;
 	Ok(Mark::with_attrs(kind, Attrs::new().with(WHEN, when)))
 }
 
@@ -149,7 +183,7 @@ fn toggle(when: &str) -> Command {
 
 fn unset() -> Command {
 	command(|state| {
-		let kind = canvist_core::mark_type(state.schema(), CONDITIONAL, CONDITIONAL)?;
+		let kind = mark_type(state.schema(), CONDITIONAL, CONDITIONAL)?;
 		commands::unset_mark(state, kind)
 	})
 }
@@ -159,13 +193,13 @@ fn when(state: &EditorState) -> Option<String> {
 	value.as_str().map(str::to_owned)
 }
 
-/// The `when` argument, which must say something.
-fn when_arg<'a>(args: &canvist_core::Args<'a>) -> Result<&'a str, EditorError> {
+/// The `when` argument of command `name`, which must say something.
+fn when_arg<'a>(args: &Args<'a>, name: &str) -> Result<&'a str, EditorError> {
 	let when = args.string(WHEN)?;
 
 	if when.trim().is_empty() {
 		return Err(EditorError::InvalidArgs {
-			name: CONDITIONAL.to_owned(),
+			name: name.to_owned(),
 			reason: "`when` is empty".to_owned(),
 		});
 	}
@@ -180,6 +214,58 @@ fn when_field() -> Field {
 		"Which versions of the document keep the text, in the host's own terms, such as \
 		 `instagram threads`.",
 	)
+}
+
+fn command_specs() -> Vec<CommandSpec> {
+	let set_spec = CommandSpec::new(
+		"setConditional",
+		"Make the selected text conditional: kept only in the versions `when` names.",
+		|args| Ok(set(when_arg(args, "setConditional")?)),
+	);
+	let insert_spec = CommandSpec::new(
+		"insertConditional",
+		"Write text, kept only in the versions `when` names, over the selection.",
+		|args| {
+			Ok(insert(
+				when_arg(args, "insertConditional")?,
+				args.string("text")?,
+			))
+		},
+	);
+	let toggle_spec = CommandSpec::new(
+		"toggleConditional",
+		"Make the selection conditional on `when`, or unconditional when it already is.",
+		|args| Ok(toggle(when_arg(args, "toggleConditional")?)),
+	);
+	let text = Field::required("text", ValueType::String, "The conditional text.");
+
+	vec![
+		set_spec.arg(when_field()),
+		insert_spec.arg(when_field()).arg(text),
+		toggle_spec.arg(when_field()),
+		CommandSpec::simple(
+			"unsetConditional",
+			"Make the selection unconditional.",
+			unset(),
+		),
+	]
+}
+
+fn query_specs() -> Vec<QuerySpec> {
+	vec![
+		QuerySpec::new(
+			"isConditional",
+			"Whether the selection is conditional.",
+			ValueType::Bool,
+			|state, _| Ok(Value::Bool(query::mark_active(state, CONDITIONAL))),
+		),
+		QuerySpec::new(
+			"conditionalWhen",
+			"The `when` every selected character is conditional on, or null.",
+			ValueType::nullable(ValueType::String),
+			|state, _| Ok(when(state).map_or(Value::Null, Value::from)),
+		),
+	]
 }
 
 impl Extension for Conditional {
@@ -207,53 +293,11 @@ impl Extension for Conditional {
 	}
 
 	fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
-		Ok(vec![
-			CommandSpec::new(
-				"setConditional",
-				"Make the selected text conditional: kept only in the versions `when` names.",
-				|args| Ok(set(when_arg(args)?)),
-			)
-			.arg(when_field()),
-			CommandSpec::new(
-				"insertConditional",
-				"Write text, kept only in the versions `when` names, over the selection.",
-				|args| Ok(insert(when_arg(args)?, args.string("text")?)),
-			)
-			.arg(when_field())
-			.arg(Field::required(
-				"text",
-				ValueType::String,
-				"The conditional text.",
-			)),
-			CommandSpec::new(
-				"toggleConditional",
-				"Make the selection conditional on `when`, or unconditional when it already is.",
-				|args| Ok(toggle(when_arg(args)?)),
-			)
-			.arg(when_field()),
-			CommandSpec::simple(
-				"unsetConditional",
-				"Make the selection unconditional.",
-				unset(),
-			),
-		])
+		Ok(command_specs())
 	}
 
 	fn queries(&self, _schema: &Schema) -> Result<Vec<QuerySpec>, EditorError> {
-		Ok(vec![
-			QuerySpec::new(
-				"isConditional",
-				"Whether the selection is conditional.",
-				ValueType::Bool,
-				|state, _| Ok(Value::Bool(query::mark_active(state, CONDITIONAL))),
-			),
-			QuerySpec::new(
-				"conditionalWhen",
-				"The `when` every selected character is conditional on, or null.",
-				ValueType::nullable(ValueType::String),
-				|state, _| Ok(when(state).map_or(Value::Null, Value::from)),
-			),
-		])
+		Ok(query_specs())
 	}
 }
 
@@ -264,5 +308,71 @@ impl TypedExtension for Conditional {
 		ConditionalHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+
+	use super::*;
+
+	fn editor() -> (Editor, ConditionalHandle) {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let conditional = builder.add(Conditional);
+
+		(builder.build().expect("valid editor"), conditional)
+	}
+
+	fn run(editor: &mut Editor, command: &Command) -> bool {
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(command, &mut env).expect("ran").is_some()
+	}
+
+	fn select_all(editor: &mut Editor) {
+		assert!(run(editor, &command(commands::select_all)));
+	}
+
+	#[test]
+	fn a_blank_when_is_refused_by_the_command_that_got_it() {
+		let (mut editor, _) = editor();
+		let mut env = Env::headless(Duration::ZERO);
+		let args = Attrs::new().with(WHEN, "  ");
+		let refused = editor.run_named("toggleConditional", &args, &mut env);
+
+		assert!(matches!(
+			refused,
+			Err(EditorError::InvalidArgs { name, .. }) if name == "toggleConditional"
+		));
+	}
+
+	#[test]
+	fn set_and_toggle_need_selected_text() {
+		let (mut editor, conditional) = editor();
+
+		assert!(!run(&mut editor, &conditional.set("web")));
+		assert!(!run(&mut editor, &conditional.toggle("web")));
+		assert!(!run(&mut editor, &conditional.insert("web", "")));
+	}
+
+	#[test]
+	fn toggling_another_when_switches_to_it() {
+		let (mut editor, conditional) = editor();
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.insert_text("text", &mut env).expect("typed");
+		select_all(&mut editor);
+
+		assert!(run(&mut editor, &conditional.toggle("web")));
+		assert!(run(&mut editor, &conditional.toggle("print")));
+		assert_eq!(conditional.when(editor.state()).as_deref(), Some("print"));
+
+		assert!(run(&mut editor, &conditional.toggle("print")));
+		assert_eq!(conditional.when(editor.state()), None);
 	}
 }

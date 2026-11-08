@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_hard_break
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_hard_break::HardBreak;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let hard_break = builder.add(HardBreak);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("one", &mut env)?;
+editor.run(&hard_break.insert(), &mut env)?;
+editor.insert_text("two", &mut env)?;
+
+// One block, with the break shown as the object replacement character.
+assert_eq!(editor.state().doc().children(None).len(), 1);
+assert_eq!(editor.state().doc().plain_text(), "one\u{fffc}two");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

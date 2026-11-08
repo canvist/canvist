@@ -30,6 +30,32 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_kinetic
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_extension_document::Document;
+use canvist_extension_kinetic::Kinetic;
+use canvist_extension_kinetic::KineticEffect;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let kinetic = builder.add(Kinetic);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("Hooray", &mut env)?;
+editor.run(&command(commands::select_all), &mut env)?;
+editor.run(&kinetic.set(KineticEffect::Rainbow), &mut env)?;
+
+assert_eq!(kinetic.effect(editor.state()), Some(KineticEffect::Rainbow));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

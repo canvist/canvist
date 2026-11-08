@@ -12,6 +12,7 @@ pub(super) fn value<'a>(property: &str, raw: &'a str) -> Option<&'a str> {
 
 	let value = raw.trim();
 	let lower = value.to_ascii_lowercase();
+
 	let supported = match property {
 		"text-align" => matches!(lower.as_str(), "left" | "center" | "right" | "justify"),
 		"color" | "background-color" => color(&lower),
@@ -23,11 +24,15 @@ pub(super) fn value<'a>(property: &str, raw: &'a str) -> Option<&'a str> {
 	supported.then_some(value)
 }
 
+/// The digits a hex colour may have: `#rgb`, `#rgba`, `#rrggbb`, and
+/// `#rrggbbaa`.
+const HEX_LENGTHS: [usize; 4] = [3, 4, 6, 8];
+
 /// Hex and named colours, plus flat numeric colour functions. Restrict function
 /// names and their argument alphabet so a value can never reference a resource.
 fn color(value: &str) -> bool {
 	if let Some(hex) = value.strip_prefix('#') {
-		return matches!(hex.len(), 3 | 4 | 6 | 8)
+		return HEX_LENGTHS.contains(&hex.len())
 			&& hex.bytes().all(|byte| byte.is_ascii_hexdigit());
 	}
 
@@ -57,6 +62,7 @@ fn color(value: &str) -> bool {
 fn font_family(value: &str) -> bool {
 	value.split(',').all(|family| {
 		let family = family.trim();
+
 		let name = match family.chars().next() {
 			Some(quote @ ('\'' | '"')) => {
 				family
@@ -68,9 +74,9 @@ fn font_family(value: &str) -> bool {
 
 		name.is_some_and(|name| {
 			!name.trim().is_empty()
-				&& name
-					.chars()
-					.all(|ch| ch.is_alphanumeric() || matches!(ch, ' ' | '-' | '_'))
+				&& name.chars().all(|character| {
+					character.is_alphanumeric() || matches!(character, ' ' | '-' | '_')
+				})
 		})
 	})
 }
@@ -78,36 +84,17 @@ fn font_family(value: &str) -> bool {
 /// Finite, nonnegative dimensions in supported CSS units, unitless line height,
 /// and the corresponding property keywords. Expressions are deliberately absent.
 fn size(property: &str, value: &str) -> bool {
-	if matches!(
-		value,
-		"inherit" | "initial" | "unset" | "revert" | "revert-layer"
-	) {
-		return true;
-	}
+	let keywords: &[&str] = match property {
+		"font-size" => &FONT_SIZE_KEYWORDS,
+		_ => &["normal"],
+	};
 
-	if property == "line-height" && value == "normal" {
-		return true;
-	}
-
-	if property == "font-size"
-		&& matches!(
-			value,
-			"xx-small"
-				| "x-small"
-				| "small"
-				| "medium"
-				| "large"
-				| "x-large"
-				| "xx-large"
-				| "xxx-large"
-				| "smaller"
-				| "larger"
-		) {
+	if GLOBAL_KEYWORDS.contains(&value) || keywords.contains(&value) {
 		return true;
 	}
 
 	let end = value
-		.find(|ch: char| !ch.is_ascii_digit() && ch != '.')
+		.find(|character: char| !character.is_ascii_digit() && character != '.')
 		.unwrap_or(value.len());
 	let (number, unit) = value.split_at(end);
 	let Ok(number) = number.parse::<f64>() else {
@@ -122,24 +109,28 @@ fn size(property: &str, value: &str) -> bool {
 		return property == "line-height" || number == 0.0;
 	}
 
-	matches!(
-		unit,
-		"px" | "em"
-			| "rem"
-			| "%"
-			| "ex"
-			| "ch"
-			| "lh"
-			| "rlh"
-			| "vw"
-			| "vh"
-			| "vmin"
-			| "vmax"
-			| "pt"
-			| "pc"
-			| "cm"
-			| "mm"
-			| "in"
-			| "q"
-	)
+	UNITS.contains(&unit)
 }
+
+/// The keywords every property takes.
+const GLOBAL_KEYWORDS: [&str; 5] = ["inherit", "initial", "unset", "revert", "revert-layer"];
+
+/// The keyword sizes of `font-size`.
+const FONT_SIZE_KEYWORDS: [&str; 10] = [
+	"xx-small",
+	"x-small",
+	"small",
+	"medium",
+	"large",
+	"x-large",
+	"xx-large",
+	"xxx-large",
+	"smaller",
+	"larger",
+];
+
+/// The length and percentage units sizes may use.
+const UNITS: [&str; 18] = [
+	"px", "em", "rem", "%", "ex", "ch", "lh", "rlh", "vw", "vh", "vmin", "vmax", "pt", "pc", "cm",
+	"mm", "in", "q",
+];

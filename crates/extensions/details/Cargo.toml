@@ -18,5 +18,9 @@ description = "canvist: TipTap's `details` block: a summary that opens to show i
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
+[dev-dependencies]
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
 [lints]
 workspace = true

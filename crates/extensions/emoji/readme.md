@@ -30,6 +30,37 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_emoji
 ```
 
+The `data` feature compiles GitHub's gemoji table in. Without it, call `load` with the text of `gemoji.txt` before the first shortcode is needed, as a web build does to keep the table out of its module.
+
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_emoji::Emoji;
+use canvist_extension_paragraph::Paragraph;
+
+// Without the `data` feature the host loads the table, here one line of
+// it. With the feature this does nothing.
+let _ = canvist_extension_emoji::load("😄\tsmile".to_owned());
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let emoji = builder.add(Emoji);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "Hi :smile: :smi".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+assert_eq!(emoji.suggestion(editor.state()).as_deref(), Some("smi"));
+
+editor.run(&emoji.set("smile"), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "Hi \u{fffc} \u{fffc} ", "two emoji");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

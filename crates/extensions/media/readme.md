@@ -30,6 +30,79 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_media
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::CommandSpec;
+use canvist_core::Editor;
+use canvist_core::EditorError;
+use canvist_core::Env;
+use canvist_core::Extension;
+use canvist_core::NodeMeta;
+use canvist_core::Registration;
+use canvist_core::TypedExtension;
+use canvist_extension_document::Document;
+use canvist_extension_media::MediaAttr;
+use canvist_extension_media::MediaBlock;
+use canvist_extension_media::MediaHandle;
+use canvist_extension_paragraph::Paragraph;
+use canvist_model::Attrs;
+use canvist_model::Schema;
+use canvist_model::SchemaBuilder;
+
+static VIMEO: MediaBlock = MediaBlock {
+	name: "vimeo",
+	command: "setVimeoVideo",
+	doc: "Insert a Vimeo video at the selection.",
+	attrs: &[
+		MediaAttr::text("src", "The video URL."),
+		MediaAttr::number("width", Some(640), "The width in pixels."),
+	],
+	accepts: Some(|src| src.starts_with("https://vimeo.com/")),
+};
+
+struct Vimeo;
+
+impl Extension for Vimeo {
+	fn name(&self) -> &'static str {
+		VIMEO.name
+	}
+
+	fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
+		VIMEO.schema(schema)
+	}
+
+	fn nodes(&self) -> Vec<NodeMeta> {
+		VIMEO.nodes()
+	}
+
+	fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
+		Ok(VIMEO.commands())
+	}
+}
+
+impl TypedExtension for Vimeo {
+	type Handle = MediaHandle;
+
+	fn handle(&self, registration: Registration) -> MediaHandle {
+		VIMEO.handle(registration)
+	}
+}
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let vimeo = builder.add(Vimeo);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let inserted = editor.run(&vimeo.insert("https://vimeo.com/1", &Attrs::new()), &mut env)?;
+assert!(inserted.is_some());
+
+let refused = editor.run(&vimeo.insert("javascript:alert(1)", &Attrs::new()), &mut env)?;
+assert!(refused.is_none());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

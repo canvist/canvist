@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_horizontal_rule
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_horizontal_rule::HorizontalRule;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+builder.add(HorizontalRule);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "---".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+let doc = editor.state().doc();
+let first = doc.block(doc.children(None)[0]).map(|block| block.kind());
+assert_eq!(first, editor.schema().block_type("horizontalRule"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

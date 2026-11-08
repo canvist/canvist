@@ -4,10 +4,12 @@
 )]
 //! # `canvist_extension_youtube`
 //!
-//! TipTap's `youtube` block for the canvist editor: a YouTube player the
-//! host draws in the slot the canvas reserves. `setYoutubeVideo` inserts
-//! one, and refuses any URL not on YouTube's hosts, so nothing else ever
-//! reaches an `<iframe>`.
+//! TipTap's `youtube` block for the canvist editor, as in
+//! `@tiptap/extension-youtube`: a YouTube player the host draws in the slot
+//! the canvas reserves. [`Youtube`] adds the `youtube` block, with `src`,
+//! `start`, `width`, and `height`, and the `setYoutubeVideo` command, which
+//! refuses any URL not on YouTube's hosts, so nothing else ever reaches an
+//! `<iframe>`. Its handle is a [`MediaHandle`].
 //!
 //! ```
 //! use std::time::Duration;
@@ -26,6 +28,9 @@
 //!
 //! let update = editor.run(&youtube.insert("https://youtu.be/dQw4w9WgXcQ", &Attrs::new()), &mut env)?;
 //! assert!(update.is_some());
+//!
+//! let refused = editor.run(&youtube.insert("https://example.com/video", &Attrs::new()), &mut env)?;
+//! assert!(refused.is_none());
 //! # Ok::<(), canvist_core::EditorError>(())
 //! ```
 
@@ -42,6 +47,9 @@ use canvist_model::Schema;
 use canvist_model::SchemaBuilder;
 use canvist_model::video_kind;
 
+/// The player's width and height in pixels, as TipTap's defaults.
+const SIZE: (u16, u16) = (640, 480);
+
 static YOUTUBE: MediaBlock = MediaBlock {
 	name: "youtube",
 	command: "setYoutubeVideo",
@@ -49,8 +57,8 @@ static YOUTUBE: MediaBlock = MediaBlock {
 	attrs: &[
 		MediaAttr::text("src", "The video URL."),
 		MediaAttr::number("start", Some(0), "Where playback starts, in seconds."),
-		MediaAttr::number("width", Some(640), "The width in pixels."),
-		MediaAttr::number("height", Some(480), "The height in pixels."),
+		MediaAttr::number("width", Some(SIZE.0), "The width in pixels."),
+		MediaAttr::number("height", Some(SIZE.1), "The height in pixels."),
 	],
 	accepts: Some(|src| video_kind(src) == Some("youtube")),
 };

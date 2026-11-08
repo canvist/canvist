@@ -2,8 +2,39 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Character and word counts, and a character limit.
-
+//! # `canvist_extension_character_count`
+//!
+//! Character and word counts, and a character limit, for the canvist editor,
+//! as in TipTap's `@tiptap/extension-character-count`. [`CharacterCount`]
+//! adds the `characters`, `words`, and `characterLimit` queries and the
+//! `setCharacterLimit` command, and with a limit set, refuses edits that would
+//! take the document past it. It adds no nodes or marks.
+//!
+//! Characters are grapheme clusters, not TipTap's UTF-16 code units, so an
+//! emoji with a skin tone counts once.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_character_count::CharacterCount;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let count = builder.add(CharacterCount { limit: Some(8) });
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.insert_text("two words", &mut env)?;
+//! assert_eq!(count.characters(editor.state()), 0);
+//!
+//! editor.insert_text("one word", &mut env)?;
+//! assert_eq!(count.characters(editor.state()), 8);
+//! assert_eq!(count.words(editor.state()), 2);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use canvist_core::Command;
 use canvist_core::CommandSpec;
 use canvist_core::EditorError;
@@ -18,8 +49,10 @@ use canvist_core::UpdateFilter;
 use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_core::commands;
+use canvist_model::Block;
 use canvist_model::BlockTree;
 use canvist_model::Document;
+use canvist_model::EMBED_CHAR;
 use canvist_model::InlineText;
 use canvist_model::Schema;
 use canvist_model::Step;
@@ -79,32 +112,35 @@ impl CharacterCountHandle {
 	}
 }
 
-/// The grapheme clusters in a block's text, leaving out embeds.
+/// The grapheme clusters in a block's text, leaving out embeds. The text is
+/// counted whole, so a cluster split across differently marked runs counts
+/// once.
 fn text_characters(text: &InlineText) -> usize {
-	text.runs()
-		.filter(|run| run.embed.is_none())
-		.map(|run| run.text.graphemes(true).count())
-		.sum()
+	text.as_str()
+		.graphemes(true)
+		.filter(|grapheme| !grapheme.trim_start_matches(EMBED_CHAR).is_empty())
+		.count()
 }
 
-/// The words in a block's text, leaving out embeds.
+/// The words in a block's text. Embeds separate words, but marks do not, so
+/// `he**llo**` is one word.
 fn text_words(text: &InlineText) -> usize {
-	text.runs()
-		.filter(|run| run.embed.is_none())
-		.map(|run| run.text.split_whitespace().count())
-		.sum()
+	text.as_str()
+		.split(|character: char| character.is_whitespace() || character == EMBED_CHAR)
+		.filter(|word| !word.is_empty())
+		.count()
 }
 
 fn characters(doc: &Document) -> usize {
 	doc.text_blocks()
-		.filter_map(canvist_model::Block::inline)
+		.filter_map(Block::inline)
 		.map(text_characters)
 		.sum()
 }
 
 fn words(doc: &Document) -> usize {
 	doc.text_blocks()
-		.filter_map(canvist_model::Block::inline)
+		.filter_map(Block::inline)
 		.map(text_words)
 		.sum()
 }
@@ -147,15 +183,16 @@ fn limit_in(state: &EditorState, configured: Option<u32>) -> Option<u32> {
 
 /// A `limit` argument: null, or a count that fits `u32`.
 fn limit_arg(limit: &Value) -> Result<Value, EditorError> {
-	match limit {
-		Value::Int(count) if u32::try_from(*count).is_err() => {
-			Err(EditorError::InvalidArgs {
-				name: "setCharacterLimit".to_owned(),
-				reason: format!("a limit of {count} characters is out of range"),
-			})
-		}
-		other => Ok(other.clone()),
+	if let Value::Int(count) = limit
+		&& u32::try_from(*count).is_err()
+	{
+		return Err(EditorError::InvalidArgs {
+			name: "setCharacterLimit".to_owned(),
+			reason: format!("a limit of {count} characters is out of range"),
+		});
 	}
+
+	Ok(limit.clone())
 }
 
 fn set_limit(limit: Value) -> Command {
@@ -238,5 +275,80 @@ impl TypedExtension for CharacterCount {
 			limit: self.limit,
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use canvist_model::Attrs;
+	use canvist_model::BlockSpec;
+	use canvist_model::Embed;
+	use canvist_model::EmbedSpec;
+	use canvist_model::Mark;
+	use canvist_model::MarkSet;
+	use canvist_model::MarkSpec;
+
+	use super::*;
+
+	fn schema() -> Schema {
+		Schema::builder()
+			.block(BlockSpec::text("paragraph"))
+			.mark(MarkSpec::new("bold"))
+			.embed(EmbedSpec::new("mention"))
+			.build()
+			.expect("valid schema")
+	}
+
+	fn bold(schema: &Schema) -> MarkSet {
+		let kind = schema.mark_type("bold").expect("bold");
+		MarkSet::from_marks([Mark::new(kind)])
+	}
+
+	fn mention(schema: &Schema) -> InlineText {
+		let kind = schema.embed_type("mention").expect("mention");
+		let embed = Embed {
+			kind,
+			attrs: Attrs::new(),
+		};
+
+		InlineText::embed(embed, MarkSet::empty())
+	}
+
+	#[test]
+	fn a_word_split_by_marks_counts_once() {
+		let schema = schema();
+		let mut text = InlineText::plain("he", MarkSet::empty());
+		text.append(InlineText::plain("llo world", bold(&schema)));
+
+		assert_eq!(text_words(&text), 2);
+		assert_eq!(text_characters(&text), 11);
+	}
+
+	#[test]
+	fn a_cluster_split_by_marks_counts_once() {
+		let schema = schema();
+		let mut text = InlineText::plain("e", MarkSet::empty());
+		text.append(InlineText::plain("\u{301}", bold(&schema)));
+
+		assert_eq!(text_characters(&text), 1);
+	}
+
+	#[test]
+	fn embeds_separate_words_and_count_as_no_characters() {
+		let schema = schema();
+		let mut text = InlineText::plain("hi", MarkSet::empty());
+		text.append(mention(&schema));
+		text.append(InlineText::plain("there", MarkSet::empty()));
+
+		assert_eq!(text_words(&text), 2);
+		assert_eq!(text_characters(&text), 7);
+	}
+
+	#[test]
+	fn limits_out_of_range_are_refused() {
+		assert!(limit_arg(&Value::Int(-1)).is_err());
+		assert!(limit_arg(&Value::Int(i64::from(u32::MAX) + 1)).is_err());
+		assert_eq!(limit_arg(&Value::Int(5)).ok(), Some(Value::Int(5)));
+		assert_eq!(limit_arg(&Value::Null).ok(), Some(Value::Null));
 	}
 }

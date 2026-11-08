@@ -18,6 +18,7 @@ use canvist_core::RuleMatch;
 use canvist_core::TypedExtension;
 use canvist_core::ValueType;
 use canvist_core::command;
+use canvist_core::commands;
 use canvist_core::commands::ListType;
 use canvist_core::query;
 use canvist_model::Attrs;
@@ -79,7 +80,7 @@ fn set_start_command(start: i64) -> Command {
 		let Some(list) = query::around(state, NAME) else {
 			return Ok(None);
 		};
-		lists::set_attrs(state, list, &Attrs::new().with("start", start))
+		commands::set_block_attrs(state, list, &Attrs::new().with("start", start))
 	})
 }
 
@@ -95,7 +96,7 @@ fn set_start(state: &mut EditorState, target: ListType, start: i64) -> CommandRe
 		return Ok(None);
 	}
 
-	lists::set_attrs(state, list, &Attrs::new().with("start", start))
+	commands::set_block_attrs(state, list, &Attrs::new().with("start", start))
 }
 
 fn start_field(required: bool) -> Field {

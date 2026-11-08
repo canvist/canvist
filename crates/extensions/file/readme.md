@@ -30,6 +30,28 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_file
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_file::File;
+use canvist_model::Attrs;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let file = builder.add(File);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+let attrs = Attrs::new().with("fileName", "report.pdf").with("fileSize", 2048);
+let update = editor.run(&file.insert("https://example.com/report.pdf", &attrs), &mut env)?;
+assert!(update.is_some());
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

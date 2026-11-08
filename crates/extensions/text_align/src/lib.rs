@@ -2,10 +2,43 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Text alignment: a `textAlign` attribute on text blocks.
+//! # `canvist_extension_text_align`
+//!
+//! TipTap's text alignment for the canvist editor, as in TipTap's
+//! `@tiptap/extension-text-align`. [`TextAlign`] adds a nullable
+//! `textAlign` attribute (`left`, `center`, `right`, or `justify`) to the
+//! block types it names, headings and paragraphs by default. It registers
+//! the `setTextAlign`, `unsetTextAlign`, and `toggleTextAlign` commands and
+//! the `textAlign` query, and binds `Mod-Shift-l`, `e`, `r`, and `j` to
+//! left, centre, right, and justified.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_text_align::Alignment;
+//! use canvist_extension_text_align::TextAlign;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let align = builder.add(TextAlign::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! editor.run(&align.set(Alignment::Center), &mut env)?;
+//! assert_eq!(align.alignment(editor.state()), Some(Alignment::Center));
+//!
+//! editor.run(&align.toggle(Alignment::Center), &mut env)?;
+//! assert_eq!(align.alignment(editor.state()), None);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 
+use canvist_core::Args;
 use canvist_core::Binding;
 use canvist_core::Command;
+use canvist_core::CommandResult;
 use canvist_core::CommandSpec;
 use canvist_core::EditKind;
 use canvist_core::EditorError;
@@ -30,15 +63,12 @@ use canvist_model::Value;
 /// The attribute every aligned block carries.
 const ATTR: &str = "textAlign";
 
-/// The alignments TipTap offers, which are also CSS `text-align` values.
-const ALIGNMENTS: [&str; 4] = ["left", "center", "right", "justify"];
-
 /// The keys TipTap binds, one per alignment.
-const KEYS: [(&str, &str); 4] = [
-	("Mod-Shift-l", "left"),
-	("Mod-Shift-e", "center"),
-	("Mod-Shift-r", "right"),
-	("Mod-Shift-j", "justify"),
+const KEYS: [(&str, Alignment); 4] = [
+	("Mod-Shift-l", Alignment::Left),
+	("Mod-Shift-e", Alignment::Center),
+	("Mod-Shift-r", Alignment::Right),
+	("Mod-Shift-j", Alignment::Justify),
 ];
 
 /// A `textAlign` attribute on the text blocks named in `types`: left,
@@ -68,7 +98,8 @@ pub struct TextAlignHandle {
 	_registration: Registration,
 }
 
-/// An alignment for [`TextAlignHandle`].
+/// An alignment for [`TextAlignHandle`]: the ones TipTap offers, which are
+/// also CSS `text-align` values.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Alignment {
 	/// The left edge.
@@ -82,6 +113,8 @@ pub enum Alignment {
 }
 
 impl Alignment {
+	const ALL: [Self; 4] = [Self::Left, Self::Center, Self::Right, Self::Justify];
+
 	/// The attribute value, such as `center`.
 	#[must_use]
 	pub const fn name(self) -> &'static str {
@@ -94,9 +127,14 @@ impl Alignment {
 	}
 
 	fn from_name(name: &str) -> Option<Self> {
-		[Self::Left, Self::Center, Self::Right, Self::Justify]
+		Self::ALL
 			.into_iter()
 			.find(|alignment| alignment.name() == name)
+	}
+
+	/// Every alignment's attribute value, as a metadata type.
+	fn value_type() -> ValueType {
+		ValueType::OneOf(Self::ALL.map(Self::name).to_vec())
 	}
 }
 
@@ -108,26 +146,26 @@ impl TextAlignHandle {
 	/// Align the selected text blocks.
 	#[must_use]
 	pub fn set(self, alignment: Alignment) -> Command {
-		set(Value::from(alignment.name()))
+		set(Some(alignment))
 	}
 
 	/// Clear the alignment of the selected text blocks.
 	#[must_use]
 	pub fn unset(self) -> Command {
-		set(Value::Null)
+		set(None)
 	}
 
 	/// Clear the alignment if every selected text block has it, otherwise
 	/// set it.
 	#[must_use]
 	pub fn toggle(self, alignment: Alignment) -> Command {
-		toggle(alignment.name())
+		toggle(alignment)
 	}
 
 	/// The alignment every selected text block shares, if they share one.
 	#[must_use]
 	pub fn alignment(self, state: &EditorState) -> Option<Alignment> {
-		shared(state).as_deref().and_then(Alignment::from_name)
+		shared_alignment(state)
 	}
 }
 
@@ -162,14 +200,21 @@ fn shared(state: &EditorState) -> Option<String> {
 		.then_some(first)
 }
 
-/// Set every alignable selected block's alignment to `value`, null to
-/// clear it.
-fn set_alignment(state: &mut EditorState, value: &Value) -> canvist_core::CommandResult {
-	let blocks: Vec<(BlockId, Attrs)> = alignable(state)
+/// [`shared`], as an [`Alignment`].
+fn shared_alignment(state: &EditorState) -> Option<Alignment> {
+	shared(state).as_deref().and_then(Alignment::from_name)
+}
+
+/// Set every alignable selected block's alignment, or clear it for `None`.
+fn set_alignment(state: &mut EditorState, alignment: Option<Alignment>) -> CommandResult {
+	let value = alignment.map_or(Value::Null, |alignment| Value::from(alignment.name()));
+	let blocks: Vec<_> = alignable(state)
 		.into_iter()
 		.filter_map(|id| {
-			let attrs = state.doc().block(id)?.attrs();
-			(attrs.get(ATTR).unwrap_or(&Value::Null) != value).then(|| (id, aligned(attrs, value)))
+			let block = state.doc().block(id)?;
+			let attrs = block.attrs();
+			let changed = *attrs.get(ATTR).unwrap_or(&Value::Null) != value;
+			changed.then(|| (id, block.kind(), aligned(attrs, &value)))
 		})
 		.collect();
 
@@ -178,12 +223,8 @@ fn set_alignment(state: &mut EditorState, value: &Value) -> canvist_core::Comman
 	}
 
 	state.change(EditKind::Structure, |tr| {
-		for (id, attrs) in blocks {
-			let kind = tr.doc().block(id).map(canvist_model::Block::kind);
-
-			if let Some(kind) = kind {
-				tr.set_block(id, kind, attrs)?;
-			}
+		for (id, kind, attrs) in blocks {
+			tr.set_block(id, kind, attrs)?;
 		}
 
 		Ok(true)
@@ -204,41 +245,33 @@ fn aligned(attrs: &Attrs, value: &Value) -> Attrs {
 	attrs
 }
 
-fn set(value: Value) -> Command {
-	command(move |state| set_alignment(state, &value))
+fn set(alignment: Option<Alignment>) -> Command {
+	command(move |state| set_alignment(state, alignment))
 }
 
-fn toggle(alignment: &'static str) -> Command {
+fn toggle(alignment: Alignment) -> Command {
 	command(move |state| {
-		let value = if shared(state).as_deref() == Some(alignment) {
-			Value::Null
-		} else {
-			Value::from(alignment)
-		};
-
-		set_alignment(state, &value)
+		let next = (shared_alignment(state) != Some(alignment)).then_some(alignment);
+		set_alignment(state, next)
 	})
 }
 
 fn alignment_field() -> Field {
 	Field::required(
 		"alignment",
-		ValueType::OneOf(ALIGNMENTS.to_vec()),
+		Alignment::value_type(),
 		"The alignment: left, center, right, or justify.",
 	)
 }
 
-fn alignment_arg(args: &canvist_core::Args<'_>) -> Result<&'static str, EditorError> {
+fn alignment_arg(args: &Args<'_>) -> Result<Alignment, EditorError> {
 	let name = args.string("alignment")?;
-	ALIGNMENTS
-		.into_iter()
-		.find(|known| *known == name)
-		.ok_or_else(|| {
-			EditorError::InvalidArgs {
-				name: "textAlign".to_owned(),
-				reason: format!("no alignment `{name}`"),
-			}
-		})
+	Alignment::from_name(name).ok_or_else(|| {
+		EditorError::InvalidArgs {
+			name: "textAlign".to_owned(),
+			reason: format!("no alignment `{name}`"),
+		}
+	})
 }
 
 impl Extension for TextAlign {
@@ -253,7 +286,7 @@ impl Extension for TextAlign {
 	fn nodes(&self) -> Vec<NodeMeta> {
 		let field = Field::optional(
 			ATTR,
-			ValueType::nullable(ValueType::OneOf(ALIGNMENTS.to_vec())),
+			ValueType::nullable(Alignment::value_type()),
 			Value::Null,
 			"How the block's lines align, or null to follow the text direction.",
 		);
@@ -267,7 +300,7 @@ impl Extension for TextAlign {
 	fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
 		let set_spec =
 			CommandSpec::new("setTextAlign", "Align the selected text blocks.", |args| {
-				Ok(set(Value::from(alignment_arg(args)?)))
+				Ok(set(Some(alignment_arg(args)?)))
 			});
 		let toggle_spec = CommandSpec::new(
 			"toggleTextAlign",
@@ -280,7 +313,7 @@ impl Extension for TextAlign {
 			CommandSpec::simple(
 				"unsetTextAlign",
 				"Clear the alignment of the selected text blocks.",
-				set(Value::Null),
+				set(None),
 			),
 			toggle_spec.arg(alignment_field()),
 		])
@@ -290,7 +323,7 @@ impl Extension for TextAlign {
 		Ok(vec![QuerySpec::new(
 			ATTR,
 			"The alignment every selected text block shares, or null.",
-			ValueType::nullable(ValueType::OneOf(ALIGNMENTS.to_vec())),
+			ValueType::nullable(Alignment::value_type()),
 			|state, _| Ok(shared(state).map_or(Value::Null, Value::from)),
 		)])
 	}
@@ -298,7 +331,7 @@ impl Extension for TextAlign {
 	fn keymap(&self, _schema: &Schema, _platform: Platform) -> Result<Vec<Binding>, EditorError> {
 		Ok(KEYS
 			.into_iter()
-			.map(|(key, alignment)| (key, set(Value::from(alignment))))
+			.map(|(key, alignment)| (key, set(Some(alignment))))
 			.collect())
 	}
 }
@@ -310,5 +343,107 @@ impl TypedExtension for TextAlign {
 		TextAlignHandle {
 			_registration: registration,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_core::Modifiers;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Point;
+	use canvist_model::Selection;
+
+	use super::*;
+
+	fn editor(align: TextAlign) -> Result<(Editor, TextAlignHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let handle = builder.add(align);
+		Ok((builder.build()?, handle))
+	}
+
+	/// The first block's `textAlign` attribute, if it has one.
+	fn first_attr(editor: &Editor) -> Option<Value> {
+		let doc = editor.state().doc();
+		doc.block(doc.children(None)[0])?.attrs().get(ATTR).cloned()
+	}
+
+	#[test]
+	fn set_toggle_and_unset() -> Result<(), EditorError> {
+		let (mut editor, align) = editor(TextAlign::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.run(&align.set(Alignment::Right), &mut env)?;
+		assert_eq!(first_attr(&editor), Some(Value::from("right")));
+		editor.run(&align.toggle(Alignment::Justify), &mut env)?;
+		assert_eq!(align.alignment(editor.state()), Some(Alignment::Justify));
+		editor.run(&align.toggle(Alignment::Justify), &mut env)?;
+		assert_eq!(first_attr(&editor), None);
+
+		editor.run(&align.set(Alignment::Left), &mut env)?;
+		editor.run(&align.unset(), &mut env)?;
+		assert_eq!(first_attr(&editor), None);
+		assert_eq!(editor.run(&align.unset(), &mut env)?, None);
+		Ok(())
+	}
+
+	#[test]
+	fn keys_and_named_commands_align() -> Result<(), EditorError> {
+		let (mut editor, align) = editor(TextAlign::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		let mod_shift = Modifiers {
+			ctrl: true,
+			shift: true,
+			..Modifiers::NONE
+		};
+
+		editor.handle_key(KeyPress::new("e", mod_shift), &mut env)?;
+		assert_eq!(align.alignment(editor.state()), Some(Alignment::Center));
+
+		let right = Attrs::new().with("alignment", "right");
+		editor.run_named("setTextAlign", &right, &mut env)?;
+		assert_eq!(editor.query(ATTR, &Attrs::new())?, Value::from("right"));
+
+		let middle = Attrs::new().with("alignment", "middle");
+		assert!(editor.run_named("setTextAlign", &middle, &mut env).is_err());
+		Ok(())
+	}
+
+	#[test]
+	fn mixed_alignments_share_none() -> Result<(), EditorError> {
+		let (mut editor, align) = editor(TextAlign::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.insert_text("a", &mut env)?;
+		editor.run(&align.set(Alignment::Left), &mut env)?;
+		editor.run(&command(commands::split_block), &mut env)?;
+		editor.run(&align.set(Alignment::Right), &mut env)?;
+
+		let blocks = editor.state().doc().children(None).to_vec();
+		let both = Selection::text(Point::new(blocks[0], 0), Point::new(blocks[1], 0));
+		editor.select(both, &mut env)?;
+		assert_eq!(align.alignment(editor.state()), None);
+
+		editor.run(&align.toggle(Alignment::Right), &mut env)?;
+		assert_eq!(align.alignment(editor.state()), Some(Alignment::Right));
+		Ok(())
+	}
+
+	#[test]
+	fn unlisted_types_are_left_alone() -> Result<(), EditorError> {
+		let headings_only = TextAlign {
+			types: vec!["heading"],
+		};
+		let (mut editor, align) = editor(headings_only)?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		assert_eq!(editor.run(&align.set(Alignment::Center), &mut env)?, None);
+		assert_eq!(first_attr(&editor), None);
+		assert_eq!(align.alignment(editor.state()), None);
+		Ok(())
 	}
 }

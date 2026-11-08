@@ -30,6 +30,30 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_find_and_replace
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_find_and_replace::FindAndReplace;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let find = builder.add(FindAndReplace);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("Cats chase cats.", &mut env)?;
+editor.run(&find.set_term("cat"), &mut env)?;
+assert_eq!(find.matches(editor.state()).len(), 2);
+
+editor.run(&find.replace_all("dog"), &mut env)?;
+assert_eq!(editor.state().doc().plain_text(), "dogs chase dogs.");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

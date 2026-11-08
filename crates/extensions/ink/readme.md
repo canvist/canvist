@@ -30,6 +30,36 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_ink
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_ink::DEFAULT_HEIGHT;
+use canvist_extension_ink::Ink;
+use canvist_extension_ink::InkStroke;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let ink = builder.add(Ink);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.run(&ink.insert(DEFAULT_HEIGHT), &mut env)?;
+let drawing = ink.drawings(editor.state())[0];
+let stroke = InkStroke {
+	points: &[10.0, 20.0, 200.0, 120.0],
+	color: Some("#3b2cf5"),
+	width: None,
+};
+editor.run(&ink.add_stroke(drawing, &stroke)?, &mut env)?;
+
+assert!(editor.can(&ink.undo_stroke(drawing), &mut env)?);
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

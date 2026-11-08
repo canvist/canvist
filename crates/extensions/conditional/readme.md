@@ -30,6 +30,31 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_conditional
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_extension_conditional::Conditional;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let conditional = builder.add(Conditional);
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+editor.insert_text("@canvist", &mut env)?;
+editor.run(&command(commands::select_all), &mut env)?;
+editor.run(&conditional.set("instagram"), &mut env)?;
+
+assert_eq!(conditional.when(editor.state()).as_deref(), Some("instagram"));
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)

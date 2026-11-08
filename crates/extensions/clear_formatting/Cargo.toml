@@ -18,5 +18,10 @@ description = "canvist: Remove marks and turn blocks back into paragraphs, with 
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
+[dev-dependencies]
+canvist_extension_bold = { workspace = true }
+canvist_extension_document = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+
 [lints]
 workspace = true

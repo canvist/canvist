@@ -44,5 +44,15 @@ canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 
+[dev-dependencies]
+canvist_extension_bold = { workspace = true }
+canvist_extension_code_block = { workspace = true }
+canvist_extension_document = { workspace = true }
+canvist_extension_image = { workspace = true }
+canvist_extension_link = { workspace = true }
+canvist_extension_list = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+canvist_extension_table = { workspace = true }
+
 [lints]
 workspace = true

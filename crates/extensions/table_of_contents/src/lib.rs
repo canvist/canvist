@@ -2,8 +2,44 @@
 	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
 	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
 )]
-//! Table of contents: the document's headings as an outline.
-
+//! # `canvist_extension_table_of_contents`
+//!
+//! A table of contents for the canvist editor: the document's headings as a
+//! numbered outline, as in TipTap's `@tiptap/extension-table-of-contents`.
+//! [`TableOfContents`] adds the `tableOfContents` query, which lists every
+//! `heading` with its level, text, outline number, and whether the selection
+//! is under it, and the `goToHeading` command, which puts the caret at the
+//! start of one. It adds no nodes or marks: register it with the `heading`
+//! extension.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_heading::Heading;
+//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_extension_table_of_contents::TableOfContents;
+//!
+//! let mut builder = Editor::builder()
+//! 	.extension(Document)
+//! 	.extension(Paragraph)
+//! 	.extension(Heading::default());
+//! let toc = builder.add(TableOfContents);
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "## Intro".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//!
+//! let entries = toc.entries(editor.state());
+//! assert_eq!(entries.len(), 1);
+//! assert_eq!((entries[0].text.as_str(), entries[0].number.as_str()), ("Intro", "1"));
+//! assert!(entries[0].active);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
 use canvist_core::Command;
 use canvist_core::CommandResult;
 use canvist_core::CommandSpec;
@@ -19,6 +55,7 @@ use canvist_core::ValueType;
 use canvist_core::command;
 use canvist_model::Attrs;
 use canvist_model::BlockId;
+use canvist_model::EMBED_CHAR;
 use canvist_model::Point;
 use canvist_model::Schema;
 use canvist_model::Selection;
@@ -128,7 +165,7 @@ fn entries(state: &EditorState) -> Vec<TocEntry> {
 				.unwrap_or(1);
 			let text = block
 				.inline()
-				.map(|inline| inline.as_str().replace('\u{fffc}', ""))
+				.map(|inline| inline.as_str().replace(EMBED_CHAR, ""))
 				.unwrap_or_default();
 			found.push(TocEntry {
 				block: block.id(),
@@ -246,16 +283,87 @@ impl TypedExtension for TableOfContents {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::commands;
+	use canvist_extension_document::Document;
+	use canvist_extension_heading::Heading;
+	use canvist_extension_paragraph::Paragraph;
+
 	use super::*;
+
+	/// The outline numbers of headings at `levels`, in order.
+	fn numbers(levels: &[i64]) -> Vec<String> {
+		let mut open = Vec::new();
+		levels
+			.iter()
+			.map(|&level| number(&mut open, level))
+			.collect()
+	}
+
+	/// Type `character`, or start a new block for a newline.
+	fn type_character(editor: &mut Editor, character: char, env: &mut Env<'_>) -> CommandResult {
+		if character == '\n' {
+			return editor.run(&command(commands::split_block), env);
+		}
+
+		editor.insert_text(&character.to_string(), env)
+	}
+
+	/// A block per line of `script`, typed a character at a time so input
+	/// rules fire, with the caret at the end of the last.
+	fn typed(script: &[&str]) -> (Editor, TableOfContentsHandle) {
+		let mut builder = Editor::builder()
+			.extension(Document)
+			.extension(Paragraph)
+			.extension(Heading::default());
+		let toc = builder.add(TableOfContents);
+		let mut editor = builder.build().expect("valid editor");
+		let mut env = Env::headless(Duration::ZERO);
+		let typing = script.join("\n");
+
+		for character in typing.chars() {
+			type_character(&mut editor, character, &mut env).expect("typed");
+		}
+
+		(editor, toc)
+	}
 
 	#[test]
 	fn numbers_follow_the_outline() {
-		let mut open = Vec::new();
-		let numbers: Vec<String> = [1, 3, 2, 2, 1, 2]
-			.into_iter()
-			.map(|level| number(&mut open, level))
+		let expected = ["1", "1.1", "1.2", "1.3", "2", "2.1"];
+
+		assert_eq!(numbers(&[1, 3, 2, 2, 1, 2]), expected);
+	}
+
+	#[test]
+	fn closing_several_levels_continues_the_one_left_open() {
+		let expected = ["1", "1.1", "1.1.1", "1.2", "2"];
+
+		assert_eq!(numbers(&[1, 2, 3, 2, 1]), expected);
+	}
+
+	#[test]
+	fn the_heading_above_the_caret_is_active() {
+		let (editor, toc) = typed(&["# One", "## Two", "text"]);
+		let active: Vec<bool> = toc
+			.entries(editor.state())
+			.iter()
+			.map(|entry| entry.active)
 			.collect();
 
-		assert_eq!(numbers, ["1", "1.1", "1.2", "1.3", "2", "2.1"]);
+		assert_eq!(active, [false, true]);
+	}
+
+	#[test]
+	fn go_to_moves_the_caret_and_ignores_missing_headings() {
+		let (mut editor, toc) = typed(&["# One", "## Two", "text"]);
+		let mut env = Env::headless(Duration::ZERO);
+
+		assert!(editor.run(&toc.go_to(0), &mut env).expect("ran").is_some());
+		assert!(toc.entries(editor.state())[0].active);
+		assert!(editor.run(&toc.go_to(2), &mut env).expect("ran").is_none());
 	}
 }

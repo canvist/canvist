@@ -30,6 +30,29 @@ Most apps get it through [`canvist_extensions`](../../canvist_extensions), which
 cargo add canvist_extension_typography
 ```
 
+## Usage
+
+```rust
+use std::time::Duration;
+
+use canvist_core::Editor;
+use canvist_core::Env;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_typography::Typography;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+builder.add(Typography::default());
+let mut editor = builder.build()?;
+let mut env = Env::headless(Duration::ZERO);
+
+for character in "wait -- \"what\"...".chars() {
+	editor.insert_text(&character.to_string(), &mut env)?;
+}
+
+assert_eq!(editor.state().doc().plain_text(), "wait — “what”…");
+```
+
 ## License
 
 [Unlicense](https://unlicense.org)
