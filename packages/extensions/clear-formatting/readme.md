@@ -1,6 +1,6 @@
 # @canvist/extension-clear-formatting
 
-Remove marks and turn blocks back into paragraphs, with `Mod-\`, for [canvist](https://github.com/canvist/canvist).
+Remove marks and turn blocks back into paragraphs, with Mod-Backslash, for [canvist](https://github.com/canvist/canvist).
 
 This package exports `clearFormatting` from `@canvist/headless/extras`, so you can import it on its own, as TipTap ships each extension. canvist compiles every extension into its WebAssembly module, so this package adds no code: these extensions are in the full module, `@canvist/headless/full`, so create the engine from there.
 

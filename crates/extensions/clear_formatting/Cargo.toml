@@ -12,7 +12,7 @@ license.workspace = true
 readme = "readme.md"
 repository.workspace = true
 rust-version.workspace = true
-description = "canvist: Remove marks and turn blocks back into paragraphs, with `Mod-\\`"
+description = "canvist: Remove marks and turn blocks back into paragraphs, with Mod-Backslash"
 
 [dependencies]
 canvist_core = { workspace = true }

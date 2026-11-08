@@ -1,5 +1,5 @@
 name: canvist_extension_clear_formatting
-description: "Remove marks and turn blocks back into paragraphs, with `Mod-\\`, for canvist's Dart engine."
+description: "Remove marks and turn blocks back into paragraphs, with Mod-Backslash, for canvist's Dart engine."
 version: 0.2.1
 repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/clear_formatting
 issue_tracker: https://github.com/canvist/canvist/issues
