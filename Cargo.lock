@@ -793,7 +793,7 @@ dependencies = [
 
 [[package]]
 name = "canvist"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_canvas",
  "canvist_collab",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_book"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist",
  "canvist_desktop",
@@ -820,7 +820,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_canvas"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extensions",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_canvas_wasm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_canvas",
  "canvist_collab",
@@ -862,7 +862,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_cloud"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -890,7 +890,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_collab"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_model",
  "canvist_scene",
@@ -905,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_model",
  "proptest",
@@ -929,7 +929,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_desktop"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_dictation"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -974,7 +974,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_dictation_relay"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -995,7 +995,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_audio"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_blockquote"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1016,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_bold"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_callout"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1036,7 +1036,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_character_count"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1047,7 +1047,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_clear_formatting"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_bold",
@@ -1058,7 +1058,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_clipboard"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_bold",
@@ -1075,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_code"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_code_block"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1095,7 +1095,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_comments"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1105,7 +1105,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_conditional"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_details"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_document"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_model",
@@ -1133,7 +1133,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_drag_handle"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1143,7 +1143,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_emoji"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1154,7 +1154,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_file"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1165,7 +1165,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_find_and_replace"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1175,7 +1175,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_hard_break"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_hashtag"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1196,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_heading"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_highlight"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_history"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1226,7 +1226,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_horizontal_rule"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1236,7 +1236,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_image"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_ink"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_italic"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1267,7 +1267,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_kinetic"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1277,7 +1277,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_link"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1287,7 +1287,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_list"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_mathematics"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_media"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1317,7 +1317,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_mention"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_paragraph"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1337,7 +1337,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_placeholder"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1347,7 +1347,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_strike"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_subscript"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1367,7 +1367,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_suggestion"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_model",
@@ -1375,7 +1375,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_superscript"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1385,7 +1385,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_table"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1395,7 +1395,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_table_of_contents"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1406,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_text_align"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1416,7 +1416,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_text_style"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1426,7 +1426,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_trailing_node"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_blockquote",
@@ -1437,7 +1437,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_twitch"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1448,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_typography"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_underline"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1468,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extension_youtube"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_document",
@@ -1479,7 +1479,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_extensions"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_extension_audio",
@@ -1537,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_ffi"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_dictation",
  "canvist_headless",
@@ -1564,7 +1564,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_headless"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.22.1",
  "canvist_canvas",
@@ -1584,7 +1584,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_headless_wasm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_extensions",
  "canvist_headless",
@@ -1595,7 +1595,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_layout"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_core",
  "canvist_model",
@@ -1613,7 +1613,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_model"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "divan",
  "proptest",
@@ -1624,7 +1624,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_paint"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_canvas",
  "canvist_layout",
@@ -1644,7 +1644,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_scene"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_model",
  "divan",
@@ -1657,7 +1657,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_testkit"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.22.1",
  "canvist_headless",
@@ -1670,7 +1670,7 @@ dependencies = [
 
 [[package]]
 name = "canvist_web"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "canvist_headless",
  "canvist_layout",

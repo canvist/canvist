@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-drag-handle",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Move blocks up and down with `Alt-↑` and `Alt-↓`, or to any position, like TipTap's DragHandle, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/drag-handle#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"peerDependencies": {
-		"@canvist/headless": "^0.2.0"
+		"@canvist/headless": "^0.2.1"
 	}
 }

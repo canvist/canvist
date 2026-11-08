@@ -1,6 +1,6 @@
 name: canvist_extension_blockquote
 description: "TipTap's `blockquote` block, with a leading `>` and `Mod-Shift-b`, for canvist's Dart engine."
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/blockquote
 issue_tracker: https://github.com/canvist/canvist/issues
 # Reserved on pub.dev? Remove this line (see ../readme.md).
@@ -16,4 +16,4 @@ environment:
 resolution: workspace
 
 dependencies:
-  canvist: ^0.2.0
+  canvist: ^0.2.1

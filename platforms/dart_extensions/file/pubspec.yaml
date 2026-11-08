@@ -1,6 +1,6 @@
 name: canvist_extension_file
 description: "Remirror's `file` block: an attachment card with a name, type, and size, for canvist's Dart engine."
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/file
 issue_tracker: https://github.com/canvist/canvist/issues
 # Reserved on pub.dev? Remove this line (see ../readme.md).
@@ -16,4 +16,4 @@ environment:
 resolution: workspace
 
 dependencies:
-  canvist: ^0.2.0
+  canvist: ^0.2.1

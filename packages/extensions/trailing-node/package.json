@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-trailing-node",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Keeps a paragraph at the end of the document, like TipTap's `TrailingNode`, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/trailing-node#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"peerDependencies": {
-		"@canvist/headless": "^0.2.0"
+		"@canvist/headless": "^0.2.1"
 	}
 }

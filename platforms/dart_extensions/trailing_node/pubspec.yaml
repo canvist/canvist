@@ -1,6 +1,6 @@
 name: canvist_extension_trailing_node
 description: "Keeps a paragraph at the end of the document, like TipTap's `TrailingNode`, for canvist's Dart engine."
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/trailing_node
 issue_tracker: https://github.com/canvist/canvist/issues
 # Reserved on pub.dev? Remove this line (see ../readme.md).
@@ -16,4 +16,4 @@ environment:
 resolution: workspace
 
 dependencies:
-  canvist: ^0.2.0
+  canvist: ^0.2.1

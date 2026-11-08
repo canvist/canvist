@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-strike",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "TipTap's `strike` mark, with `Mod-Shift-s` and `~~text~~`, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/strike#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"peerDependencies": {
-		"@canvist/headless": "^0.2.0"
+		"@canvist/headless": "^0.2.1"
 	}
 }
