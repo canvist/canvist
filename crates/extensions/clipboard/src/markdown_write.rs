@@ -13,6 +13,19 @@ use canvist_model::TreeContent;
 use canvist_model::Value;
 use canvist_model::is_safe_link_url;
 
+use super::features::AUDIO;
+use super::features::CALLOUT;
+use super::features::DETAILS;
+use super::features::FILE;
+use super::features::HIGHLIGHT;
+use super::features::IMAGE;
+use super::features::INK;
+use super::features::MATHEMATICS;
+use super::features::SUBSCRIPT;
+use super::features::SUPERSCRIPT;
+use super::features::TABLE;
+use super::features::TWITCH;
+use super::features::YOUTUBE;
 use super::features::gated;
 use super::tree::HARD_BREAK;
 
@@ -76,12 +89,12 @@ fn block(schema: &Schema, tree: &BlockTree, marker: char) -> String {
 
 	match (&tree.content, name) {
 		(TreeContent::Inline(text), _) => text_block(schema, name, &tree.attrs, text),
-		(TreeContent::Blocks(_), "table") => table(schema, tree),
+		(TreeContent::Blocks(_), "table") if TABLE => table(schema, tree),
 		(TreeContent::Blocks(children), _) => {
 			container(schema, name, &tree.attrs, children, marker)
 		}
 		(TreeContent::Leaf, "horizontalRule") => "---".to_owned(),
-		(TreeContent::Leaf, "ink") => {
+		(TreeContent::Leaf, "ink") if INK => {
 			super::html_write::to_html(schema, &Slice::new(vec![tree.clone()]))
 		}
 		(TreeContent::Leaf, _) => media(name, &tree.attrs),
@@ -94,7 +107,7 @@ fn media(name: &str, attrs: &Attrs) -> String {
 	let text = |key: &str| attrs.get(key).and_then(Value::as_str).unwrap_or_default();
 
 	match name {
-		"image" => {
+		"image" if IMAGE => {
 			let title = attrs
 				.get("title")
 				.and_then(Value::as_str)
@@ -103,14 +116,15 @@ fn media(name: &str, attrs: &Attrs) -> String {
 			let alt = escape(&one_line(text("alt")));
 			format!("![{alt}]({}{title})", destination(text("src")))
 		}
-		"youtube" | "twitch" => video_link(name, text("src")),
-		"audio" => link(text("src"), text("src")),
-		"file" => {
+		"youtube" if YOUTUBE => video_link(name, text("src")),
+		"twitch" if TWITCH => video_link(name, text("src")),
+		"audio" if AUDIO => link(text("src"), text("src")),
+		"file" if FILE => {
 			// A link needs text to be read, and to be read back at all.
 			let name = Some(text("fileName")).filter(|name| !name.is_empty());
 			link(name.unwrap_or(text("url")), text("url"))
 		}
-		"blockMath" => format!("$$\n{}\n$$", text("latex")),
+		"blockMath" if MATHEMATICS => format!("$$\n{}\n$$", text("latex")),
 		_ => String::new(),
 	}
 }
@@ -245,12 +259,12 @@ fn container(
 ) -> String {
 	match name {
 		"blockquote" => prefix_lines(&blocks(schema, children, "\n\n"), "> ", ">"),
-		"callout" => {
+		"callout" if CALLOUT => {
 			let alert = alert_of(attrs.get("type").and_then(Value::as_str).unwrap_or("info"));
 			let content = blocks(schema, children, "\n\n");
 			prefix_lines(&format!("[!{alert}]\n{content}"), "> ", ">")
 		}
-		"details" => details(schema, attrs, children),
+		"details" if DETAILS => details(schema, attrs, children),
 		"bulletList" => list(schema, children, |_| format!("{marker} ")),
 		"taskList" => list(schema, children, |item| task_marker(item, marker)),
 		"orderedList" => {
@@ -576,9 +590,9 @@ fn delimiters(schema: &Schema, mark: &Mark) -> Option<(String, String)> {
 		"italic" => pair("*"),
 		"strike" => pair("~~"),
 		"code" => pair("`"),
-		"highlight" => pair("=="),
-		"subscript" => Some(("<sub>".to_owned(), "</sub>".to_owned())),
-		"superscript" => Some(("<sup>".to_owned(), "</sup>".to_owned())),
+		"highlight" if HIGHLIGHT => pair("=="),
+		"subscript" if SUBSCRIPT => Some(("<sub>".to_owned(), "</sub>".to_owned())),
+		"superscript" if SUPERSCRIPT => Some(("<sup>".to_owned(), "</sup>".to_owned())),
 		"link" => link_delimiters(&mark.attrs),
 		_ => None,
 	}

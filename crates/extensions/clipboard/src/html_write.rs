@@ -13,6 +13,24 @@ use canvist_model::TreeContent;
 use canvist_model::Value;
 use canvist_model::is_safe_link_url;
 
+use super::features::AUDIO;
+use super::features::CALLOUT;
+use super::features::COMMENTS;
+use super::features::CONDITIONAL;
+use super::features::DETAILS;
+use super::features::FILE;
+use super::features::HASHTAG;
+use super::features::HIGHLIGHT;
+use super::features::IMAGE;
+use super::features::INK;
+use super::features::KINETIC;
+use super::features::MATHEMATICS;
+use super::features::SUBSCRIPT;
+use super::features::SUPERSCRIPT;
+use super::features::TABLE;
+use super::features::TEXT_STYLE;
+use super::features::TWITCH;
+use super::features::YOUTUBE;
 use super::features::gated;
 use super::tree::HARD_BREAK;
 
@@ -74,7 +92,7 @@ fn write_leaf(name: &str, attrs: &Attrs, html: &mut String) {
 
 	match gated(name) {
 		"horizontalRule" => html.push_str("<hr>"),
-		"ink" => write_ink(attrs, html),
+		"ink" if INK => write_ink(attrs, html),
 		_ => {
 			let _ = write!(html, "<div data-type=\"{}\"></div>", escape(name));
 		}
@@ -158,9 +176,20 @@ const MEDIA: [(&str, Media); 6] = [
 
 /// The markup of media block `name`, when it is one and compiled in.
 fn media(name: &str) -> Option<&'static Media> {
+	// Constant per build, so the compiler drops media it never writes.
+	let compiled = match name {
+		"image" => IMAGE,
+		"youtube" => YOUTUBE,
+		"twitch" => TWITCH,
+		"audio" => AUDIO,
+		"file" => FILE,
+		"blockMath" => MATHEMATICS,
+		_ => false,
+	};
+
 	MEDIA
 		.iter()
-		.find(|(media, _)| *media == gated(name))
+		.find(|(media, _)| compiled && *media == name)
 		.map(|(_, media)| media)
 }
 
@@ -370,14 +399,14 @@ fn container_tags(name: &str, attrs: &Attrs) -> (String, &'static str) {
 		"bulletList" => ("<ul>".to_owned(), "</ul>"),
 		"orderedList" => (ordered_list_tag(attrs), "</ol>"),
 		"listItem" => ("<li>".to_owned(), "</li>"),
-		"table" => ("<table><tbody>".to_owned(), "</tbody></table>"),
-		"tableRow" => ("<tr>".to_owned(), "</tr>"),
-		"tableCell" => (cell_tag("td", attrs), "</td>"),
-		"tableHeader" => (cell_tag("th", attrs), "</th>"),
-		"details" if flag(attrs, "open") => ("<details open>".to_owned(), "</details>"),
-		"details" => ("<details>".to_owned(), "</details>"),
-		"detailsContent" => ("<div data-type=\"detailsContent\">".to_owned(), "</div>"),
-		"callout" => {
+		"table" if TABLE => ("<table><tbody>".to_owned(), "</tbody></table>"),
+		"tableRow" if TABLE => ("<tr>".to_owned(), "</tr>"),
+		"tableCell" if TABLE => (cell_tag("td", attrs), "</td>"),
+		"tableHeader" if TABLE => (cell_tag("th", attrs), "</th>"),
+		"details" if DETAILS && flag(attrs, "open") => ("<details open>".to_owned(), "</details>"),
+		"details" if DETAILS => ("<details>".to_owned(), "</details>"),
+		"detailsContent" if DETAILS => ("<div data-type=\"detailsContent\">".to_owned(), "</div>"),
+		"callout" if CALLOUT => {
 			let kind = text_attr(attrs, "type").unwrap_or("info");
 			(
 				format!("<div data-callout-type=\"{}\">", escape(kind)),
@@ -444,7 +473,7 @@ fn write_text_block(
 			html.push_str(&escape(&super::tree::plain_text(schema, text)));
 			html.push_str("</code></pre>");
 		}
-		"detailsSummary" => {
+		"detailsSummary" if DETAILS => {
 			html.push_str("<summary>");
 			write_inline(schema, text, html);
 			html.push_str("</summary>");
@@ -489,15 +518,15 @@ fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
 		"strike" => ("<s>".to_owned(), "</s>"),
 		"code" => ("<code>".to_owned(), "</code>"),
 		"link" => (link_tag(attrs), "</a>"),
-		"subscript" => ("<sub>".to_owned(), "</sub>"),
-		"superscript" => ("<sup>".to_owned(), "</sup>"),
-		"highlight" => (highlight_tag(attrs), "</mark>"),
-		"textStyle" => (text_style_tag(attrs), "</span>"),
-		"kinetic" => {
+		"subscript" if SUBSCRIPT => ("<sub>".to_owned(), "</sub>"),
+		"superscript" if SUPERSCRIPT => ("<sup>".to_owned(), "</sup>"),
+		"highlight" if HIGHLIGHT => (highlight_tag(attrs), "</mark>"),
+		"textStyle" if TEXT_STYLE => (text_style_tag(attrs), "</span>"),
+		"kinetic" if KINETIC => {
 			let effect = text_attr(attrs, "effect").unwrap_or("wave");
 			(span_tag(&[("data-kinetic", effect)]), "</span>")
 		}
-		"comment" => {
+		"comment" if COMMENTS => {
 			let threads: Vec<&str> = attrs
 				.get("threads")
 				.and_then(Value::as_array)
@@ -509,12 +538,12 @@ fn mark_tags(schema: &Schema, mark: &Mark) -> (String, &'static str) {
 			let tag = span_tag(&[("data-type", "comment"), ("data-threads", &threads)]);
 			(tag, "</span>")
 		}
-		"conditional" => {
+		"conditional" if CONDITIONAL => {
 			let when = text_attr(attrs, "when").unwrap_or_default();
 			let tag = span_tag(&[("data-type", "conditional"), ("data-when", when)]);
 			(tag, "</span>")
 		}
-		"hashtag" => {
+		"hashtag" if HASHTAG => {
 			let tag = match text_attr(attrs, "tag") {
 				Some(tag) => span_tag(&[("data-type", "hashtag"), ("data-tag", tag)]),
 				None => span_tag(&[("data-type", "hashtag")]),

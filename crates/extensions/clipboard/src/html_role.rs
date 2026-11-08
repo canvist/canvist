@@ -4,6 +4,18 @@
 use canvist_model::Attrs;
 use canvist_model::Value;
 
+use super::features::AUDIO;
+use super::features::CALLOUT;
+use super::features::DETAILS;
+use super::features::EMOJI;
+use super::features::FILE;
+use super::features::IMAGE;
+use super::features::INK;
+use super::features::MATHEMATICS;
+use super::features::MENTION;
+use super::features::TABLE;
+use super::features::TWITCH;
+use super::features::YOUTUBE;
 use super::features::compiled;
 
 pub(super) fn attr<'a>(attrs: &'a [(String, String)], name: &str) -> Option<&'a str> {
@@ -123,20 +135,20 @@ fn element_role(name: &str, attrs: &[(String, String)], parent: Option<&'static 
 			)
 		}
 		"hr" => Role::Leaf("horizontalRule", Attrs::new()),
-		"img" => Role::Leaf("image", media_attrs(attrs, IMAGE_ATTRIBUTES)),
-		"audio" => Role::Leaf("audio", audio_attrs(attrs)),
-		"iframe" => iframe_role(attrs),
+		"img" if IMAGE => Role::Leaf("image", media_attrs(attrs, IMAGE_ATTRIBUTES)),
+		"audio" if AUDIO => Role::Leaf("audio", audio_attrs(attrs)),
+		"iframe" if YOUTUBE || TWITCH => iframe_role(attrs),
 		"br" => Role::Break,
-		"details" => {
+		"details" if DETAILS => {
 			let open = attr(attrs, "open").is_some();
 			Role::Container("details", Attrs::new().with("open", open))
 		}
-		"summary" => Role::Text("detailsSummary", Attrs::new()),
-		"figure" if data_type == Some("ink") => Role::Leaf("ink", ink_attrs(attrs)),
-		"table" => Role::Container("table", Attrs::new()),
-		"tr" => Role::Container("tableRow", Attrs::new()),
-		"td" => Role::Container("tableCell", cell_attrs(attrs)),
-		"th" => Role::Container("tableHeader", cell_attrs(attrs)),
+		"summary" if DETAILS => Role::Text("detailsSummary", Attrs::new()),
+		"figure" if INK && data_type == Some("ink") => Role::Leaf("ink", ink_attrs(attrs)),
+		"table" if TABLE => Role::Container("table", Attrs::new()),
+		"tr" if TABLE => Role::Container("tableRow", Attrs::new()),
+		"td" if TABLE => Role::Container("tableCell", cell_attrs(attrs)),
+		"th" if TABLE => Role::Container("tableHeader", cell_attrs(attrs)),
 		"div" => div_role(data_type, attrs),
 		"span" => span_role(data_type, attrs),
 		_ => inline_role(name, attrs),
@@ -166,12 +178,15 @@ fn list_item_role(attrs: &[(String, String)], task: bool) -> Role {
 /// else a block boundary.
 fn div_role(data_type: Option<&str>, attrs: &[(String, String)]) -> Role {
 	let candidates = [
-		(data_type == Some("file"))
+		(FILE && data_type == Some("file"))
 			.then(|| Role::Leaf("file", media_attrs(attrs, FILE_ATTRIBUTES))),
-		(data_type == Some("detailsContent"))
+		(DETAILS && data_type == Some("detailsContent"))
 			.then(|| Role::Container("detailsContent", Attrs::new())),
-		attr(attrs, "data-callout-type").map(callout_role),
-		(data_type == Some("block-math")).then(|| Role::Leaf("blockMath", atom_attrs(attrs))),
+		attr(attrs, "data-callout-type")
+			.filter(|_| CALLOUT)
+			.map(callout_role),
+		(MATHEMATICS && data_type == Some("block-math"))
+			.then(|| Role::Leaf("blockMath", atom_attrs(attrs))),
 	];
 
 	candidates
@@ -196,9 +211,9 @@ fn callout_role(kind: &str) -> Role {
 /// `data-type` says, or else whatever marks it carries.
 fn span_role(data_type: Option<&str>, attrs: &[(String, String)]) -> Role {
 	match data_type {
-		Some("inline-math") => Role::Atom("inlineMath", atom_attrs(attrs)),
-		Some("mention") => Role::Atom("mention", atom_attrs(attrs)),
-		Some("emoji") => Role::Atom("emoji", atom_attrs(attrs)),
+		Some("inline-math") if MATHEMATICS => Role::Atom("inlineMath", atom_attrs(attrs)),
+		Some("mention") if MENTION => Role::Atom("mention", atom_attrs(attrs)),
+		Some("emoji") if EMOJI => Role::Atom("emoji", atom_attrs(attrs)),
 		_ => inline_role("span", attrs),
 	}
 }

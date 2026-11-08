@@ -19,6 +19,9 @@ use canvist_model::Value;
 
 use super::MAX_PARSE_DEPTH;
 use super::NestingLimitExceeded;
+use super::features::EMOJI;
+use super::features::MATHEMATICS;
+use super::features::MENTION;
 use super::features::gated;
 
 /// The name of the embed that breaks a line.
@@ -44,13 +47,13 @@ pub(super) fn embed_text(schema: &Schema, embed: &Embed) -> String {
 
 	match gated(schema.embed(embed.kind).name.as_ref()) {
 		HARD_BREAK => "\n".to_owned(),
-		"mention" => {
+		"mention" if MENTION => {
 			let trigger = text("mentionSuggestionChar").unwrap_or("@");
 			let label = text("label").or_else(|| text("id")).unwrap_or_default();
 			format!("{trigger}{label}")
 		}
-		"inlineMath" => format!("${}$", text("latex").unwrap_or_default()),
-		"emoji" => {
+		"inlineMath" if MATHEMATICS => format!("${}$", text("latex").unwrap_or_default()),
+		"emoji" if EMOJI => {
 			let shortcode = || text("name").map(|name| format!(":{name}:"));
 			text("emoji")
 				.map(str::to_owned)
