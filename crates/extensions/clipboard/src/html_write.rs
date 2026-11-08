@@ -427,8 +427,11 @@ fn write_text_block(
 	match gated(name) {
 		"heading" => {
 			let level = attr_int(attrs, "level").unwrap_or(1).clamp(1, MAX_HEADING);
-			let open = format!("<h{level}{}>", align_style(attrs));
-			write_wrapped(schema, &open, text, &format!("</h{level}>"), html);
+			let _ = write!(html, "<h{level}");
+			write_align(attrs, html);
+			html.push('>');
+			write_inline(schema, text, html);
+			let _ = write!(html, "</h{level}>");
 		}
 		"codeBlock" => {
 			match text_attr(attrs, "language") {
@@ -442,33 +445,35 @@ fn write_text_block(
 			html.push_str("</code></pre>");
 		}
 		"detailsSummary" => {
-			write_wrapped(schema, "<summary>", text, "</summary>", html);
+			html.push_str("<summary>");
+			write_inline(schema, text, html);
+			html.push_str("</summary>");
 		}
 		_ => {
-			let open = format!("<p{}>", align_style(attrs));
-			write_wrapped(schema, &open, text, "</p>", html);
+			html.push_str("<p");
+			write_align(attrs, html);
+			html.push('>');
+			write_inline(schema, text, html);
+			html.push_str("</p>");
 		}
 	}
-}
-
-/// `text` between `open` and `close`.
-fn write_wrapped(schema: &Schema, open: &str, text: &InlineText, close: &str, html: &mut String) {
-	html.push_str(open);
-	write_inline(schema, text, html);
-	html.push_str(close);
 }
 
 /// A ` style="text-align: …"` attribute for an aligned block, as TipTap
 /// writes it, or nothing, as it is without the text alignment extension.
-fn align_style(attrs: &Attrs) -> String {
+/// Every paragraph passes through here, so it writes into `html` rather
+/// than allocating.
+fn write_align(attrs: &Attrs, html: &mut String) {
 	if !cfg!(feature = "text-align") {
-		return String::new();
+		return;
 	}
 
-	text_attr(attrs, "textAlign")
-		.and_then(|value| super::css::value("text-align", value))
-		.map(|align| format!(" style=\"text-align: {}\"", escape(align)))
-		.unwrap_or_default()
+	let align =
+		text_attr(attrs, "textAlign").and_then(|value| super::css::value("text-align", value));
+
+	if let Some(align) = align {
+		let _ = write!(html, " style=\"text-align: {}\"", escape(align));
+	}
 }
 
 /// The opening and closing tags for one mark. Marks with attributes write
