@@ -12,24 +12,21 @@
 //! somewhere to type.
 //!
 //! ```
-//! use std::time::Duration;
-//!
-//! use canvist_core::Editor;
-//! use canvist_core::Env;
+//! use canvist_core::Extension;
 //! use canvist_extension_document::Document;
-//! use canvist_extension_paragraph::Paragraph;
+//! use canvist_model::BlockSpec;
+//! use canvist_model::Schema;
 //!
-//! let mut builder = Editor::builder().extension(Paragraph);
-//! builder.add(Document);
-//! let mut editor = builder.build()?;
-//! let mut env = Env::headless(Duration::ZERO);
+//! let blocks = Schema::builder().block(BlockSpec::text("paragraph"));
+//! let schema = Document.schema(blocks).build()?;
+//! let paragraph = schema.block_type("paragraph").expect("a paragraph");
 //!
-//! editor.insert_text("Hello", &mut env)?;
-//!
-//! assert_eq!(editor.state().doc().children(None).len(), 1);
-//! assert_eq!(editor.state().doc().plain_text(), "Hello");
-//! # Ok::<(), canvist_core::EditorError>(())
+//! assert_eq!(schema.root_children(), [paragraph]);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! Register it with [`Editor::builder`](canvist_core::Editor::builder),
+//! alongside `canvist_extension_paragraph`'s `Paragraph`.
 
 use canvist_core::Extension;
 use canvist_core::Registration;

@@ -1128,7 +1128,6 @@ name = "canvist_extension_document"
 version = "0.2.0"
 dependencies = [
  "canvist_core",
- "canvist_extension_paragraph",
  "canvist_model",
 ]
 

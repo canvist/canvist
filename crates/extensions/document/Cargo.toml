@@ -18,8 +18,5 @@ description = "canvist: TipTap's `doc` root node"
 canvist_core = { workspace = true }
 canvist_model = { workspace = true }
 
-[dev-dependencies]
-canvist_extension_paragraph = { workspace = true }
-
 [lints]
 workspace = true
