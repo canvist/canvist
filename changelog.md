@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
+
+Grouped release for `sdk`.
+
+### 🚀 Feature
+
+#### Conditional text: words that only some versions of a document keep
+
+_Packages:_ 🟠 _@canvist/headless_, 🟠 _@canvist/web_, 🟠 _canvist-dart_, 🟠 _canvist_core_, 🟠 _canvist_extensions_, 🟠 _canvist_headless_, 🟠 _canvist_layout_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #251](https://github.com/canvist/canvist/pull/251)
+
+The new `conditional` extension (in the full module) adds the `conditional` mark, for text that belongs in some versions of a document and not others: a sentence for one audience, or the handle a person goes by on one network when one post goes to several. Its `when` attribute is the host's own string, such as `"instagram threads"`; canvist never reads it, and the host decides what it means when it renders or exports a version.
+
+- `setConditional({ when })`, `toggleConditional({ when })` and `unsetConditional` work on selected text; `insertConditional({ when, text })` writes conditional text at the caret.
+- `isConditional` and `conditionalWhen` read the selection.
+- The mark is not inclusive, so text typed after a conditional run is ordinary text, and the StarterKit theme tints conditional text.
+- HTML writes and reads `<span data-type="conditional" data-when="…">`; Markdown keeps only the text.
+
+`canvist_core::commands::insert_inline` is now public: it inserts text and embeds that carry their own marks over the selection.
+
+### 🐛 Fixed
+
+- **Remove the unmaintained pin-utils dependency from the HTTP stack.** Update Hyper from 1.8.1 to 1.12.0 within its existing compatible version range. This removes pin-utils, flagged by informational advisory RUSTSEC-2026-0441, without adding a cargo-deny exception. _Packages:_ 🟢 _canvist_dictation_relay_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #241](https://github.com/canvist/canvist/pull/241)
+
 ## [0.2.0](https://github.com/canvist/canvist/releases/tag/v0.2.0) (2026-11-04)
 
 Grouped release for `sdk`.

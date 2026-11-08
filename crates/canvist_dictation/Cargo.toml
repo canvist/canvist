@@ -1,6 +1,6 @@
 [package]
 name = "canvist_dictation"
-version = "0.2.0"
+version = "0.2.1"
 authors.workspace = true
 categories = ["multimedia::audio", "network-programming", "text-editors"]
 documentation = "https://docs.rs/canvist_dictation"
