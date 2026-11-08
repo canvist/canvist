@@ -1,0 +1,17 @@
+name: canvist_extension_heading
+description: "TipTap's `heading` block, with `#` to `######` and `Mod-Alt-1` to `Mod-Alt-6`, for canvist's Dart engine."
+version: 0.2.0
+repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/heading
+issue_tracker: https://github.com/canvist/canvist/issues
+# Reserved on pub.dev? Remove this line (see ../readme.md).
+publish_to: none
+topics:
+  - rich-text
+  - editor
+  - canvist
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  canvist: ^0.2.0

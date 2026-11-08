@@ -134,145 +134,145 @@ path = "crates/canvist_extensions"
 
 # One crate per extension (`crates/extensions/*`). `canvist_extensions`
 # combines them behind its features.
-[package.canvist_extension_audio]
+[package.canvist_extension_audio-rust]
 path = "crates/extensions/audio"
 
-[package.canvist_extension_blockquote]
+[package.canvist_extension_blockquote-rust]
 path = "crates/extensions/blockquote"
 
-[package.canvist_extension_bold]
+[package.canvist_extension_bold-rust]
 path = "crates/extensions/bold"
 
-[package.canvist_extension_callout]
+[package.canvist_extension_callout-rust]
 path = "crates/extensions/callout"
 
-[package.canvist_extension_character_count]
+[package.canvist_extension_character_count-rust]
 path = "crates/extensions/character_count"
 
-[package.canvist_extension_clear_formatting]
+[package.canvist_extension_clear_formatting-rust]
 path = "crates/extensions/clear_formatting"
 
-[package.canvist_extension_clipboard]
+[package.canvist_extension_clipboard-rust]
 path = "crates/extensions/clipboard"
 
-[package.canvist_extension_code]
+[package.canvist_extension_code-rust]
 path = "crates/extensions/code"
 
-[package.canvist_extension_code_block]
+[package.canvist_extension_code_block-rust]
 path = "crates/extensions/code_block"
 
-[package.canvist_extension_comments]
+[package.canvist_extension_comments-rust]
 path = "crates/extensions/comments"
 
-[package.canvist_extension_conditional]
+[package.canvist_extension_conditional-rust]
 path = "crates/extensions/conditional"
 
-[package.canvist_extension_details]
+[package.canvist_extension_details-rust]
 path = "crates/extensions/details"
 
-[package.canvist_extension_document]
+[package.canvist_extension_document-rust]
 path = "crates/extensions/document"
 
-[package.canvist_extension_drag_handle]
+[package.canvist_extension_drag_handle-rust]
 path = "crates/extensions/drag_handle"
 
-[package.canvist_extension_emoji]
+[package.canvist_extension_emoji-rust]
 path = "crates/extensions/emoji"
 
-[package.canvist_extension_file]
+[package.canvist_extension_file-rust]
 path = "crates/extensions/file"
 
-[package.canvist_extension_find_and_replace]
+[package.canvist_extension_find_and_replace-rust]
 path = "crates/extensions/find_and_replace"
 
-[package.canvist_extension_hard_break]
+[package.canvist_extension_hard_break-rust]
 path = "crates/extensions/hard_break"
 
-[package.canvist_extension_hashtag]
+[package.canvist_extension_hashtag-rust]
 path = "crates/extensions/hashtag"
 
-[package.canvist_extension_heading]
+[package.canvist_extension_heading-rust]
 path = "crates/extensions/heading"
 
-[package.canvist_extension_highlight]
+[package.canvist_extension_highlight-rust]
 path = "crates/extensions/highlight"
 
-[package.canvist_extension_history]
+[package.canvist_extension_history-rust]
 path = "crates/extensions/history"
 
-[package.canvist_extension_horizontal_rule]
+[package.canvist_extension_horizontal_rule-rust]
 path = "crates/extensions/horizontal_rule"
 
-[package.canvist_extension_image]
+[package.canvist_extension_image-rust]
 path = "crates/extensions/image"
 
-[package.canvist_extension_ink]
+[package.canvist_extension_ink-rust]
 path = "crates/extensions/ink"
 
-[package.canvist_extension_italic]
+[package.canvist_extension_italic-rust]
 path = "crates/extensions/italic"
 
-[package.canvist_extension_kinetic]
+[package.canvist_extension_kinetic-rust]
 path = "crates/extensions/kinetic"
 
-[package.canvist_extension_link]
+[package.canvist_extension_link-rust]
 path = "crates/extensions/link"
 
-[package.canvist_extension_list]
+[package.canvist_extension_list-rust]
 path = "crates/extensions/list"
 
-[package.canvist_extension_mathematics]
+[package.canvist_extension_mathematics-rust]
 path = "crates/extensions/mathematics"
 
-[package.canvist_extension_media]
+[package.canvist_extension_media-rust]
 path = "crates/extensions/media"
 
-[package.canvist_extension_mention]
+[package.canvist_extension_mention-rust]
 path = "crates/extensions/mention"
 
-[package.canvist_extension_paragraph]
+[package.canvist_extension_paragraph-rust]
 path = "crates/extensions/paragraph"
 
-[package.canvist_extension_placeholder]
+[package.canvist_extension_placeholder-rust]
 path = "crates/extensions/placeholder"
 
-[package.canvist_extension_strike]
+[package.canvist_extension_strike-rust]
 path = "crates/extensions/strike"
 
-[package.canvist_extension_subscript]
+[package.canvist_extension_subscript-rust]
 path = "crates/extensions/subscript"
 
-[package.canvist_extension_suggestion]
+[package.canvist_extension_suggestion-rust]
 path = "crates/extensions/suggestion"
 
-[package.canvist_extension_superscript]
+[package.canvist_extension_superscript-rust]
 path = "crates/extensions/superscript"
 
-[package.canvist_extension_table]
+[package.canvist_extension_table-rust]
 path = "crates/extensions/table"
 
-[package.canvist_extension_table_of_contents]
+[package.canvist_extension_table_of_contents-rust]
 path = "crates/extensions/table_of_contents"
 
-[package.canvist_extension_text_align]
+[package.canvist_extension_text_align-rust]
 path = "crates/extensions/text_align"
 
-[package.canvist_extension_text_style]
+[package.canvist_extension_text_style-rust]
 path = "crates/extensions/text_style"
 
-[package.canvist_extension_trailing_node]
+[package.canvist_extension_trailing_node-rust]
 path = "crates/extensions/trailing_node"
 
-[package.canvist_extension_twitch]
+[package.canvist_extension_twitch-rust]
 path = "crates/extensions/twitch"
 
-[package.canvist_extension_typography]
+[package.canvist_extension_typography-rust]
 path = "crates/extensions/typography"
 
-[package.canvist_extension_underline]
+[package.canvist_extension_underline-rust]
 path = "crates/extensions/underline"
 
-[package.canvist_extension_youtube]
+[package.canvist_extension_youtube-rust]
 path = "crates/extensions/youtube"
 
 [package.canvist_layout]
@@ -372,6 +372,176 @@ type = "npm"
 path = "packages/canvist-canvas"
 type = "npm"
 
+# One package per extension, re-exporting its descriptors from
+# `@canvist/headless` (`tools/extension-packages.ts` writes them).
+[package."@canvist/extension-audio"]
+path = "packages/extensions/audio"
+type = "npm"
+
+[package."@canvist/extension-blockquote"]
+path = "packages/extensions/blockquote"
+type = "npm"
+
+[package."@canvist/extension-bold"]
+path = "packages/extensions/bold"
+type = "npm"
+
+[package."@canvist/extension-callout"]
+path = "packages/extensions/callout"
+type = "npm"
+
+[package."@canvist/extension-character-count"]
+path = "packages/extensions/character-count"
+type = "npm"
+
+[package."@canvist/extension-clear-formatting"]
+path = "packages/extensions/clear-formatting"
+type = "npm"
+
+[package."@canvist/extension-code"]
+path = "packages/extensions/code"
+type = "npm"
+
+[package."@canvist/extension-code-block"]
+path = "packages/extensions/code-block"
+type = "npm"
+
+[package."@canvist/extension-comments"]
+path = "packages/extensions/comments"
+type = "npm"
+
+[package."@canvist/extension-conditional"]
+path = "packages/extensions/conditional"
+type = "npm"
+
+[package."@canvist/extension-details"]
+path = "packages/extensions/details"
+type = "npm"
+
+[package."@canvist/extension-drag-handle"]
+path = "packages/extensions/drag-handle"
+type = "npm"
+
+[package."@canvist/extension-emoji"]
+path = "packages/extensions/emoji"
+type = "npm"
+
+[package."@canvist/extension-file"]
+path = "packages/extensions/file"
+type = "npm"
+
+[package."@canvist/extension-find-and-replace"]
+path = "packages/extensions/find-and-replace"
+type = "npm"
+
+[package."@canvist/extension-hard-break"]
+path = "packages/extensions/hard-break"
+type = "npm"
+
+[package."@canvist/extension-hashtag"]
+path = "packages/extensions/hashtag"
+type = "npm"
+
+[package."@canvist/extension-heading"]
+path = "packages/extensions/heading"
+type = "npm"
+
+[package."@canvist/extension-highlight"]
+path = "packages/extensions/highlight"
+type = "npm"
+
+[package."@canvist/extension-history"]
+path = "packages/extensions/history"
+type = "npm"
+
+[package."@canvist/extension-horizontal-rule"]
+path = "packages/extensions/horizontal-rule"
+type = "npm"
+
+[package."@canvist/extension-image"]
+path = "packages/extensions/image"
+type = "npm"
+
+[package."@canvist/extension-ink"]
+path = "packages/extensions/ink"
+type = "npm"
+
+[package."@canvist/extension-italic"]
+path = "packages/extensions/italic"
+type = "npm"
+
+[package."@canvist/extension-kinetic"]
+path = "packages/extensions/kinetic"
+type = "npm"
+
+[package."@canvist/extension-link"]
+path = "packages/extensions/link"
+type = "npm"
+
+[package."@canvist/extension-list"]
+path = "packages/extensions/list"
+type = "npm"
+
+[package."@canvist/extension-mathematics"]
+path = "packages/extensions/mathematics"
+type = "npm"
+
+[package."@canvist/extension-mention"]
+path = "packages/extensions/mention"
+type = "npm"
+
+[package."@canvist/extension-placeholder"]
+path = "packages/extensions/placeholder"
+type = "npm"
+
+[package."@canvist/extension-strike"]
+path = "packages/extensions/strike"
+type = "npm"
+
+[package."@canvist/extension-subscript"]
+path = "packages/extensions/subscript"
+type = "npm"
+
+[package."@canvist/extension-superscript"]
+path = "packages/extensions/superscript"
+type = "npm"
+
+[package."@canvist/extension-table"]
+path = "packages/extensions/table"
+type = "npm"
+
+[package."@canvist/extension-table-of-contents"]
+path = "packages/extensions/table-of-contents"
+type = "npm"
+
+[package."@canvist/extension-text-align"]
+path = "packages/extensions/text-align"
+type = "npm"
+
+[package."@canvist/extension-text-style"]
+path = "packages/extensions/text-style"
+type = "npm"
+
+[package."@canvist/extension-trailing-node"]
+path = "packages/extensions/trailing-node"
+type = "npm"
+
+[package."@canvist/extension-twitch"]
+path = "packages/extensions/twitch"
+type = "npm"
+
+[package."@canvist/extension-typography"]
+path = "packages/extensions/typography"
+type = "npm"
+
+[package."@canvist/extension-underline"]
+path = "packages/extensions/underline"
+type = "npm"
+
+[package."@canvist/extension-youtube"]
+path = "packages/extensions/youtube"
+type = "npm"
+
 # The editor for React Native, over the iOS and Android `CanvistView`s.
 # Releases publish the native dependencies to CocoaPods and Maven Central.
 [package."@canvist/react-native"]
@@ -395,6 +565,262 @@ type = "dart"
 changelog = { path = "platforms/dart/CHANGELOG.md", format = "keep_a_changelog" }
 publish = { enabled = true, mode = "external" }
 
+# One Dart package per extension, re-exporting it from `canvist`. Each
+# keeps `publish_to: none` in its pubspec until its name is reserved on
+# pub.dev (`platforms/dart_extensions/readme.md`); the `pub` job in
+# `publish.yml` publishes only the ones without it.
+[package.canvist_extension_audio-dart]
+path = "platforms/dart_extensions/audio"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/audio/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_blockquote-dart]
+path = "platforms/dart_extensions/blockquote"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/blockquote/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_bold-dart]
+path = "platforms/dart_extensions/bold"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/bold/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_callout-dart]
+path = "platforms/dart_extensions/callout"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/callout/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_character_count-dart]
+path = "platforms/dart_extensions/character_count"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/character_count/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_clear_formatting-dart]
+path = "platforms/dart_extensions/clear_formatting"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/clear_formatting/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_code-dart]
+path = "platforms/dart_extensions/code"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/code/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_code_block-dart]
+path = "platforms/dart_extensions/code_block"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/code_block/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_comments-dart]
+path = "platforms/dart_extensions/comments"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/comments/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_conditional-dart]
+path = "platforms/dart_extensions/conditional"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/conditional/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_details-dart]
+path = "platforms/dart_extensions/details"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/details/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_drag_handle-dart]
+path = "platforms/dart_extensions/drag_handle"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/drag_handle/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_emoji-dart]
+path = "platforms/dart_extensions/emoji"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/emoji/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_file-dart]
+path = "platforms/dart_extensions/file"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/file/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_find_and_replace-dart]
+path = "platforms/dart_extensions/find_and_replace"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/find_and_replace/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_hard_break-dart]
+path = "platforms/dart_extensions/hard_break"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/hard_break/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_hashtag-dart]
+path = "platforms/dart_extensions/hashtag"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/hashtag/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_heading-dart]
+path = "platforms/dart_extensions/heading"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/heading/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_highlight-dart]
+path = "platforms/dart_extensions/highlight"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/highlight/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_history-dart]
+path = "platforms/dart_extensions/history"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/history/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_horizontal_rule-dart]
+path = "platforms/dart_extensions/horizontal_rule"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/horizontal_rule/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_image-dart]
+path = "platforms/dart_extensions/image"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/image/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_ink-dart]
+path = "platforms/dart_extensions/ink"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/ink/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_italic-dart]
+path = "platforms/dart_extensions/italic"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/italic/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_kinetic-dart]
+path = "platforms/dart_extensions/kinetic"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/kinetic/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_link-dart]
+path = "platforms/dart_extensions/link"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/link/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_list-dart]
+path = "platforms/dart_extensions/list"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/list/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_mathematics-dart]
+path = "platforms/dart_extensions/mathematics"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/mathematics/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_mention-dart]
+path = "platforms/dart_extensions/mention"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/mention/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_placeholder-dart]
+path = "platforms/dart_extensions/placeholder"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/placeholder/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_strike-dart]
+path = "platforms/dart_extensions/strike"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/strike/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_subscript-dart]
+path = "platforms/dart_extensions/subscript"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/subscript/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_superscript-dart]
+path = "platforms/dart_extensions/superscript"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/superscript/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_table-dart]
+path = "platforms/dart_extensions/table"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/table/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_table_of_contents-dart]
+path = "platforms/dart_extensions/table_of_contents"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/table_of_contents/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_text_align-dart]
+path = "platforms/dart_extensions/text_align"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/text_align/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_text_style-dart]
+path = "platforms/dart_extensions/text_style"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/text_style/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_trailing_node-dart]
+path = "platforms/dart_extensions/trailing_node"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/trailing_node/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_twitch-dart]
+path = "platforms/dart_extensions/twitch"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/twitch/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_typography-dart]
+path = "platforms/dart_extensions/typography"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/typography/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_underline-dart]
+path = "platforms/dart_extensions/underline"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/underline/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
+[package.canvist_extension_youtube-dart]
+path = "platforms/dart_extensions/youtube"
+type = "dart"
+changelog = { path = "platforms/dart_extensions/youtube/CHANGELOG.md", format = "keep_a_changelog" }
+publish = { enabled = true, mode = "external" }
+
 [package.canvist_flutter]
 path = "platforms/flutter"
 type = "flutter"
@@ -403,6 +829,48 @@ publish = { enabled = true, mode = "external" }
 
 [group.sdk]
 packages = [
+	"@canvist/extension-audio",
+	"@canvist/extension-blockquote",
+	"@canvist/extension-bold",
+	"@canvist/extension-callout",
+	"@canvist/extension-character-count",
+	"@canvist/extension-clear-formatting",
+	"@canvist/extension-code",
+	"@canvist/extension-code-block",
+	"@canvist/extension-comments",
+	"@canvist/extension-conditional",
+	"@canvist/extension-details",
+	"@canvist/extension-drag-handle",
+	"@canvist/extension-emoji",
+	"@canvist/extension-file",
+	"@canvist/extension-find-and-replace",
+	"@canvist/extension-hard-break",
+	"@canvist/extension-hashtag",
+	"@canvist/extension-heading",
+	"@canvist/extension-highlight",
+	"@canvist/extension-history",
+	"@canvist/extension-horizontal-rule",
+	"@canvist/extension-image",
+	"@canvist/extension-ink",
+	"@canvist/extension-italic",
+	"@canvist/extension-kinetic",
+	"@canvist/extension-link",
+	"@canvist/extension-list",
+	"@canvist/extension-mathematics",
+	"@canvist/extension-mention",
+	"@canvist/extension-placeholder",
+	"@canvist/extension-strike",
+	"@canvist/extension-subscript",
+	"@canvist/extension-superscript",
+	"@canvist/extension-table",
+	"@canvist/extension-table-of-contents",
+	"@canvist/extension-text-align",
+	"@canvist/extension-text-style",
+	"@canvist/extension-trailing-node",
+	"@canvist/extension-twitch",
+	"@canvist/extension-typography",
+	"@canvist/extension-underline",
+	"@canvist/extension-youtube",
 	"@canvist/canvas",
 	"@canvist/headless",
 	"@canvist/lynx",
@@ -412,6 +880,48 @@ packages = [
 	"@canvist/web",
 	"canvist-dart",
 	"canvist-rust",
+	"canvist_extension_audio-dart",
+	"canvist_extension_blockquote-dart",
+	"canvist_extension_bold-dart",
+	"canvist_extension_callout-dart",
+	"canvist_extension_character_count-dart",
+	"canvist_extension_clear_formatting-dart",
+	"canvist_extension_code-dart",
+	"canvist_extension_code_block-dart",
+	"canvist_extension_comments-dart",
+	"canvist_extension_conditional-dart",
+	"canvist_extension_details-dart",
+	"canvist_extension_drag_handle-dart",
+	"canvist_extension_emoji-dart",
+	"canvist_extension_file-dart",
+	"canvist_extension_find_and_replace-dart",
+	"canvist_extension_hard_break-dart",
+	"canvist_extension_hashtag-dart",
+	"canvist_extension_heading-dart",
+	"canvist_extension_highlight-dart",
+	"canvist_extension_history-dart",
+	"canvist_extension_horizontal_rule-dart",
+	"canvist_extension_image-dart",
+	"canvist_extension_ink-dart",
+	"canvist_extension_italic-dart",
+	"canvist_extension_kinetic-dart",
+	"canvist_extension_link-dart",
+	"canvist_extension_list-dart",
+	"canvist_extension_mathematics-dart",
+	"canvist_extension_mention-dart",
+	"canvist_extension_placeholder-dart",
+	"canvist_extension_strike-dart",
+	"canvist_extension_subscript-dart",
+	"canvist_extension_superscript-dart",
+	"canvist_extension_table-dart",
+	"canvist_extension_table_of_contents-dart",
+	"canvist_extension_text_align-dart",
+	"canvist_extension_text_style-dart",
+	"canvist_extension_trailing_node-dart",
+	"canvist_extension_twitch-dart",
+	"canvist_extension_typography-dart",
+	"canvist_extension_underline-dart",
+	"canvist_extension_youtube-dart",
 	"canvist_canvas",
 	"canvist_canvas_wasm",
 	"canvist_collab",
@@ -420,53 +930,53 @@ packages = [
 	"canvist_dictation",
 	"canvist_dictation_relay",
 	"canvist_extensions",
-	"canvist_extension_audio",
-	"canvist_extension_blockquote",
-	"canvist_extension_bold",
-	"canvist_extension_callout",
-	"canvist_extension_character_count",
-	"canvist_extension_clear_formatting",
-	"canvist_extension_clipboard",
-	"canvist_extension_code",
-	"canvist_extension_code_block",
-	"canvist_extension_comments",
-	"canvist_extension_conditional",
-	"canvist_extension_details",
-	"canvist_extension_document",
-	"canvist_extension_drag_handle",
-	"canvist_extension_emoji",
-	"canvist_extension_file",
-	"canvist_extension_find_and_replace",
-	"canvist_extension_hard_break",
-	"canvist_extension_hashtag",
-	"canvist_extension_heading",
-	"canvist_extension_highlight",
-	"canvist_extension_history",
-	"canvist_extension_horizontal_rule",
-	"canvist_extension_image",
-	"canvist_extension_ink",
-	"canvist_extension_italic",
-	"canvist_extension_kinetic",
-	"canvist_extension_link",
-	"canvist_extension_list",
-	"canvist_extension_mathematics",
-	"canvist_extension_media",
-	"canvist_extension_mention",
-	"canvist_extension_paragraph",
-	"canvist_extension_placeholder",
-	"canvist_extension_strike",
-	"canvist_extension_subscript",
-	"canvist_extension_suggestion",
-	"canvist_extension_superscript",
-	"canvist_extension_table",
-	"canvist_extension_table_of_contents",
-	"canvist_extension_text_align",
-	"canvist_extension_text_style",
-	"canvist_extension_trailing_node",
-	"canvist_extension_twitch",
-	"canvist_extension_typography",
-	"canvist_extension_underline",
-	"canvist_extension_youtube",
+	"canvist_extension_audio-rust",
+	"canvist_extension_blockquote-rust",
+	"canvist_extension_bold-rust",
+	"canvist_extension_callout-rust",
+	"canvist_extension_character_count-rust",
+	"canvist_extension_clear_formatting-rust",
+	"canvist_extension_clipboard-rust",
+	"canvist_extension_code-rust",
+	"canvist_extension_code_block-rust",
+	"canvist_extension_comments-rust",
+	"canvist_extension_conditional-rust",
+	"canvist_extension_details-rust",
+	"canvist_extension_document-rust",
+	"canvist_extension_drag_handle-rust",
+	"canvist_extension_emoji-rust",
+	"canvist_extension_file-rust",
+	"canvist_extension_find_and_replace-rust",
+	"canvist_extension_hard_break-rust",
+	"canvist_extension_hashtag-rust",
+	"canvist_extension_heading-rust",
+	"canvist_extension_highlight-rust",
+	"canvist_extension_history-rust",
+	"canvist_extension_horizontal_rule-rust",
+	"canvist_extension_image-rust",
+	"canvist_extension_ink-rust",
+	"canvist_extension_italic-rust",
+	"canvist_extension_kinetic-rust",
+	"canvist_extension_link-rust",
+	"canvist_extension_list-rust",
+	"canvist_extension_mathematics-rust",
+	"canvist_extension_media-rust",
+	"canvist_extension_mention-rust",
+	"canvist_extension_paragraph-rust",
+	"canvist_extension_placeholder-rust",
+	"canvist_extension_strike-rust",
+	"canvist_extension_subscript-rust",
+	"canvist_extension_suggestion-rust",
+	"canvist_extension_superscript-rust",
+	"canvist_extension_table-rust",
+	"canvist_extension_table_of_contents-rust",
+	"canvist_extension_text_align-rust",
+	"canvist_extension_text_style-rust",
+	"canvist_extension_trailing_node-rust",
+	"canvist_extension_twitch-rust",
+	"canvist_extension_typography-rust",
+	"canvist_extension_underline-rust",
+	"canvist_extension_youtube-rust",
 	"canvist_ffi",
 	"canvist_flutter",
 	"canvist_headless",

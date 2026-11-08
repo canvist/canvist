@@ -69,6 +69,17 @@ jobs:
       - name: generated handles are up to date
         run: dart run tool/generate.dart --check
 
+      # Each re-exports its extension from `canvist`; analysis proves every
+      # name it exports exists.
+      - name: per-extension packages analyze
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: platforms/dart_extensions
+        run: |
+          for package in */; do
+            (cd "$package" && dart pub get && dart analyze --fatal-infos)
+          done
+          dart format --output=none --set-exit-if-changed .
+
       - name: conformance, api, and server tests
         run: dart test --reporter expanded
 

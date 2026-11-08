@@ -2,6 +2,8 @@
 "canvist_core": feat
 "canvist_model": feat
 "canvist_extensions": feat
+"@canvist/headless": feat
+"canvist-dart": feat
 ---
 
 # One crate per extension, combined by canvist_extensions
@@ -19,3 +21,5 @@ The helpers the extensions shared are now public, for anyone writing their own:
 - `canvist_model::video_kind` is the policy for which URLs a video block may embed.
 - `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
 - `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
+
+Each extension also has an npm package, `@canvist/extension-<name>`, and a Dart package, `canvist_extension_<name>`, that re-export it from `@canvist/headless` and `canvist`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. The engines compile every extension in, so these packages add no code. The Dart packages reach pub.dev in batches, since pub.dev limits how many new packages an account creates a day.

@@ -1,0 +1,17 @@
+name: canvist_extension_drag_handle
+description: "Move blocks up and down with `Alt-↑` and `Alt-↓`, or to any position, like TipTap's DragHandle, for canvist's Dart engine."
+version: 0.2.0
+repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/drag_handle
+issue_tracker: https://github.com/canvist/canvist/issues
+# Reserved on pub.dev? Remove this line (see ../readme.md).
+publish_to: none
+topics:
+  - rich-text
+  - editor
+  - canvist
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  canvist: ^0.2.0

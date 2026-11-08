@@ -12,7 +12,7 @@ license.workspace = true
 readme = "readme.md"
 repository.workspace = true
 rust-version.workspace = true
-description = "canvist: TipTap's `blockquote` block, with `> ` and `Mod-Shift-b`"
+description = "canvist: TipTap's `blockquote` block, with a leading `>` and `Mod-Shift-b`"
 
 [dependencies]
 canvist_core = { workspace = true }
