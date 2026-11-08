@@ -326,6 +326,7 @@ in
         monostyle check crates/canvist_layout --fail-under 90
         monostyle check crates/canvist_core --fail-under 90
         monostyle check crates/canvist_extensions --fail-under 90
+        monostyle check crates/extensions --fail-under 90
         monostyle check crates/canvist_collab --fail-under 90
         monostyle check crates/canvist_scene --fail-under 90
         monostyle check crates/canvist_canvas --fail-under 90

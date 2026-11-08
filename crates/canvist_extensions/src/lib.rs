@@ -8,9 +8,13 @@
 //! on [`canvist_core`] and named the way TipTap names them, so documents
 //! move between the two as ProseMirror JSON without conversion.
 //!
-//! Each extension sits behind a Cargo feature of the same name, and the
-//! `starter-kit` feature (on by default) enables them all. An app that only
-//! needs bold paragraphs compiles only bold paragraphs.
+//! Each extension is its own crate, `canvist_extension_<name>` (such as
+//! `canvist_extension_heading`), and this crate combines them: each sits
+//! behind a Cargo feature of the same name, which enables the crate and
+//! re-exports its types here. The `starter-kit` feature (on by default)
+//! enables the StarterKit's. An app that only needs bold paragraphs
+//! compiles only bold paragraphs, and an app that wants no combined crate
+//! at all can depend on the extension crates directly.
 //!
 //! | Extension          | Feature           | Adds                                    |
 //! | ------------------ | ----------------- | --------------------------------------- |
@@ -37,41 +41,41 @@
 //! Beyond the StarterKit, each behind its own feature (`full` enables
 //! them all, and [`extras`] lists them):
 //!
-//! | Extension           | Feature            | Adds                                     |
-//! | ------------------- | ------------------ | ---------------------------------------- |
-//! | [`Subscript`]       | `subscript`        | `subscript`, `Mod-,`                     |
-//! | [`Superscript`]     | `superscript`      | `superscript`, `Mod-.`                   |
-//! | [`Highlight`]       | `highlight`        | `highlight`, `==text==`, `Mod-Shift-h`   |
-//! | [`TextStyle`]       | `text-style`       | `textStyle`, the mark styles live on     |
-//! | [`Color`]           | `color`            | `textStyle.color`                        |
-//! | [`BackgroundColor`] | `background-color` | `textStyle.backgroundColor`              |
-//! | [`FontFamily`]      | `font-family`      | `textStyle.fontFamily`                   |
-//! | [`FontSize`]        | `font-size`        | `textStyle.fontSize`                     |
-//! | [`LineHeight`]      | `line-height`      | `textStyle.lineHeight`                   |
-//! | [`TextAlign`]       | `text-align`       | `textAlign`, `Mod-Shift-l`/`e`/`r`/`j`   |
-//! | [`Typography`]      | `typography`       | Smart quotes, dashes, arrows, fractions  |
-//! | [`CharacterCount`]  | `character-count`  | Character and word counts, a limit       |
-//! | [`Placeholder`]     | `placeholder`      | Hint text in empty blocks                |
-//! | [`Mention`]         | `mention`          | `mention`, `@` suggestions               |
-//! | [`Hashtag`]         | `hashtag`          | `hashtag`, `#tag` as you type            |
-//! | [`Emoji`]           | `emoji`            | `emoji`, `:smile:`, `:` suggestions      |
-//! | [`Image`]           | `image`            | `image`, `![alt](src)`                   |
-//! | [`Youtube`]         | `youtube`          | `youtube`                                |
-//! | [`Twitch`]          | `twitch`           | `twitch`                                 |
-//! | [`Audio`]           | `audio`            | `audio`                                  |
-//! | [`File`]            | `file`             | `file`, an attachment card               |
-//! | [`Details`]         | `details`          | `details`, a summary that opens          |
-//! | [`Callout`]         | `callout`          | `callout`, `:::warning `                 |
-//! | [`Mathematics`]     | `mathematics`      | `inlineMath`, `blockMath`, `$$x$$`       |
-//! | [`Table`]           | `table`            | `table`, rows, cells, and header cells   |
-//! | [`FindAndReplace`]  | `findAndReplace`   | search, step, and replace                |
-//! | [`TableOfContents`] | `tableOfContents`  | the headings as an outline               |
-//! | [`Comments`]        | `comments`         | `comment`, thread ids on text            |
-//! | [`DragHandle`]      | `dragHandle`       | move blocks, Alt-↑ and Alt-↓             |
-//! | [`Ink`]             | `ink`              | `ink`, freehand strokes the canvas draws |
-//! | [`Kinetic`]         | `kinetic`          | `kinetic`, text that moves               |
-//! | [`Conditional`]     | `conditional`      | `conditional`, text some versions keep   |
-//! | [`ClearFormatting`] | `clearFormatting`  | marks off, blocks to paragraphs, `Mod-\` |
+//! | Extension           | Feature             | Adds                                     |
+//! | ------------------- | ------------------- | ---------------------------------------- |
+//! | [`Subscript`]       | `subscript`         | `subscript`, `Mod-,`                     |
+//! | [`Superscript`]     | `superscript`       | `superscript`, `Mod-.`                   |
+//! | [`Highlight`]       | `highlight`         | `highlight`, `==text==`, `Mod-Shift-h`   |
+//! | [`TextStyle`]       | `text-style`        | `textStyle`, the mark styles live on     |
+//! | [`Color`]           | `color`             | `textStyle.color`                        |
+//! | [`BackgroundColor`] | `background-color`  | `textStyle.backgroundColor`              |
+//! | [`FontFamily`]      | `font-family`       | `textStyle.fontFamily`                   |
+//! | [`FontSize`]        | `font-size`         | `textStyle.fontSize`                     |
+//! | [`LineHeight`]      | `line-height`       | `textStyle.lineHeight`                   |
+//! | [`TextAlign`]       | `text-align`        | `textAlign`, `Mod-Shift-l`/`e`/`r`/`j`   |
+//! | [`Typography`]      | `typography`        | Smart quotes, dashes, arrows, fractions  |
+//! | [`CharacterCount`]  | `character-count`   | Character and word counts, a limit       |
+//! | [`Placeholder`]     | `placeholder`       | Hint text in empty blocks                |
+//! | [`Mention`]         | `mention`           | `mention`, `@` suggestions               |
+//! | [`Hashtag`]         | `hashtag`           | `hashtag`, `#tag` as you type            |
+//! | [`Emoji`]           | `emoji`             | `emoji`, `:smile:`, `:` suggestions      |
+//! | [`Image`]           | `image`             | `image`, `![alt](src)`                   |
+//! | [`Youtube`]         | `youtube`           | `youtube`                                |
+//! | [`Twitch`]          | `twitch`            | `twitch`                                 |
+//! | [`Audio`]           | `audio`             | `audio`                                  |
+//! | [`File`]            | `file`              | `file`, an attachment card               |
+//! | [`Details`]         | `details`           | `details`, a summary that opens          |
+//! | [`Callout`]         | `callout`           | `callout`, `:::warning `                 |
+//! | [`Mathematics`]     | `mathematics`       | `inlineMath`, `blockMath`, `$$x$$`       |
+//! | [`Table`]           | `table`             | `table`, rows, cells, and header cells   |
+//! | [`FindAndReplace`]  | `find-and-replace`  | search, step, and replace                |
+//! | [`TableOfContents`] | `table-of-contents` | the headings as an outline               |
+//! | [`Comments`]        | `comments`          | `comment`, thread ids on text            |
+//! | [`DragHandle`]      | `drag-handle`       | move blocks, Alt-↑ and Alt-↓             |
+//! | [`Ink`]             | `ink`               | `ink`, freehand strokes the canvas draws |
+//! | [`Kinetic`]         | `kinetic`           | `kinetic`, text that moves               |
+//! | [`Conditional`]     | `conditional`       | `conditional`, text some versions keep   |
+//! | [`ClearFormatting`] | `clear-formatting`  | marks off, blocks to paragraphs, `Mod-\` |
 //!
 //! `docs/src/extensions/parity.md` compares the whole set with Remirror and
 //! TipTap.

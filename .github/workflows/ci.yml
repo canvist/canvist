@@ -164,7 +164,15 @@ jobs:
           FULL_OUTPUT=""
 
           # The crates monochange publishes (`monochange.toml`).
-          PACKAGES=("canvist" "canvist_model" "canvist_core" "canvist_extensions" "canvist_layout" "canvist_collab" "canvist_headless")
+          # `canvist_extensions` only re-exports the extension crates, and
+          # cargo-semver-checks cannot follow re-exports from other crates
+          # (it reports every one as removed), so each extension crate is
+          # checked instead. Its integration tests and metadata snapshots
+          # cover the combined API.
+          PACKAGES=("canvist" "canvist_model" "canvist_core" "canvist_layout" "canvist_collab" "canvist_headless")
+          for manifest in crates/extensions/*/Cargo.toml; do
+            PACKAGES+=("canvist_extension_$(basename "$(dirname "$manifest")")")
+          done
 
           for pkg in "${PACKAGES[@]}"; do
             echo "::group::Checking $pkg"
