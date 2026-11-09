@@ -83,6 +83,18 @@ Deno.test("code runs in the realm whose modules it imports", () => {
 	);
 	assertEquals(realmOf(`import { createServer } from "http";`), "server");
 	assertEquals(
+		realmOf(`import { createEngine } from "@canvist/collab";`),
+		"server",
+	);
+	assertEquals(
+		realmOf(`import { createRenderer } from "@canvist/ssr";`),
+		"server",
+	);
+	assertEquals(
+		realmOf(`import { createRenderer } from "@canvist/headless/ssr";`),
+		undefined,
+	);
+	assertEquals(
 		realmOf(
 			`import { createEditor } from "@canvist/web";\nimport { bold } from "@canvist/headless";`,
 		),

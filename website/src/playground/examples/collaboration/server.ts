@@ -1,4 +1,4 @@
-import { createEngine, type Doc, type StarterKit } from "@canvist/headless";
+import { type CollabDoc, createEngine, type StarterKit } from "@canvist/collab";
 
 // The sync server from the collaboration guide, with presence added: who is
 // in each room and where their cursor is. It runs in this tab; the editors
@@ -6,7 +6,7 @@ import { createEngine, type Doc, type StarterKit } from "@canvist/headless";
 const engine = await createEngine();
 const rooms = new Map<
 	string,
-	{ doc: Doc<StarterKit>; sockets: Set<WebSocket> }
+	{ doc: CollabDoc<StarterKit>; sockets: Set<WebSocket> }
 >();
 
 function room(name: string) {

@@ -22,7 +22,9 @@
 
 # @canvist/headless
 
-canvist's document model and editing engine for JavaScript with no DOM: Node, Deno, Bun, and Workers. Convert between ProseMirror/TipTap JSON, HTML, Markdown, and text, run typed editing commands, and serve Yjs collaboration from the same Rust core the editor uses, compiled to WebAssembly.
+canvist's document model and editing engine for JavaScript with no DOM: Node, Deno, Bun, and Workers. Convert between ProseMirror/TipTap JSON, HTML, Markdown, and text, and run typed editing commands, with the same Rust core the editor uses, compiled to WebAssembly.
+
+Its types, classes, and extension descriptors come from [`@canvist/core`](../canvist-core), which loads no WebAssembly; this package adds the module that runs them.
 
 ```sh
 npm install @canvist/headless
@@ -71,26 +73,31 @@ doc.export("html"); // "<p><mark>Hello world</mark></p>"
 ## What else it does
 
 - **Positions:** `{ path, offset }`, where `path` walks the block tree and `offset` counts UTF-16 code units, like JavaScript strings. Errors are `CanvistError`s with the same stable `code`s as the Rust and Dart packages.
-- **Collaboration:** a document can be a Yjs peer and a y-websocket-compatible server endpoint (`share`, `syncStart`, `receiveSync`). [`examples/server`](./examples/server) serves `POST /convert` and a `/sync/:room` WebSocket in a few lines.
-- **Server-side rendering:** `@canvist/headless/ssr` renders a document as HTML and CSS laid out exactly as `@canvist/web` paints it, so the live editor hydrates from it without moving a pixel, and as SVG for previews. It's a separate WebAssembly module too. See [Server-side rendering](../../docs/src/quick-start/ssr.md).
-- **Canvas scenes:** `@canvist/headless/scene` loads canvist canvas scenes and exports SVG and PNG, for thumbnails, social cards, and designs an agent writes. It's a separate WebAssembly module, so the document entry point stays small.
-- **Workers:** runtimes without a file system pass the module they imported: `createEngine(undefined, { wasm })`.
+- **Workers:** runtimes without a file system pass the module they imported: `createEngine(undefined, { wasm })`, with `wasm` from `@canvist/headless/wasm/canvist_headless_wasm_bg.wasm`.
 
-A typed command costs about 0.7 µs in Node and a collaborator's keystroke about 4.6 µs, at 10,000 paragraphs. `node bench/overhead.ts` reproduces the numbers.
+A typed command costs about 0.7 µs in Node, at 10,000 paragraphs. `node bench/overhead.ts` reproduces the numbers.
+
+## Other packages
+
+This package leaves out what most servers don't need, so its StarterKit module is about 267 KB gzipped. Each of these has its own module:
+
+- **Collaboration:** [`@canvist/collab`](../canvist-collab) has the same API, and its documents are Yjs peers and y-websocket-compatible server endpoints (`share`, `syncStart`, `receiveSync`). Its [`examples/server`](../canvist-collab/examples/server) serves `POST /convert` and a `/sync/:room` WebSocket in a few lines.
+- **Server-side rendering:** [`@canvist/ssr`](../canvist-ssr) renders a document as HTML and CSS laid out exactly as `@canvist/web` paints it, so the live editor hydrates from it without moving a pixel, and as SVG for previews. See [Server-side rendering](../../docs/src/quick-start/ssr.md).
+- **Canvas scenes:** [`@canvist/scene`](../canvist-scene) loads canvist canvas scenes and exports SVG and PNG, for thumbnails, social cards, and designs an agent writes.
 
 <details>
 <summary><strong>Development</strong></summary>
 
 ```sh
+(cd ../canvist-core && npm ci && npm run build)   # the package this one builds on
 npm ci
-npm run build:wasm      # the StarterKit module into wasm/, the full one into wasm-full/, the scene module into wasm-scene/, and the rendering module into wasm-ssr/
+npm run build:wasm      # the StarterKit module into wasm/, and the full one into wasm-full/
 npm test                # conformance and API tests in Node
-deno task test          # the same, plus the server example, in Deno
+deno task test          # the same, in Deno
 npm run check:types     # tsc --noEmit, including the type-level tests
-npm run generate        # regenerate the extension descriptors
 npm run build           # JavaScript and declarations for npm, into dist/
 ```
 
-The tests run the shared fixtures in [`conformance/`](../../conformance), which the Rust and Dart packages run too.
+The extension descriptors are generated in `@canvist/core` (`npm run generate` there). The tests run the shared fixtures in [`conformance/`](../../conformance), which the Rust and Dart packages run too.
 
 </details>

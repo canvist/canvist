@@ -1,11 +1,11 @@
 /**
  * The document in "Type into the real engine", and the theme it is laid out
  * with. The page is built with this document rendered to HTML by
- * `@canvist/headless/ssr`, and the browser editor (`@canvist/web`) starts
+ * `@canvist/ssr`, and the browser editor (`@canvist/web`) starts
  * from the same content with the same theme, so the canvas lines up with
  * that HTML when it takes its place.
  */
-import type { ThemeOptions } from "@canvist/headless";
+import type { ThemeOptions } from "@canvist/ssr";
 
 export type Scheme = "light" | "dark";
 

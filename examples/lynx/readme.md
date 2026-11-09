@@ -8,6 +8,6 @@ The notes screen from [`examples/react-native`](../react-native), in ReactLynx o
 
 ```sh
 npm install
-(cd ../../packages/canvist-headless && npm run build) && (cd ../../packages/canvist-lynx && npm install && npm run build)
+(cd ../../packages/canvist-core && npm install && npm run build) && (cd ../../packages/canvist-lynx && npm install && npm run build)
 e2e/test.sh ios       # or: e2e/test.sh android
 ```

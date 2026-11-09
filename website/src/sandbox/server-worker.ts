@@ -83,7 +83,10 @@ Object.assign(scope, {
 	fetch: sandboxFetch(dial, scope.fetch.bind(scope)),
 });
 
-/** `@canvist/headless` and `/full` share their classes; documents from either are previewed. */
+/**
+ * `@canvist/headless`, `@canvist/collab`, and their `/full` modules share
+ * their classes; documents from any of them are previewed.
+ */
 const watched = <M extends Parameters<DocumentTracker["watch"]>[0]>(
 	module: M,
 ): M => {
@@ -95,7 +98,9 @@ const LOADERS: Record<ServerModule, () => Promise<unknown>> = {
 	"@canvist/headless": () => import("@canvist/headless").then(watched),
 	"@canvist/headless/full": () =>
 		import("@canvist/headless/full").then(watched),
-	"@canvist/headless/ssr": () => import("@canvist/headless/ssr"),
+	"@canvist/collab": () => import("@canvist/collab").then(watched),
+	"@canvist/collab/full": () => import("@canvist/collab/full").then(watched),
+	"@canvist/ssr": () => import("@canvist/ssr"),
 	ws: () => Promise.resolve(wsModule(network)),
 	"node:http": () => Promise.resolve(httpModule(network)),
 	"node:events": () => Promise.resolve({ EventEmitter, default: EventEmitter }),

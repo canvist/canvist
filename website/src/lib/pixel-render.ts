@@ -1,9 +1,9 @@
 /**
  * Renders the "Type into the real engine" document to HTML at build time
- * with `@canvist/headless/ssr`, so the landing page shows it before any
+ * with `@canvist/ssr`, so the landing page shows it before any
  * JavaScript runs and `@canvist/web` hydrates it without moving.
  */
-import { createRenderer, type WasmSource } from "@canvist/headless/ssr";
+import { createRenderer, type WasmSource } from "@canvist/ssr";
 import { fluid, pageColor, themedCss } from "./cv-doc-css.ts";
 import { PIXEL_CONTENT, pixelTheme, type Scheme } from "./pixel-document.ts";
 
@@ -27,7 +27,7 @@ let rendering: Promise<PixelDocument> | undefined;
 
 /**
  * The document as HTML and its stylesheet, rendered once per build. The
- * build bundles `@canvist/headless` away from its rendering module, so the
+ * build bundles `@canvist/ssr` away from its WebAssembly module, so the
  * caller passes it; only the first call's `wasm` is used.
  */
 export function renderPixelDocument(wasm: WasmSource): Promise<PixelDocument> {

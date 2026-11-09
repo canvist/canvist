@@ -39,7 +39,7 @@ console.log(canvas.backend); // "webgpu" or "cpu"
 const saved = canvas.toJson(); // scene JSON, to store or start from later
 ```
 
-- **`scene`** is scene JSON, nested or flat: the same format `@canvist/headless/scene` reads and agents write. It defaults to one empty page, and `demo: true` starts from canvist's demo scene instead.
+- **`scene`** is scene JSON, nested or flat: the same format `@canvist/scene` reads and agents write. It defaults to one empty page, and `demo: true` starts from canvist's demo scene instead.
 - **Collaboration.** A `Transport` carries three messages: `hello`, `welcome`, and `update` (see `src/transport.ts`). `BroadcastTransport` syncs the tabs of one browser, and a WebSocket transport is a few lines on the same interface. Give every peer the same starting scene: each builds it the same way, so merging peers duplicates nothing.
 - **State.** `encodeState()` is the shared scene as one Yjs update, and `applyUpdate(update)` merges one, such as stored state.
 

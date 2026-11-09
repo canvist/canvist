@@ -32,7 +32,7 @@ if (element !== null) {
 - **The room's document replaces the editor's** once it arrives. An empty room gets one empty paragraph.
 - **Undo is per person.** `Mod-z`, `editor.undo()`, and the `undo` command revert only this peer's changes, grouped by word as when typing alone.
 - **It reconnects** with backoff when the connection drops, and catches up both ways. `connection.disconnect()` closes it for good. Call `connect` again to resume.
-- **JavaScript Yjs peers in the room see the same document.** Read it with `engine.fromYjs(Y.encodeStateAsUpdate(ydoc), clientId)` from `@canvist/headless`.
+- **JavaScript Yjs peers in the room see the same document.** Read it with `engine.fromYjs(Y.encodeStateAsUpdate(ydoc), clientId)` from `@canvist/collab`.
 
 The tests in `packages/canvist-web/tests/browser/collab.spec.ts` run two editors and a JavaScript `WebsocketProvider` peer against y-websocket's server in Chromium, Firefox, and WebKit.
 
@@ -46,8 +46,14 @@ Other people's carets aren't part of the document, so they travel beside it: eac
 
 One peer, usually your server, creates the shared document. Others join from its state. Each peer needs its own **client id**, a number no other peer uses.
 
+In TypeScript, collaboration is in `@canvist/collab`. It has the same API as `@canvist/headless`, and its documents add the Yjs calls below. `@canvist/headless` leaves Yjs out, so its WebAssembly module is about 190 KB smaller, gzipped; use it for documents that don't collaborate. Every other extension is in `@canvist/collab/full`.
+
+```sh
+npm install @canvist/collab
+```
+
 ```ts
-import { createEngine } from "@canvist/headless";
+import { createEngine } from "@canvist/collab";
 
 const engine = await createEngine();
 
@@ -85,12 +91,12 @@ Have the server seed the document before anyone connects. A canvist document alw
 `receiveSync` speaks the y-websocket protocol. Hand it each binary message from a connection, send `reply` back to that connection, and send `broadcast` to everyone else in the room. This is a complete Deno server:
 
 ```ts no_run
-import { createEngine, type Doc, type StarterKit } from "@canvist/headless";
+import { type CollabDoc, createEngine, type StarterKit } from "@canvist/collab";
 
 const engine = await createEngine();
 const rooms = new Map<
 	string,
-	{ doc: Doc<StarterKit>; sockets: Set<WebSocket> }
+	{ doc: CollabDoc<StarterKit>; sockets: Set<WebSocket> }
 >();
 
 function room(name: string) {
@@ -129,7 +135,7 @@ The server holds a real canvist document, so it can read, export, or transform t
 
 To try it without deploying anything, open [the collaboration example in the playground](/playground?example=collaboration). It runs this server in your browser tab, with live editors connected to it, and shows the room's document on the server as people type.
 
-The Rust (`receive_sync`) and Dart (`receiveSync`) packages have the same calls. The repository has complete servers for [TypeScript](https://github.com/canvist/canvist/tree/main/packages/canvist-headless/examples/server) and [Dart](https://github.com/canvist/canvist/blob/main/platforms/dart/example/server.dart), both tested against real Yjs clients.
+The Rust (`receive_sync`) and Dart (`receiveSync`) packages have the same calls. The repository has complete servers for [TypeScript](https://github.com/canvist/canvist/tree/main/packages/canvist-collab/examples/server) and [Dart](https://github.com/canvist/canvist/blob/main/platforms/dart/example/server.dart), both tested against real Yjs clients.
 
 ## Connect clients
 
@@ -155,7 +161,7 @@ canvist's browser editor joins the same rooms with [`@canvist/web/collab`](#put-
 A Yjs client can write anything into a shared document, including blocks your schema doesn't have. canvist hides content it doesn't understand instead of deleting it, and `validate()` tells you about it:
 
 ```ts
-import { createEngine } from "@canvist/headless";
+import { createEngine } from "@canvist/collab";
 
 const engine = await createEngine();
 const doc = engine.parse("markdown", "# Shared");

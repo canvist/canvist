@@ -16,7 +16,7 @@ Until then, build it once and install the tarball. You need Node 22 or newer, Ru
 
 ```sh
 git clone https://github.com/canvist/canvist
-cd canvist/packages/canvist-headless && npm ci && npm run build:wasm && npm run build
+cd canvist/packages/canvist-core && npm ci && npm run build
 cd ../canvist-canvas && npm ci && npm run build:wasm && npm pack
 ```
 
@@ -102,7 +102,28 @@ Give every peer in a room **the same starting scene**. Every peer builds it the 
 
 ## 4. Render scenes on a server
 
-`@canvist/headless/scene` loads the same scene JSON with no browser and exports SVG and PNG, for thumbnails and social cards. [Server: TypeScript](./server-typescript.md) covers the engine.
+`@canvist/scene` loads the same scene JSON with no browser, runs canvas commands, and exports SVG and PNG, for thumbnails and social cards:
+
+```ts
+import { createSceneEngine } from "@canvist/scene";
+
+const engine = await createSceneEngine();
+using doc = engine.fromJson({
+	type: "canvist-scene",
+	version: 1,
+	nodes: [{
+		type: "page",
+		children: [{
+			type: "rectangle",
+			props: { size: [120, 80], fills: [{ type: "solid", color: "#3b2cf5" }] },
+		}],
+	}],
+});
+console.log(doc.exportSvg().startsWith("<svg"));
+// true
+```
+
+`doc.exportPng({ scale: 2 })` returns PNG bytes. The scene types (`SceneJson`, `ExportOptions`, `NodeId`) come from `@canvist/scene`, or from `@canvist/core/scene` where you only need the types.
 
 ## Run the demo
 

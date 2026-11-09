@@ -8,8 +8,8 @@
  * groups (`...starterKit`); anything else in it, and the switches leave the
  * code alone. The import the factory comes from gains and loses the
  * extensions the list names, and moves to the module's `/full` entry
- * (`@canvist/headless/full`, `@canvist/web/full`) when the list needs
- * extensions beyond the StarterKit.
+ * (`@canvist/headless/full`, `@canvist/collab/full`, `@canvist/web/full`)
+ * when the list needs extensions beyond the StarterKit.
  */
 
 export interface Catalog {
@@ -40,6 +40,8 @@ export type ReadResult =
 const FACTORY_MODULES = [
 	"@canvist/headless",
 	"@canvist/headless/full",
+	"@canvist/collab",
+	"@canvist/collab/full",
 	"@canvist/web",
 	"@canvist/web/full",
 ];
@@ -52,7 +54,7 @@ export function readExtensionList(code: string, catalog: Catalog): ReadResult {
 		return {
 			ok: false,
 			reason:
-				"The switches edit code that imports createEngine from @canvist/headless, or createEditor from @canvist/web.",
+				"The switches edit code that imports createEngine from @canvist/headless or @canvist/collab, or createEditor from @canvist/web.",
 		};
 	}
 

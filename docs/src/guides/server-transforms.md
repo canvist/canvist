@@ -134,4 +134,4 @@ for (const row of rows) {
 ## Next
 
 - [Import and export](./import-export.md): every format and what happens to unknown content.
-- [Collaboration](./collaboration.md): transform shared documents and broadcast the change with `flushSync`.
+- [Collaboration](./collaboration.md): transform shared documents and broadcast the change with `flushSync`, from `@canvist/collab` in TypeScript.

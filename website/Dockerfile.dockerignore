@@ -39,7 +39,10 @@ assets/*
 packages/*
 !packages/*/README.md
 !packages/*/readme.md
+!packages/canvist-collab
+!packages/canvist-core
 !packages/canvist-headless
+!packages/canvist-ssr
 !packages/canvist-web
 
 # Installs and build output from a local checkout: the image makes its own.

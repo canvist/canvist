@@ -13,7 +13,11 @@ Every public type, function, and command is documented in its package. The regis
 | `canvist_extensions` | Rust       | [docs.rs/canvist_extensions](https://docs.rs/canvist_extensions) | `cargo doc -p canvist_extensions --open`              |
 | `canvist_core`       | Rust       | [docs.rs/canvist_core](https://docs.rs/canvist_core)             | `cargo doc -p canvist_core --open`                    |
 | `canvist_layout`     | Rust       | [docs.rs/canvist_layout](https://docs.rs/canvist_layout)         | `cargo doc -p canvist_layout --open`                  |
+| `@canvist/core`      | TypeScript | [npm](https://www.npmjs.com/package/@canvist/core)               | `deno doc packages/canvist-core/src/mod.ts`           |
 | `@canvist/headless`  | TypeScript | [npm](https://www.npmjs.com/package/@canvist/headless)           | `deno doc packages/canvist-headless/src/mod.ts`       |
+| `@canvist/collab`    | TypeScript | [npm](https://www.npmjs.com/package/@canvist/collab)             | `deno doc packages/canvist-collab/src/mod.ts`         |
+| `@canvist/ssr`       | TypeScript | [npm](https://www.npmjs.com/package/@canvist/ssr)                | `deno doc packages/canvist-ssr/src/mod.ts`            |
+| `@canvist/scene`     | TypeScript | [npm](https://www.npmjs.com/package/@canvist/scene)              | `deno doc packages/canvist-scene/src/mod.ts`          |
 | `canvist`            | Dart       | pub.dev, later                                                   | `dart doc platforms/dart`                             |
 
 Each Rust extension also has its own crate and docs, such as [docs.rs/canvist_extension_table](https://docs.rs/canvist_extension_table); `canvist_extensions` re-exports them all.

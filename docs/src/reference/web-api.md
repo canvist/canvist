@@ -1,6 +1,6 @@
 # Browser API reference
 
-Use this page to look up every option and method of the browser packages: `@canvist/web` and its `/fonts`, `/menus`, `/collab`, and `/full` entry points, `@canvist/headless/ssr`, and `@canvist/canvas`. Each one also carries these descriptions in its TypeScript declarations, so your editor shows them on hover.
+Use this page to look up every option and method of the browser packages: `@canvist/web` and its `/fonts`, `/menus`, `/collab`, and `/full` entry points, `@canvist/ssr`, and `@canvist/canvas`. Each one also carries these descriptions in its TypeScript declarations, so your editor shows them on hover.
 
 ## API stability
 
@@ -74,7 +74,7 @@ From `@canvist/web`. It returns a promise of an `Editor`. `@canvist/web/collab` 
 | `reconnect` | `boolean`                | `true`     | Reconnect with backoff when the connection drops.          |
 | `WebSocket` | `typeof WebSocket`       | the global | The `WebSocket` class to use.                              |
 
-## `@canvist/headless/ssr`
+## `@canvist/ssr`
 
 `createRenderer({ extensions, theme, fonts, wasm })` returns a `Renderer`: `html(content, { width })` returns `{ html, css }`, `page(content, { width })` returns a complete page, `svg(content, { width })` returns an SVG, and `registerFont(bytes)` adds a font for SVG text. `fonts` are TrueType or OpenType files. See [Server-side rendering](../quick-start/ssr.md).
 

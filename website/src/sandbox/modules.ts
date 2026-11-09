@@ -17,7 +17,9 @@ export type Realm = "server" | "browser";
 export const SERVER_MODULES = [
 	"@canvist/headless",
 	"@canvist/headless/full",
-	"@canvist/headless/ssr",
+	"@canvist/collab",
+	"@canvist/collab/full",
+	"@canvist/ssr",
 	"ws",
 	"node:http",
 	"node:events",

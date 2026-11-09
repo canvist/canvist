@@ -14,8 +14,10 @@ canvist hasn't had its first release, so nothing is on a package registry yet. D
 | React Native                   | `@canvist/react-native`: `CanvistEditor` ([how](../quick-start/react-native.md))                       | Yes, preview  |
 | Vue                            | `@canvist/vue` over `@canvist/web` ([how](../quick-start/vue.md))                                      | Yes           |
 | Browser editor                 | Build `packages/canvist-web` and install the tarball ([how](../quick-start/web.md)): `createEditor`    | Yes           |
-| Server-side rendering          | `@canvist/headless/ssr` ([how](../quick-start/ssr.md))                                                 | Yes           |
+| Server-side rendering          | `@canvist/ssr` ([how](../quick-start/ssr.md))                                                          | Yes           |
 | Node, Deno, Bun, Workers       | Build `packages/canvist-headless` and install the tarball ([how](../quick-start/server-typescript.md)) | Yes           |
+| Yjs collaboration on a server  | `@canvist/collab` ([how](../guides/collaboration.md))                                                  | Yes           |
+| Canvas scenes on a server      | `@canvist/scene` ([how](../quick-start/canvas.md))                                                     | Yes           |
 | Design canvas                  | `@canvist/canvas` ([how](../quick-start/canvas.md))                                                    | Yes           |
 | Flutter                        | Git dependency on `platforms/flutter`: `CanvistEditor` ([how](../quick-start/flutter.md))              | Yes           |
 | Dart                           | Git dependency on `platforms/dart` ([how](../quick-start/server-dart.md))                              | Yes           |
@@ -25,7 +27,7 @@ canvist hasn't had its first release, so nothing is on a package registry yet. D
 | Rust                           | `cargo add canvist --git https://github.com/canvist/canvist`                                           | Yes           |
 | Lynx                           | `@canvist/lynx`: `<canvist-editor>` ([how](../quick-start/lynx.md))                                    | Yes, preview  |
 
-Don't invent packages beyond this table, such as `@canvist/core` or `@canvist/ssr`.
+Don't invent packages beyond this table. `@canvist/core` exists too, but it has no WebAssembly: it holds the types and extension descriptors the packages above share, so on its own it can't create a document.
 
 ## 2. The minimal integration, per platform
 
@@ -224,7 +226,7 @@ Give the model the document as Markdown or JSON, and the positions it needs, so 
 
 ## 6. Common pitfalls
 
-- **Inventing packages.** `@canvist/core` and `@canvist/ssr` don't exist. Check section 1.
+- **Inventing packages.** Check section 1. `@canvist/headless` has no Yjs: collaboration calls such as `share`, `receiveSync`, and `fromYjs` are on `@canvist/collab`, and server rendering is `@canvist/ssr`, not `@canvist/headless/ssr`.
 - **Byte offsets.** Offsets count UTF-16 code units in every language, including Rust. An emoji is two units. Convert with `text[..byte].encode_utf16().count()` in Rust.
 - **Flat positions in nested blocks.** Text inside a list item lives at `[list, item, 0]`, not `[list]`. Selecting a container fails with `invalidPosition`.
 - **Running commands without a selection.** Commands apply to the selection. A new document's selection is at its start, which is rarely what you want.
@@ -242,7 +244,7 @@ You can see what canvist does before you write the integration, and check it aft
 - **Every runnable TypeScript sample in these docs has a Run button.** It runs the sample on the page, re-runs it as you edit, and shows what it printed (and whether that matches the comments), with the document it made as the real editor paints it and as HTML, JSON, and Markdown.
 - **The [playground](/playground) runs whole integrations in one tab.** Browser code runs in one or more live editors. Server code runs in a worker, on a `localhost` only that tab can reach, so a sync server and its editors collaborate with nothing deployed. A switch for every extension rewrites the code's extension list and import.
 
-Server code in the playground and the docs can import `@canvist/headless` (and `/full` and `/ssr`), `ws`, `node:http`, and `node:events`, and use `Deno.serve`, `Deno.upgradeWebSocket`, `process.env`, and `Buffer`. Browser code can import `@canvist/web` (and `/collab` and `/menus`) and `@canvist/headless`. Its `WebSocket` and `fetch` reach the server realm at `localhost`, and every other address normally. It isn't Node: there's no file system, no package installs, and no other modules.
+Server code in the playground and the docs can import `@canvist/headless` and `@canvist/collab` (and their `/full`), `@canvist/ssr`, `ws`, `node:http`, and `node:events`, and use `Deno.serve`, `Deno.upgradeWebSocket`, `process.env`, and `Buffer`. Browser code can import `@canvist/web` (and `/collab` and `/menus`) and `@canvist/headless`. Its `WebSocket` and `fetch` reach the server realm at `localhost`, and every other address normally. It isn't Node: there's no file system, no package installs, and no other modules.
 
 To check behaviour from a browser automation tool, open `/playground` and call `window.canvistPlayground`, for example through Playwright's `page.evaluate`:
 

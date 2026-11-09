@@ -50,15 +50,22 @@ export default defineConfig({
 			// repository, and links the canvist packages from `packages/`.
 			fs: { allow: [repoRoot] },
 		},
-		// `@canvist/web` finds its WebAssembly next to its own modules, and
-		// pre-bundling in development would move the modules away from it.
+		// The canvist packages find their WebAssembly next to their own
+		// modules, and pre-bundling in development would move the modules
+		// away from it.
 		optimizeDeps: {
-			exclude: ["@canvist/web", "@canvist/headless"],
+			exclude: [
+				"@canvist/web",
+				"@canvist/headless",
+				"@canvist/collab",
+				"@canvist/ssr",
+			],
 		},
-		// The packages are linked from `packages/`, where `@canvist/web` links
-		// its own `@canvist/headless`; the site resolves one copy, its own.
+		// The packages are linked from `packages/`, where each links its own
+		// `@canvist/core`; the site resolves one copy, so `@canvist/headless`
+		// and `@canvist/collab` share their classes.
 		resolve: {
-			dedupe: ["@canvist/headless"],
+			dedupe: ["@canvist/core"],
 		},
 		build: {
 			assetsInlineLimit: 0,
