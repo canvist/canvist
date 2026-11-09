@@ -11,7 +11,13 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# `bash .cursor/install.sh` is one directory down. A cloud-agent install
+# string is executed from the repository root, with no script path.
+if [ -f devenv.nix ]; then
+	root="$(pwd)"
+else
+	root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 cd "$root"
 
 sudo apt-get update
