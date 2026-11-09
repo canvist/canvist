@@ -157,6 +157,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CANVIST_BROWSERS: ${{ matrix.browser }}
+      # The 8 ms budget is an Apple silicon number. Linux WebKit on these
+      # runners measures 10-26 ms, so scale it the way the other perf jobs do.
+      CANVIST_PERF_SLACK: ${{ case(matrix.os == 'ubuntu-latest' && matrix.browser == 'webkit', '4', '1') }}
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
