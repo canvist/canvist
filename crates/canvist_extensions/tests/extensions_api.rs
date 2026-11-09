@@ -653,7 +653,7 @@ fn style_commands_need_the_text_style_mark() {
 	));
 }
 
-/// The metadata of every extension, which `packages/canvist-headless` and
+/// The metadata of every extension, which `packages/canvist-core` and
 /// `platforms/dart` generate their typed bindings from.
 #[test]
 fn extension_metadata() {

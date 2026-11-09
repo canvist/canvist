@@ -21,7 +21,10 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
+      - "packages/canvist-collab/**"
+      - "packages/canvist-core/**"
       - "packages/canvist-headless/**"
+      - "packages/canvist-ssr/**"
       - "packages/canvist-web/**"
       - ".github/workflows/website.yml"
   pull_request:
@@ -37,8 +40,10 @@ defaults:
 
 jobs:
   # The landing page embeds `@canvist/web` and renders its document with
-  # `@canvist/headless/ssr` at build time. Both are built once here, as
-  # `web.yml` builds them, and the jobs that build the site download them.
+  # `@canvist/ssr` at build time, and the playground runs `@canvist/headless`
+  # and `@canvist/collab`. They are built once here, as `web.yml` and
+  # `headless-js.yml` build them, and the jobs that build the site download
+  # them.
   packages:
     name: build the canvist packages
     timeout-minutes: 30
@@ -70,9 +75,10 @@ jobs:
         with:
           node-version: 24
 
-      - name: build @canvist/headless and @canvist/web
+      - name: build the canvist packages
         run: |
-          for package in canvist-headless canvist-web; do
+          (cd packages/canvist-core && npm ci && npm run build)
+          for package in canvist-headless canvist-collab canvist-ssr canvist-web; do
             (cd "packages/$package" && npm ci && npm run build:wasm && npm run build)
           done
 
@@ -82,8 +88,13 @@ jobs:
           name: canvist-packages
           if-no-files-found: error
           path: |
+            packages/canvist-core/dist
             packages/canvist-headless/dist
             packages/canvist-headless/wasm*
+            packages/canvist-collab/dist
+            packages/canvist-collab/wasm*
+            packages/canvist-ssr/dist
+            packages/canvist-ssr/wasm*
             packages/canvist-web/dist
             packages/canvist-web/wasm*
 
@@ -121,11 +132,14 @@ jobs:
       - name: install dependencies
         run: deno install --frozen
 
-      # Type checking follows the link to packages/canvist-web, which finds
-      # @canvist/headless in its own node_modules.
-      - name: install @canvist/web's dependencies
-        working-directory: packages/canvist-web
-        run: npm ci --ignore-scripts
+      # Type checking follows the links into packages/, where each package
+      # finds @canvist/core in its own node_modules.
+      - name: install the linked packages' dependencies
+        working-directory: packages
+        run: |
+          for package in canvist-headless canvist-collab canvist-ssr canvist-web; do
+            (cd "$package" && npm ci --ignore-scripts)
+          done
 
       - name: type check
         run: deno task check

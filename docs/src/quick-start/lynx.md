@@ -13,14 +13,14 @@ git clone https://github.com/canvist/canvist
 canvist/platforms/apple/build.sh                                         # the iOS engine
 canvist/platforms/android/build.sh                                       # the Android engine
 (cd canvist/platforms/android && ./gradlew :canvist:publishToMavenLocal) # canvist-android, to Maven Local
-(cd canvist/packages/canvist-headless && npm ci && npm run build:wasm && npm run build)
+(cd canvist/packages/canvist-core && npm ci && npm run build)
 (cd canvist/packages/canvist-lynx && npm ci && npm run build)
 ```
 
 Add the package to your Lynx app:
 
 ```sh
-npm install path/to/canvist/packages/canvist-lynx path/to/canvist/packages/canvist-headless
+npm install path/to/canvist/packages/canvist-lynx path/to/canvist/packages/canvist-core
 ```
 
 Then register canvist in each host app. **iOS:** add the pods, and register the native module on your `LynxConfig`. The element registers itself as `<canvist-editor>`.

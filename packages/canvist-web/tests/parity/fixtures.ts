@@ -17,7 +17,7 @@ import type {
 	Registered,
 	StarterKit,
 	ThemeOptions,
-} from "@canvist/headless";
+} from "@canvist/core";
 
 type Kit = Registered<StarterKit>;
 type Block = BlockJson<Kit>;

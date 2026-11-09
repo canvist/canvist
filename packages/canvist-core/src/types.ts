@@ -239,7 +239,7 @@ export type Content<E extends Extensions> =
 
 /**
  * The StarterKit theme's options. The browser editor (`@canvist/web`) and
- * the server renderer (`@canvist/headless/ssr`) take the same ones, and
+ * the server renderer (`@canvist/ssr`) take the same ones, and
  * must be given the same values for server-rendered HTML to hydrate
  * without moving.
  */

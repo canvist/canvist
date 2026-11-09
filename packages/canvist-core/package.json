@@ -1,0 +1,63 @@
+{
+	"name": "@canvist/core",
+	"version": "0.2.1",
+	"description": "canvist's typed engine and document classes, extension descriptors, and types for JavaScript, with no WebAssembly: the base @canvist/headless, @canvist/collab, and the extension packages build on.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/canvist-core#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/canvist-core"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/mod.d.ts",
+			"default": "./dist/mod.js"
+		},
+		"./extensions": {
+			"types": "./dist/extensions.generated.d.ts",
+			"default": "./dist/extensions.generated.js"
+		},
+		"./extras": {
+			"types": "./dist/extras.generated.d.ts",
+			"default": "./dist/extras.generated.js"
+		},
+		"./gemoji": {
+			"types": "./dist/gemoji.generated.d.ts",
+			"default": "./dist/gemoji.generated.js"
+		},
+		"./native": {
+			"types": "./dist/native.d.ts",
+			"default": "./dist/native.js"
+		},
+		"./scene": {
+			"types": "./dist/scene-types.d.ts",
+			"default": "./dist/scene-types.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"sideEffects": false,
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"generate": "node scripts/generate.ts",
+		"check:generated": "node scripts/generate.ts --check",
+		"check:types": "tsc --noEmit",
+		"test": "node --test tests/*.test.ts",
+		"test:coverage": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 tests/*.test.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"prepack": "npm run build"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"typescript": "^7.0.2"
+	}
+}

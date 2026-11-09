@@ -4,6 +4,8 @@ In this guide you add canvist to a Node, Deno, Bun, or Workers project, then loa
 
 `@canvist/headless` is canvist's engine compiled to WebAssembly, with no DOM. Use it in API routes, build scripts, CLIs, tests, and background jobs.
 
+It leaves out what most servers don't need, so its module stays small. Three packages sit beside it, each with its own module: [`@canvist/collab`](../guides/collaboration.md) has the same API plus Yjs collaboration, [`@canvist/ssr`](./ssr.md) renders documents to HTML and SVG, and [`@canvist/scene`](./canvas.md) loads and exports canvas scenes. All of them build on `@canvist/core`, which holds the types and extension descriptors and no WebAssembly.
+
 **Status: available.** The package works today. It goes to npm with the first release; until then, build it from source.
 
 ## 1. Install
@@ -15,14 +17,17 @@ npm install @canvist/headless      # Node and Bun
 deno add npm:@canvist/headless     # Deno
 ```
 
-Until then, build the package once and install the tarball. You need Node 22 or newer, Rust, and [wasm-pack](https://rustwasm.github.io/wasm-pack/):
+Until then, build `@canvist/core` and the package once and install both tarballs. You need Node 22 or newer, Rust, and [wasm-pack](https://rustwasm.github.io/wasm-pack/):
 
 ```sh
 git clone https://github.com/canvist/canvist
-cd canvist/packages/canvist-headless
+cd canvist/packages/canvist-core
+npm ci && npm pack
+cd ../canvist-headless
 npm ci && npm run build:wasm && npm pack
 cd /path/to/your/app
-npm install /path/to/canvist/packages/canvist-headless/canvist-headless-0.1.0.tgz
+npm install /path/to/canvist/packages/canvist-core/canvist-core-*.tgz \
+  /path/to/canvist/packages/canvist-headless/canvist-headless-*.tgz
 ```
 
 ## 2. Load, edit, and export a document
@@ -98,10 +103,10 @@ export default {
 };
 ```
 
-`createEngine` loads the module only once, so calling it per request is cheap after the first.
+`createEngine` loads the module only once, so calling it per request is cheap after the first. With `@canvist/collab`, import `createEngine` from there and its module from `@canvist/collab/wasm/canvist_collab_bg.wasm`.
 
 ## Next steps
 
 - [Import and export](../guides/import-export.md) JSON, HTML, Markdown, and text.
-- [Collaboration](../guides/collaboration.md): run a y-websocket-compatible endpoint in about 30 lines.
+- [Collaboration](../guides/collaboration.md): run a y-websocket-compatible endpoint in about 30 lines with `@canvist/collab`.
 - [Commands and typed handles](../concepts/commands.md): run, check, and query commands.

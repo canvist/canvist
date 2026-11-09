@@ -18,10 +18,13 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-# Canvas scenes: a second, larger module (`@canvist/headless/scene`), so the
-# document module stays small.
-scene = ["canvist_headless/scene"]
-# Server-side rendering: a third module (`@canvist/headless/ssr`) that renders
+# Yjs collaboration, for `@canvist/collab`: join, merge, and serve shared
+# documents. `@canvist/headless` leaves it out, which halves its module.
+collab = ["canvist_headless/collab"]
+# Canvas scenes, for `@canvist/scene`: a separate, larger module, so the
+# document modules stay small. Scenes are Yjs peers.
+scene = ["collab", "canvist_headless/scene"]
+# Server-side rendering, for `@canvist/ssr`: a separate module that renders
 # HTML, CSS, and SVG with parley and its own fonts.
 ssr = ["canvist_headless/ssr"]
 # Every extension, for `@canvist/headless/full`: a second module, so the
@@ -31,7 +34,7 @@ full = ["canvist_headless/extras", "dep:canvist_extensions"]
 
 [dependencies]
 canvist_extensions = { workspace = true, optional = true, features = ["emoji"] }
-canvist_headless = { workspace = true, features = ["collab", "starter-kit"] }
+canvist_headless = { workspace = true, features = ["starter-kit"] }
 js-sys = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 wasm-bindgen = { workspace = true, features = ["std"] }

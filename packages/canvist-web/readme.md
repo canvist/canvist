@@ -40,7 +40,7 @@ editor.commands.toggleItalic();
 editor.toHtml(); // what a server would send: { html, css }
 ```
 
-Using React or Vue? See [`@canvist/react`](../canvist-react) and [`@canvist/vue`](../canvist-vue). Rendering on a server? See [`@canvist/headless/ssr`](../../docs/src/quick-start/ssr.md).
+Using React or Vue? See [`@canvist/react`](../canvist-react) and [`@canvist/vue`](../canvist-vue). Rendering on a server? See [`@canvist/ssr`](../canvist-ssr).
 
 ## What it does
 

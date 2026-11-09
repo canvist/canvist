@@ -1,16 +1,13 @@
 /**
  * The document tools through `@canvist/headless/full`: typed commands and
  * query results for find and replace, the table of contents, comments,
- * block moves, and clearing formatting; their argument errors; the
- * `comment` mark in typed TipTap JSON; and comments shared with a
- * JavaScript Yjs peer.
+ * block moves, and clearing formatting; their argument errors; and the
+ * `comment` mark in typed TipTap JSON.
  *
  * @module
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import * as Y from "yjs";
 
 import {
 	bold,
@@ -152,40 +149,6 @@ test("comments read and write typed TipTap JSON, HTML, and Markdown", async () =
 	assert.equal(doc.can.setComment({ threadId: "a" }), false);
 	assert.equal(doc.commands.unsetComment({ threadId: "b" }), true);
 	assert.deepEqual(doc.query.comments(), [{ threadId: "a", text: "See here" }]);
-});
-
-test("a JavaScript Yjs peer sees comments as formatting and adds its own", async () => {
-	using engine = await createEngine([...starterKit, comments]);
-	using server = engine.parse("text", "Shared words");
-	server.share(1);
-	server.select({ path: [0], offset: 0 }, { path: [0], offset: 6 });
-	server.commands.setComment({ threadId: "a" });
-
-	const peer = new Y.Doc();
-	Y.applyUpdate(peer, server.encodeState());
-	server.takeUpdates();
-	const text = peer.getArray<Y.Map<unknown>>("blocks").get(0)?.get(
-		"text",
-	) as Y.Text;
-	const delta = text.toDelta() as {
-		insert: string;
-		attributes?: Record<string, unknown>;
-	}[];
-	assert.deepEqual(delta[0], {
-		insert: "Shared",
-		attributes: { comment: { threads: ["a"] } },
-	});
-
-	const updates: Uint8Array[] = [];
-	peer.on("update", (update: Uint8Array) => updates.push(update));
-	text.format(7, 5, { comment: { threads: ["b"] } });
-	updates.forEach((update) => assert.equal(server.applyUpdate(update), true));
-
-	assert.deepEqual(server.query.comments(), [
-		{ threadId: "a", text: "Shared" },
-		{ threadId: "b", text: "words" },
-	]);
-	assert.deepEqual(server.validate(), { rejectedBlocks: 0, waiting: false });
 });
 
 test("blocks move and formatting clears through typed commands", async () => {

@@ -92,10 +92,10 @@ const css = fontFaceCss(faces);
 // @font-face{font-family:"Inter";src:url("/fonts/Inter.ttf");font-weight:100 900;font-display:swap}
 ```
 
-On a JavaScript server, with [`@canvist/headless/ssr`](../quick-start/ssr.md):
+On a JavaScript server, with [`@canvist/ssr`](../quick-start/ssr.md):
 
 ```ts no_run
-import { createRenderer } from "@canvist/headless/ssr";
+import { createRenderer } from "@canvist/ssr";
 import { readFile } from "node:fs/promises";
 
 const renderer = await createRenderer({

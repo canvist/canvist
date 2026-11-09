@@ -3,9 +3,9 @@
  *
  * @module
  */
-import type { CanvistError, Content, StarterKit } from "@canvist/headless";
-import { starterKit } from "@canvist/headless/extensions";
-import { nativeCanvistError, NativeEditor } from "@canvist/headless/native";
+import type { CanvistError, Content, StarterKit } from "@canvist/core";
+import { starterKit } from "@canvist/core/extensions";
+import { nativeCanvistError, NativeEditor } from "@canvist/core/native";
 import {
 	type ReactElement,
 	type Ref,

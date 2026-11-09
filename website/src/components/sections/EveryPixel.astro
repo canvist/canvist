@@ -11,7 +11,7 @@ const keystroke = findBudget(loadBudgets(repoPath("docs/src/guides/performance.m
 // The document as HTML, laid out as the editor will paint it. The build
 // bundles the renderer away from its WebAssembly, so read that from the
 // package.
-const pixel = await renderPixelDocument(readFileSync(repoPath("packages/canvist-headless/wasm-ssr/canvist_headless_ssr_bg.wasm")));
+const pixel = await renderPixelDocument(readFileSync(repoPath("packages/canvist-ssr/wasm/canvist_ssr_bg.wasm")));
 
 // What loading the editor costs, measured from the module the page ships.
 const wasmBytes = gzipSync(readFileSync(repoPath("packages/canvist-web/wasm/canvist_web_bg.wasm"))).byteLength;

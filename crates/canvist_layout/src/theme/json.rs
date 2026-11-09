@@ -1,5 +1,5 @@
 //! StarterKit theme options from JSON, behind the `json` feature: the shape
-//! `@canvist/web`'s `theme` option and `@canvist/headless/ssr` take, so the
+//! `@canvist/web`'s `theme` option and `@canvist/ssr` take, so the
 //! browser and the server read one theme the same way.
 
 use std::sync::Arc;

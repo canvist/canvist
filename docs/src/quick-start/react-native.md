@@ -13,13 +13,13 @@ git clone https://github.com/canvist/canvist
 canvist/platforms/apple/build.sh                                         # the iOS engine
 canvist/platforms/android/build.sh                                       # the Android engine
 (cd canvist/platforms/android && ./gradlew :canvist:publishToMavenLocal) # canvist-android, to Maven Local
-(cd canvist/packages/canvist-headless && npm ci && npm run build:wasm && npm run build)
+(cd canvist/packages/canvist-core && npm ci && npm run build)
 ```
 
 Then add the package, and point your app at the native editors:
 
 ```sh
-npm install path/to/canvist/packages/canvist-react-native path/to/canvist/packages/canvist-headless
+npm install path/to/canvist/packages/canvist-react-native path/to/canvist/packages/canvist-core
 ```
 
 ```ruby

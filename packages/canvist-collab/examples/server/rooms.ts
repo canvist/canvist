@@ -9,7 +9,7 @@
  *
  * @module
  */
-import type { Doc, Engine, StarterKit } from "../../src/mod.ts";
+import type { CollabDoc, CollabEngine, StarterKit } from "../../src/mod.ts";
 
 /** One client connection. */
 export interface Connection {
@@ -20,10 +20,10 @@ export interface Connection {
 const SERVER_CLIENT = 1;
 
 class Room {
-	readonly doc: Doc<StarterKit>;
+	readonly doc: CollabDoc<StarterKit>;
 	readonly #connections = new Set<Connection>();
 
-	constructor(doc: Doc<StarterKit>) {
+	constructor(doc: CollabDoc<StarterKit>) {
 		this.doc = doc;
 	}
 
@@ -57,11 +57,11 @@ class Room {
 
 /** Rooms by name, each created on first use from `initial` Markdown. */
 export class Rooms {
-	readonly #engine: Engine<StarterKit>;
+	readonly #engine: CollabEngine<StarterKit>;
 	readonly #initial: string;
 	readonly #rooms = new Map<string, Room>();
 
-	constructor(engine: Engine<StarterKit>, initial = "") {
+	constructor(engine: CollabEngine<StarterKit>, initial = "") {
 		this.#engine = engine;
 		this.#initial = initial;
 	}

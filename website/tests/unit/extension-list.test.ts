@@ -99,6 +99,16 @@ Deno.test("the whole StarterKit becomes a spread, and extras move the import to 
 	);
 });
 
+Deno.test("a collaborating engine with extras moves to @canvist/collab/full", () => {
+	const code =
+		`import { bold, createEngine } from "@canvist/collab";\nconst engine = await createEngine([bold]);\n`;
+	assertEquals(read(code).module, "@canvist/collab");
+	assertEquals(
+		toggle(code, ["bold", "table"]),
+		`import { bold, createEngine, table } from "@canvist/collab/full";\nconst engine = await createEngine([bold, table]);\n`,
+	);
+});
+
 Deno.test("an editor with extras moves to @canvist/web/full", () => {
 	const code =
 		`import { bold, createEditor } from "@canvist/web";\nconst editor = await createEditor(element, { extensions: [bold] });\n`;

@@ -29,6 +29,8 @@ export class DocumentTracker {
 		string,
 		(this: AnyDoc, ...args: never[]) => unknown
 	>();
+	/** Prototypes already wrapped, by any module that shares them. */
+	readonly #wrapped = new WeakSet<object>();
 	#clock = 0;
 	#nextId = 1;
 	#timer: ReturnType<typeof setTimeout> | undefined;
@@ -37,22 +39,35 @@ export class DocumentTracker {
 		this.#onChange = onChange;
 	}
 
-	/** Wraps the classes `@canvist/headless` and `@canvist/headless/full` share, once. */
+	/**
+	 * Wraps the classes a module hands out, once each: the `Engine` and `Doc`
+	 * that `@canvist/headless`, `@canvist/collab`, and their `/full` modules
+	 * share, and the subclasses `@canvist/collab` adds for Yjs.
+	 */
 	watch(
 		classes: {
 			readonly Engine: { prototype: AnyEngine };
 			readonly Doc: { prototype: AnyDoc };
+			readonly CollabEngine?: { prototype: AnyEngine };
+			readonly CollabDoc?: { prototype: AnyDoc };
 		},
 	): void {
-		const engine = classes.Engine.prototype as unknown as Record<
-			string,
-			unknown
-		>;
-		if (engine["__sandboxTracked"]) return;
-		engine["__sandboxTracked"] = true;
-		const tracker = this;
+		for (const engine of [classes.Engine, classes.CollabEngine]) {
+			if (engine) this.#wrapEngine(engine.prototype);
+		}
+		for (const doc of [classes.Doc, classes.CollabDoc]) {
+			if (doc) this.#wrapDoc(doc.prototype);
+		}
+	}
 
+	/** Records every document the prototype's own makers return. */
+	#wrapEngine(prototype: AnyEngine): void {
+		if (this.#wrapped.has(prototype)) return;
+		this.#wrapped.add(prototype);
+		const engine = prototype as unknown as Record<string, unknown>;
+		const tracker = this;
 		for (const name of MAKERS) {
+			if (!Object.hasOwn(engine, name)) continue;
 			const make = engine[name] as (
 				this: AnyEngine,
 				...args: never[]
@@ -66,13 +81,16 @@ export class DocumentTracker {
 				return doc;
 			};
 		}
+	}
 
-		const doc = classes.Doc.prototype as unknown as Record<string, unknown>;
-		for (const name of Object.getOwnPropertyNames(classes.Doc.prototype)) {
-			const descriptor = Object.getOwnPropertyDescriptor(
-				classes.Doc.prototype,
-				name,
-			);
+	/** Marks a document the most recent whenever one of the prototype's own methods runs. */
+	#wrapDoc(prototype: AnyDoc): void {
+		if (this.#wrapped.has(prototype)) return;
+		this.#wrapped.add(prototype);
+		const doc = prototype as unknown as Record<string, unknown>;
+		const tracker = this;
+		for (const name of Object.getOwnPropertyNames(prototype)) {
+			const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
 			if (name === "constructor" || typeof descriptor?.value !== "function") {
 				continue;
 			}
@@ -80,7 +98,8 @@ export class DocumentTracker {
 				this: AnyDoc,
 				...args: never[]
 			) => unknown;
-			this.#original.set(name, method);
+			// The base class's, which every document has.
+			if (!this.#original.has(name)) this.#original.set(name, method);
 			doc[name] = function (this: AnyDoc, ...args: never[]) {
 				const result = method.apply(this, args);
 				tracker.#touch(this);

@@ -57,7 +57,7 @@ Commands, queries, and `can` checks are typed from the extensions you pass (TipT
 ```ts no_run
 // vite.config.ts
 export default {
-	optimizeDeps: { exclude: ["@canvist/web", "@canvist/headless"] },
+	optimizeDeps: { exclude: ["@canvist/web"] },
 };
 ```
 
@@ -65,7 +65,7 @@ To serve the module yourself, pass its URL as `wasm` in the options.
 
 ## 4. Hydrate server-rendered HTML
 
-canvist's [server renderer](./ssr.md) (`@canvist/headless/ssr`) sends the document as HTML that wraps exactly where the editor does. Render it into the editor's element, and `createEditor` reads the document from it. It keeps the HTML on screen until your fonts have loaded, then swaps in the canvas in one frame, so nothing moves:
+canvist's [server renderer](./ssr.md) (`@canvist/ssr`) sends the document as HTML that wraps exactly where the editor does. Render it into the editor's element, and `createEditor` reads the document from it. It keeps the HTML on screen until your fonts have loaded, then swaps in the canvas in one frame, so nothing moves:
 
 ```ts no_run
 import { createEditor } from "@canvist/web";

@@ -11,17 +11,86 @@
 		"tools/bench"
 	],
 	"groups": {
+		"core": {
+			"paths": [
+				"packages/canvist-core"
+			],
+			"build": [
+				{
+					"cwd": ".",
+					"run": "[ ! -d packages/canvist-core ] || (cd packages/canvist-core && npm ci && npm run build)"
+				}
+			]
+		},
 		"headless": {
 			"crates": [
 				"canvist_headless_wasm"
 			],
 			"paths": [
+				"packages/canvist-core",
 				"packages/canvist-headless"
+			],
+			"needs": [
+				"core"
 			],
 			"build": [
 				{
 					"cwd": "packages/canvist-headless",
 					"run": "npm ci && npm run build:wasm && npm run build"
+				}
+			]
+		},
+		"collab": {
+			"crates": [
+				"canvist_headless_wasm"
+			],
+			"paths": [
+				"packages/canvist-collab",
+				"packages/canvist-core"
+			],
+			"needs": [
+				"core"
+			],
+			"build": [
+				{
+					"cwd": ".",
+					"run": "[ ! -d packages/canvist-collab ] || (cd packages/canvist-collab && npm ci && npm run build:wasm && npm run build)"
+				}
+			]
+		},
+		"ssr": {
+			"crates": [
+				"canvist_headless_wasm"
+			],
+			"paths": [
+				"packages/canvist-core",
+				"packages/canvist-ssr"
+			],
+			"needs": [
+				"core"
+			],
+			"build": [
+				{
+					"cwd": ".",
+					"run": "[ ! -d packages/canvist-ssr ] || (cd packages/canvist-ssr && npm ci && npm run build:wasm && npm run build)"
+				}
+			]
+		},
+		"scene": {
+			"crates": [
+				"canvist_headless_wasm"
+			],
+			"paths": [
+				"packages/canvist-core",
+				"packages/canvist-scene"
+			],
+			"needs": [
+				"core"
+			],
+			"build": [
+				{
+					"cwd": ".",
+					"run": "[ ! -d packages/canvist-scene ] || (cd packages/canvist-scene && npm ci && npm run build:wasm && npm run build)"
 				}
 			]
 		},
@@ -31,10 +100,12 @@
 				"canvist_headless_wasm"
 			],
 			"paths": [
+				"packages/canvist-core",
 				"packages/canvist-headless",
 				"packages/canvist-web"
 			],
 			"needs": [
+				"core",
 				"headless"
 			],
 			"build": [
@@ -178,27 +249,17 @@
 				"packages/canvist-headless/wasm/canvist_headless_wasm_bg.wasm"
 			],
 			"budget": {
-				"raw": 1228800,
-				"gzip": 480000
-			}
-		},
-		{
-			"name": "@canvist/headless scene wasm",
-			"group": "headless",
-			"files": [
-				"packages/canvist-headless/wasm-scene/canvist_headless_scene_bg.wasm"
-			],
-			"budget": {
-				"gzip": 2000000
+				"raw": 716800,
+				"gzip": 300000
 			}
 		},
 		{
 			"name": "@canvist/headless JS",
 			"group": "headless",
 			"files": [
-				"packages/canvist-headless/dist/{create,engine,extensions.generated,load,mod,scene,scene-types,ssr,types}.js",
-				"packages/canvist-headless/wasm/*.js",
-				"packages/canvist-headless/wasm-scene/*.js"
+				"packages/canvist-headless/dist/{calls,create,engine,errors,extensions.generated,load,mod,types}.js",
+				"packages/canvist-core/dist/{bundled,calls,engine,errors,extensions.generated,mod,types}.js",
+				"packages/canvist-headless/wasm/*.js"
 			],
 			"budget": {
 				"gzip": 25000
@@ -211,8 +272,8 @@
 				"packages/canvist-headless/wasm-full/canvist_headless_full_bg.wasm"
 			],
 			"budget": {
-				"raw": 1433600,
-				"gzip": 600000
+				"raw": 1064960,
+				"gzip": 430000
 			}
 		},
 		{
@@ -220,10 +281,101 @@
 			"group": "headless",
 			"files": [
 				"packages/canvist-headless/dist/{full,extras.generated,gemoji.generated}.js",
+				"packages/canvist-core/dist/{extras,gemoji}.generated.js",
 				"packages/canvist-headless/wasm-full/*.js"
 			],
 			"budget": {
 				"gzip": 40000
+			}
+		},
+		{
+			"name": "@canvist/collab document wasm",
+			"group": "collab",
+			"files": [
+				"packages/canvist-collab/wasm/canvist_collab_bg.wasm"
+			],
+			"budget": {
+				"raw": 1228800,
+				"gzip": 480000
+			}
+		},
+		{
+			"name": "@canvist/collab JS",
+			"group": "collab",
+			"files": [
+				"packages/canvist-collab/dist/{collab,create,load,mod}.js",
+				"packages/canvist-core/dist/{bundled,calls,engine,errors,extensions.generated,mod,types}.js",
+				"packages/canvist-collab/wasm/*.js"
+			],
+			"budget": {
+				"gzip": 25000
+			}
+		},
+		{
+			"name": "@canvist/collab full wasm",
+			"group": "collab",
+			"files": [
+				"packages/canvist-collab/wasm-full/canvist_collab_full_bg.wasm"
+			],
+			"budget": {
+				"raw": 1433600,
+				"gzip": 600000
+			}
+		},
+		{
+			"name": "@canvist/collab full JS",
+			"group": "collab",
+			"files": [
+				"packages/canvist-collab/dist/full.js",
+				"packages/canvist-core/dist/{extras,gemoji}.generated.js",
+				"packages/canvist-collab/wasm-full/*.js"
+			],
+			"budget": {
+				"gzip": 40000
+			}
+		},
+		{
+			"name": "@canvist/ssr wasm",
+			"group": "ssr",
+			"files": [
+				"packages/canvist-ssr/wasm/canvist_ssr_bg.wasm"
+			],
+			"budget": {
+				"gzip": 840000
+			}
+		},
+		{
+			"name": "@canvist/ssr JS",
+			"group": "ssr",
+			"files": [
+				"packages/canvist-ssr/dist/mod.js",
+				"packages/canvist-core/dist/{bundled,errors,extensions.generated}.js",
+				"packages/canvist-ssr/wasm/*.js"
+			],
+			"budget": {
+				"gzip": 25000
+			}
+		},
+		{
+			"name": "@canvist/scene wasm",
+			"group": "scene",
+			"files": [
+				"packages/canvist-scene/wasm/canvist_scene_bg.wasm"
+			],
+			"budget": {
+				"gzip": 2000000
+			}
+		},
+		{
+			"name": "@canvist/scene JS",
+			"group": "scene",
+			"files": [
+				"packages/canvist-scene/dist/mod.js",
+				"packages/canvist-core/dist/{bundled,errors}.js",
+				"packages/canvist-scene/wasm/*.js"
+			],
+			"budget": {
+				"gzip": 25000
 			}
 		},
 		{

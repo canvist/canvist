@@ -22,11 +22,11 @@
  *
  * @module
  */
-import type { SceneJson } from "@canvist/headless/scene";
+import type { SceneJson } from "@canvist/core/scene";
 import init, { CanvasApp } from "../wasm/canvist_canvas_wasm.js";
 
 export { CanvasApp };
-export type { SceneJson } from "@canvist/headless/scene";
+export type { SceneJson } from "@canvist/core/scene";
 export { BroadcastTransport } from "./broadcast.ts";
 export type { SyncMessage, Transport } from "./transport.ts";
 import type { SyncMessage, Transport } from "./transport.ts";

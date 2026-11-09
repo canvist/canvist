@@ -70,10 +70,10 @@ To leave a few StarterKit extensions out, list the ones you want instead. In Rus
 
 ## Step 4: a Google Docs-style editor
 
-A Google Docs-style editor adds people editing together. Share the document, and exchange Yjs updates between peers through any Yjs server, or [canvist Cloud](../cloud/readme.md). This example connects two peers directly, so you can run it on its own:
+A Google Docs-style editor adds people editing together. Share the document, and exchange Yjs updates between peers through any Yjs server, or [canvist Cloud](../cloud/readme.md). In TypeScript, collaboration is in `@canvist/collab`, which has the same API as `@canvist/headless` plus Yjs. This example connects two peers directly, so you can run it on its own:
 
 ```ts
-import { createEngine } from "@canvist/headless";
+import { createEngine } from "@canvist/collab";
 
 const alice = await createEngine(undefined, { client: 1 });
 const doc = alice.parse("markdown", "# Minutes");

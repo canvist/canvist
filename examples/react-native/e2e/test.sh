@@ -10,8 +10,8 @@
 # for the platform (`platforms/apple/build.sh`, or `platforms/android/build.sh`
 # and a Maven Local publication of `canvist-android`); set
 # `CANVIST_SKIP_ENGINE_BUILD=1` to reuse the last one, and `CANVIST_PERF_SLACK`
-# to multiply the benchmark's budgets on a slow device. `@canvist/headless`
-# must be built (`npm run build` in `packages/canvist-headless`) and this
+# to multiply the benchmark's budgets on a slow device. `@canvist/core`
+# must be built (`npm run build` in `packages/canvist-core`) and this
 # example's dependencies installed.
 set -euo pipefail
 

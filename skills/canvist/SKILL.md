@@ -1,6 +1,6 @@
 ---
 name: canvist
-description: Integrate canvist, the plugin-based rich-text editor with a Rust core, into an app. Use when a task mentions canvist, @canvist/headless, the canvist crate, canvist_headless, canvist_flutter, or asks to add a rich-text editor, convert between ProseMirror/TipTap JSON, HTML, and Markdown, run editor commands on a server, or sync documents with Yjs using canvist.
+description: Integrate canvist, the plugin-based rich-text editor with a Rust core, into an app. Use when a task mentions canvist, @canvist/headless, @canvist/collab, @canvist/ssr, the canvist crate, canvist_headless, canvist_flutter, or asks to add a rich-text editor, convert between ProseMirror/TipTap JSON, HTML, and Markdown, run editor commands on a server, or sync documents with Yjs using canvist.
 ---
 
 # canvist
@@ -13,24 +13,26 @@ Full docs for agents: `/llms-full.txt` on the docs site, or `docs/src` in https:
 
 canvist has not had its first release. Registry packages are placeholders until that release: install from GitHub.
 
-| Target                   | Package                 | Install                                                                                                                                                                                     |
-| ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| React                    | `@canvist/react`        | Build `@canvist/web` (Browser editor row), then `npm ci && npm pack` in `packages/canvist-react`                                                                                            |
-| React Native             | `@canvist/react-native` | Preview, from GitHub only: build both native editors (iOS and Android rows), install `packages/canvist-react-native`, add the `Canvist` pod and Maven Local                                 |
-| Vue                      | `@canvist/vue`          | Build `@canvist/web` (Browser editor row), then `npm ci && npm pack` in `packages/canvist-vue`                                                                                              |
-| Browser editor           | `@canvist/web`          | Clone, build `packages/canvist-headless` (`npm ci && npm run build:wasm && npm run build`), then in `packages/canvist-web`: `npm ci && npm run build:wasm && npm pack`; install the tarball |
-| Server-side rendering    | `@canvist/headless/ssr` | Part of `@canvist/headless`: `createRenderer({ theme }).html(content, { width })`                                                                                                           |
-| Node, Deno, Bun, Workers | `@canvist/headless`     | Clone, then in `packages/canvist-headless`: `npm ci && npm run build:wasm && npm pack`; install the tarball                                                                                 |
-| Design canvas            | `@canvist/canvas`       | In `packages/canvist-canvas`: `npm ci && npm run build:wasm && npm pack`; `mountCanvas(canvas, { scene })`                                                                                  |
-| Flutter                  | `canvist_flutter`       | pubspec git dependency with `path: platforms/flutter`. `CanvistEditor` plus a `CanvistController`                                                                                           |
-| Dart                     | `canvist`               | pubspec git dependency: `url: https://github.com/canvist/canvist`, `path: platforms/dart`                                                                                                   |
-| iOS                      | `Canvist` Swift package | `platforms/apple/build.sh`, then add `platforms/apple` as a local package. `CanvistView` (UIKit), `CanvistEditor` (SwiftUI)                                                                 |
-| Android                  | `canvist-android`       | `platforms/android/build.sh`, then `./gradlew :canvist:publishToMavenLocal`. `CanvistView` (Views, Compose)                                                                                 |
-| Desktop                  | `canvist_desktop`       | `cargo add canvist_desktop --git https://github.com/canvist/canvist`                                                                                                                        |
-| Rust                     | `canvist`               | `cargo add canvist --git https://github.com/canvist/canvist`                                                                                                                                |
-| Lynx                     | `@canvist/lynx`         | Preview, from GitHub only: build both native editors (iOS and Android rows), install `packages/canvist-lynx`, register `CanvistLynxModule` and `CanvistLynx.behavior()`                     |
+| Target                   | Package                 | Install                                                                                                                                                                 |
+| ------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React                    | `@canvist/react`        | Build `@canvist/web` (Browser editor row), then `npm ci && npm pack` in `packages/canvist-react`                                                                        |
+| React Native             | `@canvist/react-native` | Preview, from GitHub only: build both native editors (iOS and Android rows), install `packages/canvist-react-native`, add the `Canvist` pod and Maven Local             |
+| Vue                      | `@canvist/vue`          | Build `@canvist/web` (Browser editor row), then `npm ci && npm pack` in `packages/canvist-vue`                                                                          |
+| Browser editor           | `@canvist/web`          | Clone, build `packages/canvist-core` (`npm ci && npm run build`), then in `packages/canvist-web`: `npm ci && npm run build:wasm && npm pack`; install the tarball       |
+| Server-side rendering    | `@canvist/ssr`          | Build `packages/canvist-core`, then in `packages/canvist-ssr`: `npm ci && npm run build:wasm && npm pack`. `createRenderer({ theme }).html(content, { width })`         |
+| Node, Deno, Bun, Workers | `@canvist/headless`     | Clone, build `packages/canvist-core`, then in `packages/canvist-headless`: `npm ci && npm run build:wasm && npm pack`; install both tarballs                            |
+| Yjs collaboration (JS)   | `@canvist/collab`       | As `@canvist/headless`, in `packages/canvist-collab`. Same API plus `fromYjs` and the collaboration calls                                                               |
+| Canvas scenes on servers | `@canvist/scene`        | As `@canvist/headless`, in `packages/canvist-scene`. `createSceneEngine()`, `fromJson(scene)`, `exportSvg()`, `exportPng()`                                             |
+| Design canvas            | `@canvist/canvas`       | In `packages/canvist-canvas`: `npm ci && npm run build:wasm && npm pack`; `mountCanvas(canvas, { scene })`                                                              |
+| Flutter                  | `canvist_flutter`       | pubspec git dependency with `path: platforms/flutter`. `CanvistEditor` plus a `CanvistController`                                                                       |
+| Dart                     | `canvist`               | pubspec git dependency: `url: https://github.com/canvist/canvist`, `path: platforms/dart`                                                                               |
+| iOS                      | `Canvist` Swift package | `platforms/apple/build.sh`, then add `platforms/apple` as a local package. `CanvistView` (UIKit), `CanvistEditor` (SwiftUI)                                             |
+| Android                  | `canvist-android`       | `platforms/android/build.sh`, then `./gradlew :canvist:publishToMavenLocal`. `CanvistView` (Views, Compose)                                                             |
+| Desktop                  | `canvist_desktop`       | `cargo add canvist_desktop --git https://github.com/canvist/canvist`                                                                                                    |
+| Rust                     | `canvist`               | `cargo add canvist --git https://github.com/canvist/canvist`                                                                                                            |
+| Lynx                     | `@canvist/lynx`         | Preview, from GitHub only: build both native editors (iOS and Android rows), install `packages/canvist-lynx`, register `CanvistLynxModule` and `CanvistLynx.behavior()` |
 
-These **do not exist**: `@canvist/core` and `@canvist/ssr` (server rendering is `@canvist/headless/ssr`). If asked for one, say so and offer the closest working path.
+These **do not exist**: `@canvist/headless/ssr` and `@canvist/headless/scene` (use `@canvist/ssr` and `@canvist/scene`). `@canvist/headless` has no Yjs: `share`, `fromYjs`, `receiveSync`, and the other collaboration calls are only on `@canvist/collab`. `@canvist/core` exists but has no WebAssembly; it holds the types and extension descriptors the other packages share, so import `createEngine` from `@canvist/headless` or `@canvist/collab`. If asked for something else, say so and offer the closest working path.
 
 ## 2. Integrate
 
@@ -85,9 +87,9 @@ Future<void> main() async {
 
 Key API, same in every language (Rust is snake_case):
 
-- Engine: `createEngine([...])` / `Engine::new(|b| …)` / `EngineBuilder().add(...)`; `parse(format, text)`, `fromJson(json)`, `create()`, `fromYjs(state, clientId)`, `restore(snapshot)`.
+- Engine: `createEngine([...])` / `Engine::new(|b| …)` / `EngineBuilder().add(...)`; `parse(format, text)`, `fromJson(json)`, `create()`, `fromYjs(state, clientId)` (TypeScript: `@canvist/collab` only), `restore(snapshot)`.
 - Doc: `select(anchor, head?)`, `selectAll()`, `commands.X()` / `run(handle.x())`, `can.X()`, `query.X()`, `insertText`, `typeText`, `press("Mod-b")`, `paste(format, text)`, `undo`, `redo`, `export(format)`, `toJson()`, `snapshot()`.
-- Collaboration: `share(clientId)`, `encodeState()`, `applyUpdate(u)`, `takeUpdates()`, `syncStart()`, `receiveSync(msg)` → `{ reply, broadcast }`, `flushSync()`, `validate()`.
+- Collaboration (TypeScript: `@canvist/collab`, not `@canvist/headless`): `share(clientId)`, `encodeState()`, `applyUpdate(u)`, `takeUpdates()`, `syncStart()`, `receiveSync(msg)` → `{ reply, broadcast }`, `flushSync()`, `validate()`.
 - Formats: `json` (ProseMirror/TipTap JSON; must fit the schema), `html` and `markdown` (never fail; unknown content falls back to paragraphs), `text`.
 - Extensions (TypeScript names): `heading`, `blockquote`, `codeBlock`, `hardBreak`, `horizontalRule`, `bulletList`, `orderedList`, `listItem`, `taskList`, `bold`, `italic`, `underline`, `strike`, `code`, `link`, `history`, `trailingNode`. `createEngine()` with no list is the whole StarterKit. Commands follow TipTap names: `toggleBold`, `setHeading({ level })`, `setLink({ href })`, `toggleTaskList`, `sinkListItem`, …
 

@@ -20,7 +20,16 @@
 
 # canvist_headless_wasm
 
-WebAssembly bindings for [`canvist_headless`](../canvist_headless) with no DOM, built for the `@canvist/headless` package (`packages/canvist-headless`). Use that package rather than these classes directly: it loads the module in Node, Deno, Bun, and Workers and adds types generated from the extension metadata.
+WebAssembly bindings for [`canvist_headless`](../canvist_headless) with no DOM, built for the TypeScript packages. Use those rather than these classes directly: they load the module in Node, Deno, Bun, and Workers, and `@canvist/core` adds types generated from the extension metadata.
+
+Each package builds the module with the features it needs:
+
+| Package             | Features                                |
+| ------------------- | --------------------------------------- |
+| `@canvist/headless` | none, and `full` for `/full`            |
+| `@canvist/collab`   | `collab`, and `full,collab` for `/full` |
+| `@canvist/ssr`      | `ssr`                                   |
+| `@canvist/scene`    | `scene`                                 |
 
 ```sh
 wasm-pack build crates/canvist_headless_wasm --target web --release --out-dir ../../packages/canvist-headless/wasm

@@ -5,7 +5,7 @@
  *
  * @module
  */
-import type { NativeBridge } from "@canvist/headless/native";
+import type { NativeBridge } from "@canvist/core/native";
 import type { NodesRef } from "@lynx-js/types";
 
 import type { CanvistEditorsModule } from "./native.ts";

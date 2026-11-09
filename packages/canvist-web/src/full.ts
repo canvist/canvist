@@ -21,13 +21,13 @@
  *
  * @module
  */
-import type { Extensions, StarterKit } from "@canvist/headless";
+import type { Extensions, StarterKit } from "@canvist/core";
 import init, { WebEditor } from "../wasm-full/canvist_web.js";
 import { Editor, type EditorOptions } from "./editor.ts";
 import type { WasmSource } from "./load.ts";
 import type { Plugins } from "./plugin.ts";
 
-export * from "@canvist/headless/extras";
+export * from "@canvist/core/extras";
 export * from "./mod.ts";
 
 let loading: Promise<void> | undefined;

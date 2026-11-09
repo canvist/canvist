@@ -4,8 +4,8 @@
  *
  * These types mirror `canvist_scene`'s JSON codec. A scene can be written
  * nested, with `children` and without ids or keys, which is how people and
- * agents write one; {@link SceneDoc.toJson} returns the canonical flat form,
- * where every node names its `parent` and `key`.
+ * agents write one; `SceneDoc.toJson` in `@canvist/scene` returns the
+ * canonical flat form, where every node names its `parent` and `key`.
  *
  * @module
  */

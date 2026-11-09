@@ -46,9 +46,16 @@ jobs:
         with:
           node-version: 24
 
-      # @canvist/web reads its extension types from @canvist/headless.
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      # @canvist/web reads its extension types from @canvist/core.
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
+        run: |
+          npm ci
+          npm run build
+
+      # The collaboration tests join the editors as a @canvist/collab peer.
+      - name: build @canvist/collab
+        working-directory: packages/canvist-collab
         run: |
           npm ci
           npm run build:wasm
@@ -103,8 +110,15 @@ jobs:
         with:
           node-version: 24
 
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
+        run: |
+          npm ci
+          npm run build
+
+      # The server-rendering example renders with @canvist/ssr.
+      - name: build @canvist/ssr
+        working-directory: packages/canvist-ssr
         run: |
           npm ci
           npm run build:wasm
@@ -185,9 +199,16 @@ jobs:
         with:
           node-version: 24
 
-      # @canvist/web reads its extension types from @canvist/headless.
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      # @canvist/web reads its extension types from @canvist/core.
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
+        run: |
+          npm ci
+          npm run build
+
+      # The collaboration tests join the editors as a @canvist/collab peer.
+      - name: build @canvist/collab
+        working-directory: packages/canvist-collab
         run: |
           npm ci
           npm run build:wasm

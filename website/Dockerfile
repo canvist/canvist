@@ -10,8 +10,10 @@
 # of a project-wide .railway/railway.ts, which is not set up yet).
 
 # The landing page embeds the live editor (`@canvist/web`) and renders its
-# document at build time (`@canvist/headless/ssr`). Both are compiled from
-# the crates here, with the packages' own build scripts, as `web.yml` does.
+# document at build time (`@canvist/ssr`), and the playground runs
+# `@canvist/headless` and `@canvist/collab`. All of them build on
+# `@canvist/core`, and are compiled from the crates here with the packages'
+# own build scripts, as `web.yml` and `headless-js.yml` do.
 FROM node:24.14.0-trixie-slim AS node
 FROM rust:1.96.0-slim-trixie AS packages
 # The image's toolchain is the one `rust-toolchain.toml` pins; naming it
@@ -35,19 +37,20 @@ COPY platforms/dart/rust platforms/dart/rust
 COPY services/cloud services/cloud
 COPY services/dictation services/dictation
 COPY tools/footage tools/footage
+COPY packages/canvist-core packages/canvist-core
 COPY packages/canvist-headless packages/canvist-headless
+COPY packages/canvist-collab packages/canvist-collab
+COPY packages/canvist-ssr packages/canvist-ssr
 COPY packages/canvist-web packages/canvist-web
 # The site uses each package's `dist` and WebAssembly; their own
 # dependencies are build tools, so `node_modules` goes once they're built.
-RUN cd packages/canvist-headless \
+RUN cd packages/canvist-core \
 	&& npm ci \
-	&& npm run build:wasm \
 	&& npm run build \
-	&& cd ../canvist-web \
-	&& npm ci \
-	&& npm run build:wasm \
-	&& npm run build \
-	&& rm -rf ../canvist-headless/node_modules node_modules /repo/target
+	&& for package in canvist-headless canvist-collab canvist-ssr canvist-web; do \
+		(cd ../$package && npm ci && npm run build:wasm && npm run build) || exit 1; \
+	done \
+	&& rm -rf ../canvist-*/node_modules /repo/target
 
 FROM denoland/deno:2.8.3 AS build
 WORKDIR /repo
@@ -58,7 +61,10 @@ COPY docs/src docs/src
 COPY assets/brand assets/brand
 COPY crates crates
 COPY packages packages
+COPY --from=packages /repo/packages/canvist-core packages/canvist-core
 COPY --from=packages /repo/packages/canvist-headless packages/canvist-headless
+COPY --from=packages /repo/packages/canvist-collab packages/canvist-collab
+COPY --from=packages /repo/packages/canvist-ssr packages/canvist-ssr
 COPY --from=packages /repo/packages/canvist-web packages/canvist-web
 # A release commit rewrites the site's internal dependencies to versions
 # that are not on npm yet; the site builds from the packages compiled above.

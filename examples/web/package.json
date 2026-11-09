@@ -10,8 +10,8 @@
 		"test": "playwright test"
 	},
 	"dependencies": {
-		"@canvist/headless": "file:../../packages/canvist-headless",
 		"@canvist/react": "file:../../packages/canvist-react",
+		"@canvist/ssr": "file:../../packages/canvist-ssr",
 		"@canvist/vue": "file:../../packages/canvist-vue",
 		"@canvist/web": "file:../../packages/canvist-web",
 		"react": "^19.0.0",

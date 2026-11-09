@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-import { createEngine } from "../src/mod.ts";
-import { createRenderer, isCanvistError } from "../src/ssr.ts";
+import { createEngine } from "@canvist/headless";
+import { createRenderer, isCanvistError } from "../src/mod.ts";
 
 /** The Inter file `examples/web` serves and renders with. */
 const INTER = new URL(
@@ -22,7 +22,7 @@ const NOTES = {
 } as const;
 
 test("renders HTML and a stylesheet scoped to .cv-doc", async () => {
-	const renderer = await createRenderer();
+	using renderer = await createRenderer();
 	const { html, css } = renderer.html(NOTES, { width: 640 });
 
 	assert.match(html, /^<div class="cv-doc"/);

@@ -1,17 +1,20 @@
 # canvist conformance fixtures
 
-These fixtures are the contract every headless binding passes: the Rust `canvist_headless` crate, the TypeScript package, and the Dart package. Each one loads a document, runs a script of operations through the binding's own API, and compares the result. Because every binding wraps the same Rust core, a failure almost always means the binding passes something through wrongly: a format name, a command's arguments, an offset unit, or an error.
+These fixtures are the contract every headless binding passes: the Rust `canvist_headless` crate, the TypeScript packages, and the Dart package. Each one loads a document, runs a script of operations through the binding's own API, and compares the result. Because every binding wraps the same Rust core, a failure almost always means the binding passes something through wrongly: a format name, a command's arguments, an offset unit, or an error.
 
 The fixtures are plain JSON, so a runner in any language is about a hundred lines.
 
 ## Runners
 
-| Binding           | Runner                                                | Command                                                            |
-| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------ |
-| Rust              | `crates/canvist_headless/tests/conformance.rs`        | `cargo test -p canvist_headless --all-features --test conformance` |
-| TypeScript (Node) | `packages/canvist-headless/tests/conformance.test.ts` | `npm test` in `packages/canvist-headless`                          |
-| TypeScript (Deno) | the same file                                         | `deno task test` in `packages/canvist-headless`                    |
-| Dart              | `platforms/dart/test/conformance_test.dart`           | `dart test` in `platforms/dart`                                    |
+| Binding                                  | Runner                                                | Command                                                                     |
+| ---------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| Rust                                     | `crates/canvist_headless/tests/conformance.rs`        | `cargo test -p canvist_headless --all-features --test conformance`          |
+| TypeScript                               | `packages/canvist-core/tests/conformance.ts`          | run by the two drivers below                                                |
+| TypeScript, `@canvist/headless`          | `packages/canvist-headless/tests/conformance.test.ts` | `npm test` (Node) or `deno task test` (Deno) in `packages/canvist-headless` |
+| TypeScript, `@canvist/collab` (`collab`) | `packages/canvist-collab/tests/conformance.test.ts`   | `npm test` (Node) or `deno task test` (Deno) in `packages/canvist-collab`   |
+| Dart                                     | `platforms/dart/test/conformance_test.dart`           | `dart test` in `platforms/dart`                                             |
+
+The TypeScript runner takes an engine factory, so each package drives it with its own module: `@canvist/headless` without the `collab` feature, which skips the collaboration cases, and `@canvist/collab` with it.
 
 ## File shape
 

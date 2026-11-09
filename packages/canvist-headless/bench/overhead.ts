@@ -99,26 +99,6 @@ report(
 	"µs",
 );
 
-const server = engine.parse("markdown", markdown);
-server.share(1);
-const peer = engine.fromYjs(server.encodeState(), 2);
-const updates: Uint8Array[] = [];
-
-for (let index = 0; index < (SAMPLES + 1) * 200; index += 1) {
-	peer.select(CARET);
-	peer.insertText("y");
-	peer.press("Backspace");
-	updates.push(...peer.takeUpdates());
-}
-
-let next = 0;
-report(
-	"apply one Yjs keystroke update @10k paragraphs",
-	perCall(200, () => server.applyUpdate(updates[next++] ?? new Uint8Array())),
-	30,
-	"µs",
-);
-
 report(
 	"load 10k paragraphs from Markdown",
 	perCall(1, () => engine.parse("markdown", markdown)) / 1000,
@@ -134,10 +114,11 @@ report(
 
 // The StarterKit module, which `@canvist/headless` loads. New extensions go
 // in the full module, so this budget catches growth in the engine itself.
+// Yjs collaboration is in `@canvist/collab`'s modules, which have their own.
 report(
 	"WebAssembly module (wasm-opt, raw)",
 	readFileSync(WASM).byteLength / 1024,
-	1_200,
+	700,
 	"KB",
 );
 // Every extension canvist ships, for `@canvist/headless/full`, so this
@@ -146,7 +127,7 @@ report(
 report(
 	"full WebAssembly module (wasm-opt, raw)",
 	readFileSync(WASM_FULL).byteLength / 1024,
-	1_400,
+	1_040,
 	"KB",
 );
 

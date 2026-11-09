@@ -4,8 +4,10 @@
 //! with no DOM: Node, Deno, Bun, and Workers. It uses no `web-sys`, only
 //! `js-sys` for errors and arrays.
 //!
-//! The `@canvist/headless` package wraps these classes in a typed API. The
-//! surface here is deliberately plain: JSON travels as strings, bytes as
+//! `@canvist/core` wraps these classes in a typed API, over the module
+//! `@canvist/headless`, `@canvist/collab`, `@canvist/ssr`, or `@canvist/scene`
+//! builds with the features it needs. The surface here is deliberately
+//! plain: JSON travels as strings, bytes as
 //! `Uint8Array`s, and every failure is an `Error` named `CanvistError` whose
 //! `code` property is the [`ErrorCode`](canvist_headless::ErrorCode) name.
 
@@ -15,7 +17,9 @@ use canvist_headless::Format;
 use canvist_headless::HeadlessError;
 use canvist_headless::Position;
 use canvist_headless::Snapshot;
+#[cfg(any(feature = "collab", feature = "scene"))]
 use js_sys::Array;
+#[cfg(any(feature = "collab", feature = "scene"))]
 use js_sys::Uint8Array;
 use serde_json::Value as Json;
 use serde_json::json;
@@ -56,6 +60,7 @@ fn format(name: &str) -> Result<Format> {
 	name.parse().map_err(error)
 }
 
+#[cfg(any(feature = "collab", feature = "scene"))]
 #[allow(
 	clippy::needless_pass_by_value,
 	reason = "a `map` callback receives the chunks by value"
@@ -119,6 +124,7 @@ impl WasmEngine {
 	}
 
 	/// Join a shared document from v1 Yjs state as yrs client `client_id`.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = fromYjs)]
 	pub fn from_yjs(&self, state: &[u8], client_id: u32) -> Result<WasmDoc> {
 		self.engine
@@ -253,41 +259,48 @@ impl WasmDoc {
 	}
 
 	/// Start sharing the document as yrs client `client_id`.
+	#[cfg(feature = "collab")]
 	pub fn share(&mut self, client_id: u32) -> Result<()> {
 		self.doc.share(u64::from(client_id)).map_err(error)
 	}
 
 	/// Apply a v1 Yjs update; returns whether the document changed.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = applyUpdate)]
 	pub fn apply_update(&mut self, update: &[u8]) -> Result<bool> {
 		self.doc.apply_update(update).map_err(error)
 	}
 
 	/// The whole shared state as one v1 update.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = encodeState)]
 	pub fn encode_state(&self) -> Result<Vec<u8>> {
 		self.doc.encode_state().map_err(error)
 	}
 
 	/// The v1 state vector.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = stateVector)]
 	pub fn state_vector(&self) -> Result<Vec<u8>> {
 		self.doc.state_vector().map_err(error)
 	}
 
 	/// What a peer at `state_vector` is missing, as one v1 update.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = encodeDiff)]
 	pub fn encode_diff(&self, state_vector: &[u8]) -> Result<Vec<u8>> {
 		self.doc.encode_diff(state_vector).map_err(error)
 	}
 
 	/// Drain this peer's own v1 updates.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = takeUpdates, unchecked_return_type = "Uint8Array[]")]
 	pub fn take_updates(&mut self) -> Result<Array> {
 		self.doc.take_updates().map(bytes).map_err(error)
 	}
 
 	/// `{ rejectedBlocks, waiting }` as JSON.
+	#[cfg(feature = "collab")]
 	pub fn validate(&self) -> Result<String> {
 		let validation = self.doc.validate().map_err(error)?;
 		let report = json!({
@@ -298,6 +311,7 @@ impl WasmDoc {
 	}
 
 	/// The y-sync message to greet a connecting client with.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = syncStart)]
 	pub fn sync_start(&self) -> Result<Vec<u8>> {
 		self.doc.sync_start().map_err(error)
@@ -306,6 +320,7 @@ impl WasmDoc {
 	/// Handle a y-sync message: returns `[reply, broadcast, changed]`, the
 	/// messages for the sender, the messages for everyone else, and whether
 	/// the document changed.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = receiveSync, unchecked_return_type = "[Uint8Array[], Uint8Array[], boolean]")]
 	pub fn receive_sync(&mut self, message: &[u8]) -> Result<Array> {
 		let sync = self.doc.receive_sync(message).map_err(error)?;
@@ -317,6 +332,7 @@ impl WasmDoc {
 	}
 
 	/// This peer's changes since the last call, as y-sync update messages.
+	#[cfg(feature = "collab")]
 	#[wasm_bindgen(js_name = flushSync, unchecked_return_type = "Uint8Array[]")]
 	pub fn flush_sync(&mut self) -> Result<Array> {
 		self.doc.flush_sync().map(bytes).map_err(error)

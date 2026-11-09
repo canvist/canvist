@@ -119,7 +119,8 @@ Thresholds live in [`tools/bench/speed.json`](https://github.com/canvist/canvist
 The check builds every shipped artifact and measures it raw, gzipped, and brotli-compressed:
 
 - `@canvist/web`: the app bundle (a Vite build of a page that creates an editor), its WebAssembly, and its JavaScript;
-- `@canvist/headless`: the document and scene WebAssembly modules and the JavaScript;
+- `@canvist/headless` and `@canvist/collab`: the StarterKit and full WebAssembly modules and the JavaScript of each;
+- `@canvist/ssr` and `@canvist/scene`: the rendering and scene WebAssembly modules and their JavaScript;
 - `@canvist/react` and `@canvist/vue`;
 - `@canvist/canvas`: its WebAssembly and JavaScript;
 - `libcanvist_ffi` built for Linux.
@@ -151,7 +152,7 @@ Measure sizes the same way, with `node tools/bench/size.ts build --root . --grou
 - **Build one engine and share it.** Creating an engine registers its extensions. A document from an existing engine takes about 60 µs.
 - **Reuse a `Renderer` per thread.** It caches text measurements, so the second render of similar text is much cheaper.
 - **Store JSON.** It keeps block ids, so collaborators and comments don't have to re-anchor after a reload.
-- **Mind the WebAssembly size.** The TypeScript package's StarterKit module is 444 KB gzipped, and `@canvist/headless/full` is 551 KB. Collaboration is most of it: the core without it is 196 KB.
+- **Mind the WebAssembly size.** `@canvist/headless`'s StarterKit module is about 267 KB gzipped, and `@canvist/headless/full` about 393 KB. Yjs adds about 190 KB to each, so import `@canvist/collab` only where documents collaborate.
 - **Batch updates on the server.** `takeUpdates()` returns everything since the last call, so you can send one message per tick instead of one per keystroke.
 
 ## Measure it yourself

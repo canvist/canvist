@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/headless": "^0.2.1"
+		"@canvist/core": "^0.2.1"
 	}
 }

@@ -4,9 +4,9 @@ name: "react-native"
 # in Release on an iOS Simulator and an Android emulator, driven by Maestro.
 #
 # The device jobs take 15-30 minutes on scarce runners, so pull requests only
-# run this workflow when they touch the package, its example, the headless
-# types it builds on, or the native editors and engine under it. Every push to
-# `main` and a nightly run cover the rest.
+# run this workflow when they touch the package, its example, the
+# @canvist/core types it builds on, or the native editors and engine under
+# it. Every push to `main` and a nightly run cover the rest.
 on:
   pull_request:
     paths:
@@ -15,8 +15,8 @@ on:
       - "Cargo.toml"
       - "crates/**"
       - "examples/react-native/**"
-      - "packages/canvist-headless/src/**"
-      - "packages/canvist-headless/package.json"
+      - "packages/canvist-core/src/**"
+      - "packages/canvist-core/package.json"
       - "packages/canvist-react-native/**"
       - "platforms/android/**"
       - "platforms/apple/**"
@@ -65,19 +65,18 @@ jobs:
           node-version: 24
 
       # The package reads its types and extension metadata from
-      # @canvist/headless, which its tsc build checks against the wasm modules.
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      # @canvist/core, which loads no WebAssembly.
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
         run: |
           npm ci
-          npm run build:wasm
           npm run build
 
-      - name: share @canvist/headless with the device jobs
+      - name: share @canvist/core with the device jobs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: canvist-headless-dist
-          path: packages/canvist-headless/dist
+          name: canvist-core-dist
+          path: packages/canvist-core/dist
           retention-days: 1
 
       - name: install dependencies
@@ -121,11 +120,11 @@ jobs:
         with:
           node-version: 24
 
-      - name: download @canvist/headless
+      - name: download @canvist/core
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: canvist-headless-dist
-          path: packages/canvist-headless/dist
+          name: canvist-core-dist
+          path: packages/canvist-core/dist
 
       - name: install the example's dependencies
         working-directory: examples/react-native
@@ -206,11 +205,11 @@ jobs:
         with:
           node-version: 24
 
-      - name: download @canvist/headless
+      - name: download @canvist/core
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: canvist-headless-dist
-          path: packages/canvist-headless/dist
+          name: canvist-core-dist
+          path: packages/canvist-core/dist
 
       - name: install the example's dependencies
         working-directory: examples/react-native

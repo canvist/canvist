@@ -5,13 +5,13 @@
  * can take its place without moving a pixel. SVG images of the whole
  * document, for previews and thumbnails, come from the same layout.
  *
- * Rendering lives in its own WebAssembly module, so the document entry
- * point stays small. It measures text with its own copy of each font,
- * never the system's: the bundled Atkinson Hyperlegible stands in for
- * every family until you register yours.
+ * Rendering lives in its own WebAssembly module, so document packages such
+ * as `@canvist/headless` stay small. It measures text with its own copy of
+ * each font, never the system's: the bundled Atkinson Hyperlegible stands
+ * in for every family until you register yours.
  *
  * ```ts
- * import { createRenderer } from "@canvist/headless/ssr";
+ * import { createRenderer } from "@canvist/ssr";
  *
  * const renderer = await createRenderer({ theme: { scheme: "dark" } });
  * const { html, css } = renderer.html(
@@ -22,19 +22,27 @@
  *
  * @module
  */
-import init, { WasmRenderer } from "../wasm-ssr/canvist_headless_ssr.js";
-import { starterKit } from "./extensions.generated.ts";
-import { bundled, type WasmSource } from "./load.ts";
-import type { Content, Extensions, StarterKit, ThemeOptions } from "./types.ts";
+import {
+	bundled,
+	type Content,
+	type Extensions,
+	type StarterKit,
+	type ThemeOptions,
+	type WasmSource,
+} from "@canvist/core";
+import { starterKit } from "@canvist/core/extensions";
+import init, { WasmRenderer } from "../wasm/canvist_ssr.js";
 
-export { type CanvistError, isCanvistError } from "./engine.ts";
-export type { WasmSource } from "./load.ts";
-export type { Content, StarterKit, ThemeOptions } from "./types.ts";
+export {
+	type CanvistError,
+	type Content,
+	isCanvistError,
+	type StarterKit,
+	type ThemeOptions,
+	type WasmSource,
+} from "@canvist/core";
 
-const BUNDLED = new URL(
-	"../wasm-ssr/canvist_headless_ssr_bg.wasm",
-	import.meta.url,
-);
+const BUNDLED = new URL("../wasm/canvist_ssr_bg.wasm", import.meta.url);
 
 let loading: Promise<void> | undefined;
 

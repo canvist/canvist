@@ -19,7 +19,7 @@
  *
  * @module
  */
-import type { Extensions } from "@canvist/headless";
+import type { Extensions } from "@canvist/core";
 import type { Editor } from "./editor.ts";
 import type { Plugins } from "./plugin.ts";
 

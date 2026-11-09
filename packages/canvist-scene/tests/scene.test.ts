@@ -10,7 +10,7 @@ import {
 	createSceneEngine,
 	isCanvistError,
 	type SceneJson,
-} from "../src/scene.ts";
+} from "../src/mod.ts";
 
 /** The PNG file signature. */
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -86,6 +86,7 @@ test("commands and inspector fields transform a scene", async () => {
 
 	doc.select([sun]);
 	assert.deepEqual(doc.selection(), [sun]);
+	assert.ok(JSON.stringify(doc.inspect()).includes("Sun"));
 	doc.setField("name", "Moon");
 	doc.run("insert", {
 		type: "rectangle",
@@ -96,6 +97,22 @@ test("commands and inspector fields transform a scene", async () => {
 	assert.ok(names.includes("Moon") && names.includes("Badge"));
 	assert.equal(doc.undo(), true);
 	assert.ok(!doc.toJson().nodes.some((node) => node.props?.name === "Badge"));
+});
+
+test("the engine describes its tools, and images draw the pixels given", async () => {
+	using engine = await createSceneEngine();
+	assert.ok(JSON.stringify(engine.metadata()).includes("rectangle"));
+
+	using doc = engine.create();
+	doc.run("insert", {
+		type: "image",
+		asset: "dot",
+		props: { name: "Dot", size: [1, 1] },
+	});
+	const red = Uint8Array.of(255, 0, 0, 255);
+	doc.addImage("dot", 1, 1, red);
+	const png = doc.exportPng({ nodes: [idOf(doc.toJson(), "Dot")] });
+	assert.deepEqual([...png.subarray(0, PNG_SIGNATURE.length)], PNG_SIGNATURE);
 });
 
 test("scenes export as SVG and PNG", async () => {

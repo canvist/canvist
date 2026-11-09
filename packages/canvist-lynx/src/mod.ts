@@ -40,9 +40,9 @@ export type {
 	Range,
 	Registered,
 	StarterKit,
-} from "@canvist/headless";
-export * from "@canvist/headless/extensions";
-export { isCanvistError } from "@canvist/headless/native";
+} from "@canvist/core";
+export * from "@canvist/core/extensions";
+export { isCanvistError } from "@canvist/core/native";
 export {
 	CanvistEditor,
 	type CanvistEditorHandle,

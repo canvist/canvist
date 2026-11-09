@@ -83,11 +83,14 @@ Object.assign(scope, {
 	fetch: sandboxFetch(dial, scope.fetch.bind(scope)),
 });
 
-/** `@canvist/headless` and `/full` share their classes; documents from either are previewed. */
-const watched = <M extends Parameters<DocumentTracker["watch"]>[0]>(
-	module: M,
-): M => {
-	tracker.watch(module);
+/**
+ * `@canvist/headless`, `@canvist/collab`, and their `/full` modules share
+ * their classes; documents from any of them are previewed.
+ */
+const watched = (module: object): unknown => {
+	// Checking a module's typed classes against the tracker's is deeper than
+	// TypeScript instantiates; every loader here passes a module that has them.
+	tracker.watch(module as Parameters<DocumentTracker["watch"]>[0]);
 	return module;
 };
 
@@ -95,7 +98,9 @@ const LOADERS: Record<ServerModule, () => Promise<unknown>> = {
 	"@canvist/headless": () => import("@canvist/headless").then(watched),
 	"@canvist/headless/full": () =>
 		import("@canvist/headless/full").then(watched),
-	"@canvist/headless/ssr": () => import("@canvist/headless/ssr"),
+	"@canvist/collab": () => import("@canvist/collab").then(watched),
+	"@canvist/collab/full": () => import("@canvist/collab/full").then(watched),
+	"@canvist/ssr": () => import("@canvist/ssr"),
 	ws: () => Promise.resolve(wsModule(network)),
 	"node:http": () => Promise.resolve(httpModule(network)),
 	"node:events": () => Promise.resolve({ EventEmitter, default: EventEmitter }),

@@ -6,4 +6,4 @@ export {
 	fontSize,
 	lineHeight,
 	textStyle,
-} from "@canvist/headless/extras";
+} from "@canvist/core/extras";

@@ -188,8 +188,12 @@ in
         # The Dart workspace holds the Flutter packages too, so pub needs
         # Flutter's SDK: fvm's (pinned in `.fvmrc`) when present.
         dart=(dart)
-        command -v fvm >/dev/null && dart=(fvm dart)
-        "''${dart[@]}" pub get
+        flutter=(flutter)
+        if command -v fvm >/dev/null; then
+          dart=(fvm dart)
+          flutter=(fvm flutter)
+        fi
+        "''${flutter[@]}" pub get
         "''${dart[@]}" analyze --fatal-infos
         "''${dart[@]}" run tool/generate.dart --check
         "''${dart[@]}" test
@@ -200,21 +204,33 @@ in
     "test:headless-js" = {
       exec = ''
         set -e
-        cd "$DEVENV_ROOT/packages/canvist-headless"
+        cd "$DEVENV_ROOT/packages/canvist-core"
         npm ci
-        npm run build:wasm
         npm run check:generated
+        npm run build
         npm run check:types
-        npm test
+        npm run test:coverage
         deno task test
+        for package in canvist-headless canvist-collab canvist-ssr canvist-scene; do
+          cd "$DEVENV_ROOT/packages/$package"
+          npm ci
+          npm run build:wasm
+          npm run build
+          npm run check:types
+          npm run test:coverage
+          deno task test
+        done
       '';
-      description = "Build @canvist/headless and run its tests in Node and Deno.";
+      description = "Build the TypeScript engine packages and run their tests in Node and Deno.";
       binary = "bash";
     };
     "test:web" = {
       exec = ''
         set -e
-        cd "$DEVENV_ROOT/packages/canvist-headless"
+        cd "$DEVENV_ROOT/packages/canvist-core"
+        npm ci
+        npm run build
+        cd "$DEVENV_ROOT/packages/canvist-collab"
         npm ci
         npm run build:wasm
         npm run build
@@ -335,7 +351,11 @@ in
         monostyle check crates/canvist_paint --fail-under 90
         monostyle check crates/canvist_headless --fail-under 90
         monostyle check crates/canvist_headless_wasm --fail-under 90
+        monostyle check packages/canvist-core --fail-under 90
         monostyle check packages/canvist-headless --fail-under 90
+        monostyle check packages/canvist-collab --fail-under 90
+        monostyle check packages/canvist-ssr --fail-under 90
+        monostyle check packages/canvist-scene --fail-under 90
         monostyle check crates/canvist_web --fail-under 90
         monostyle check crates/canvist_desktop --fail-under 90
         monostyle check examples/desktop --fail-under 90

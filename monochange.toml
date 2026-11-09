@@ -349,9 +349,30 @@ path = "crates/canvist_web"
 publish = { enabled = false }
 changelog = false
 
+# The typed engine, document, and extension descriptors, with no
+# WebAssembly: every other TypeScript package builds on it.
+[package."@canvist/core"]
+path = "packages/canvist-core"
+type = "npm"
+
 # The headless TypeScript package is published to npm.
 [package."@canvist/headless"]
 path = "packages/canvist-headless"
+type = "npm"
+
+# Headless documents as Yjs peers, in their own WebAssembly modules.
+[package."@canvist/collab"]
+path = "packages/canvist-collab"
+type = "npm"
+
+# Server-side rendering, in its own WebAssembly module.
+[package."@canvist/ssr"]
+path = "packages/canvist-ssr"
+type = "npm"
+
+# Canvas scenes with no DOM, in their own WebAssembly module.
+[package."@canvist/scene"]
+path = "packages/canvist-scene"
 type = "npm"
 
 # The canvas editor for the browser, over `canvist_web`.
@@ -872,7 +893,11 @@ packages = [
 	"@canvist/extension-underline",
 	"@canvist/extension-youtube",
 	"@canvist/canvas",
+	"@canvist/collab",
+	"@canvist/core",
 	"@canvist/headless",
+	"@canvist/scene",
+	"@canvist/ssr",
 	"@canvist/lynx",
 	"@canvist/react",
 	"@canvist/react-native",

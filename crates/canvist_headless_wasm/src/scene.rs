@@ -1,5 +1,5 @@
 //! Canvas scenes, behind the `scene` feature: `WasmSceneEngine` and
-//! `WasmSceneDoc`, which `@canvist/headless/scene` wraps.
+//! `WasmSceneDoc`, which `@canvist/scene` wraps.
 
 use canvist_headless::ExportOptions;
 use canvist_headless::HeadlessError;

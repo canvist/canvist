@@ -4,4 +4,4 @@ export {
 	listItem,
 	orderedList,
 	taskList,
-} from "@canvist/headless/extensions";
+} from "@canvist/core/extensions";

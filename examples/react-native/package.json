@@ -9,7 +9,7 @@
 		"check:types": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@canvist/headless": "file:../../packages/canvist-headless",
+		"@canvist/core": "file:../../packages/canvist-core",
 		"@canvist/react-native": "file:../../packages/canvist-react-native",
 		"react": "19.3.0",
 		"react-native": "0.88.0",

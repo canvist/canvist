@@ -27,7 +27,7 @@ One Vite project with five pages:
 | `vanilla.html`   | `createEditor` and a toolbar kept in step with `subscribe`, no framework                                 |
 | `react.html`     | `@canvist/react`: `useCanvistEditor` and `useEditorState`, in Strict Mode                                |
 | `vue.html`       | `@canvist/vue`: `useCanvistEditor` and `useEditorState` in a single-file component                       |
-| `ssr.html`       | HTML from `@canvist/headless/ssr`, rendered on each request, that the editor hydrates without moving     |
+| `ssr.html`       | HTML from `@canvist/ssr`, rendered on each request, that the editor hydrates without moving              |
 | `ssr-react.html` | A React tree rendered on the server with `renderToString` and hydrated with `hydrateRoot`, as in Next.js |
 
 `server.ts` runs Vite in middleware mode and renders the two server-rendered pages on every request, the way Next.js and Nuxt do. The theme, width, and document they share are in `src/ssr-content.ts`.
@@ -38,4 +38,4 @@ npm run dev     # node server.ts, on http://localhost:5180
 npm test        # Playwright, in Chromium, Firefox, and WebKit
 ```
 
-The packages are linked from this repository, so the build and test steps of `packages/canvist-headless`, `packages/canvist-web`, `packages/canvist-react`, and `packages/canvist-vue` must have run first. Inter is © The Inter Project Authors, under the SIL Open Font License (`public/fonts/OFL.txt`).
+The packages are linked from this repository, so the build and test steps of `packages/canvist-core`, `packages/canvist-ssr`, `packages/canvist-web`, `packages/canvist-react`, and `packages/canvist-vue` must have run first. Inter is © The Inter Project Authors, under the SIL Open Font License (`public/fonts/OFL.txt`).

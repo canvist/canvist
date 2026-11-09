@@ -197,7 +197,7 @@ Everything a design tool's interaction needs is geometry and state in Rust:
 
 ## Decision C8: export and server rendering
 
-`canvist_headless` gains a `scene` feature: load a scene from JSON or Yjs state, run commands and steps, and export SVG, PNG (through `vello_cpu`), and PDF. Servers make thumbnails with the same paint list the canvas draws. `@canvist/headless` exposes the same calls with types generated from extension metadata, so an agent can generate a design, check it against the inspector schema, and render it, all without a browser.
+`canvist_headless` gains a `scene` feature: load a scene from JSON or Yjs state, run commands and steps, and export SVG, PNG (through `vello_cpu`), and PDF. Servers make thumbnails with the same paint list the canvas draws. `@canvist/scene` exposes the same calls with types generated from extension metadata (the types alone are `@canvist/core/scene`), so an agent can generate a design, check it against the inspector schema, and render it, all without a browser.
 
 ## Performance budgets
 

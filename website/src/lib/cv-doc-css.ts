@@ -1,5 +1,5 @@
 /**
- * Fitting the stylesheet canvist's server renderer (`@canvist/headless/ssr`)
+ * Fitting the stylesheet canvist's server renderer (`@canvist/ssr`)
  * writes to the site: a fluid width, both colour schemes, and the page
  * colour the canvas paints behind the document.
  */

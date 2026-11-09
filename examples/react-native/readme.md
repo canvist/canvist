@@ -4,7 +4,7 @@ A notes screen on [`@canvist/react-native`](../../packages/canvist-react-native)
 
 ```sh
 npm install
-(cd ../../packages/canvist-headless && npm run build)
+(cd ../../packages/canvist-core && npm install && npm run build)
 npm run ios            # or: npm run android, with Metro from npm start
 ```
 

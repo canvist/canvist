@@ -2,20 +2,20 @@
 
 In this guide you render a canvist document to HTML on a server, laid out exactly as the editor paints it, then let the live editor take over in the browser without moving a pixel. Use it for fast first paint, SEO, readers without JavaScript, email, previews, and thumbnails.
 
-**Status: available.** JavaScript servers (Node, Deno, Bun, and Workers, including Next.js and Nuxt) use `@canvist/headless/ssr`. Rust servers use the `canvist` crate with the `ssr` feature. Both render the same HTML.
+**Status: available.** JavaScript servers (Node, Deno, Bun, and Workers, including Next.js and Nuxt) use `@canvist/ssr`. Rust servers use the `canvist` crate with the `ssr` feature. Both render the same HTML.
 
 ## 1. Install
 
 ```sh
-npm install @canvist/headless @canvist/web
+npm install @canvist/ssr @canvist/web
 ```
 
-`@canvist/headless` renders on the server, and `@canvist/web` hydrates in the browser. Rendering lives in its own WebAssembly module, so `import "@canvist/headless"` stays small.
+`@canvist/ssr` renders on the server, and `@canvist/web` hydrates in the browser. Rendering is a package of its own, with its own WebAssembly module, so `@canvist/headless` stays small.
 
 ## 2. Render HTML
 
 ```ts
-import { createRenderer } from "@canvist/headless/ssr";
+import { createRenderer } from "@canvist/ssr";
 
 // Keep one renderer per server: it caches text measurements.
 const renderer = await createRenderer({
@@ -72,7 +72,7 @@ Render in a server component and hydrate in a client component. `@canvist/react`
 
 ```tsx
 // app/notes/page.tsx: a server component.
-import { createRenderer } from "@canvist/headless/ssr";
+import { createRenderer } from "@canvist/ssr";
 import { NotesEditor } from "./notes-editor";
 
 const THEME = { bodyFamily: "Inter, sans-serif" } as const;
@@ -113,7 +113,7 @@ export function NotesEditor(props: { html: string; theme: ThemeOptions }) {
 }
 ```
 
-Next.js bundles server code, so keep the WebAssembly files next to the package's modules: add `serverExternalPackages: ["@canvist/headless"]` to `next.config.ts`.
+Next.js bundles server code, so keep the WebAssembly files next to the package's modules: add `serverExternalPackages: ["@canvist/ssr"]` to `next.config.ts`.
 
 ## Nuxt
 
@@ -124,7 +124,7 @@ Render in a server route or `useAsyncData`, and hydrate with `@canvist/vue`'s `C
 import { CanvistEditor } from "@canvist/vue";
 
 const theme = { bodyFamily: "Inter, sans-serif" } as const;
-// server/api/notes.get.ts renders with `@canvist/headless/ssr` and returns `{ html, css }`.
+// server/api/notes.get.ts renders with `@canvist/ssr` and returns `{ html, css }`.
 const { data } = await useFetch("/api/notes");
 
 useHead({ style: [{ innerHTML: () => data.value?.css ?? "" }] });
@@ -190,7 +190,7 @@ The stylesheet pins line breaking, fonts, and spacing to the values the editor's
 HTML needs no fonts on the server, because the browser lays it out. SVG images are laid out on the server, so the renderer measures their text with its own copy of each font, never the system's. It bundles Atkinson Hyperlegible, which stands in for every font family until you register your own:
 
 ```ts no_run
-import { createRenderer } from "@canvist/headless/ssr";
+import { createRenderer } from "@canvist/ssr";
 import { readFile } from "node:fs/promises";
 
 const renderer = await createRenderer({
