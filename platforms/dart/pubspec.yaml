@@ -13,6 +13,8 @@ topics:
 environment:
   sdk: ^3.13.0
 
+resolution: workspace
+
 dependencies:
   ffi: ^2.1.0
   # The bridge's Dart and Rust halves must come from the same release, and

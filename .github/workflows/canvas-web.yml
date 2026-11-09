@@ -19,6 +19,7 @@ on:
       - "crates/canvist_collab/**"
       - "crates/canvist_core/**"
       - "crates/canvist_extensions/**"
+      - "crates/extensions/**"
       - "crates/canvist_layout/**"
       - "crates/canvist_model/**"
       - "crates/canvist_paint/**"

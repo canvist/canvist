@@ -1,0 +1,58 @@
+<p align="center">
+  <a href="https://github.com/canvist/canvist">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/vector/lockup-dark.svg">
+      <img width="220" src="https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/vector/lockup.svg" alt="canvist" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://docs.rs/canvist_extension_table"><strong>API</strong></a> ·
+  <a href="https://github.com/canvist/canvist/blob/main/docs/src/readme.md"><strong>Docs</strong></a> ·
+  <a href="https://github.com/canvist/canvist/blob/main/docs/src/reference/contributing.md"><strong>Contributing</strong></a> ·
+  <a href="https://github.com/canvist/canvist"><strong>canvist</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://crates.io/crates/canvist_extension_table"><img src="https://img.shields.io/crates/v/canvist_extension_table?color=3B2CF5" alt="crates.io version" /></a>
+  <a href="https://docs.rs/canvist_extension_table"><img src="https://img.shields.io/docsrs/canvist_extension_table" alt="docs.rs status" /></a>
+  <a href="https://unlicense.org"><img src="https://img.shields.io/badge/license-Unlicense-3B2CF5" alt="Unlicense" /></a>
+</p>
+
+# canvist_extension_table
+
+TipTap's `table`, `tableRow`, `tableCell`, and `tableHeader`, with commands to add, remove, merge, and split cells, for the [canvist](https://github.com/canvist/canvist) editor.
+
+Most apps get it through [`canvist_extensions`](../../canvist_extensions), which combines every extension behind Cargo features, or [`canvist`](../../canvist), the crate to install. Depend on this crate directly to compile only the extensions you register:
+
+```sh
+cargo add canvist_extension_table
+```
+
+## Usage
+
+Register [`Table`] and keep its handle, which offers every command typed:
+
+```rust
+use canvist_core::Editor;
+use canvist_extension_document::Document;
+use canvist_extension_paragraph::Paragraph;
+use canvist_extension_table::Table;
+
+let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+let table = builder.add(Table);
+let mut editor = builder.build()?;
+
+editor.run(&table.insert(3, 3, true), &mut env)?;
+editor.run(&table.add_row_after(), &mut env)?;
+editor.run(&table.merge_cells(), &mut env)?;
+```
+
+Hosts without the typed API run the same commands by name: `insertTable` with `rows`, `cols`, and `withHeaderRow`, `addRowAfter`, `mergeCells`, and the rest. The `tableCell` query says where the caret sits. Pasting and copying tables as HTML and Markdown needs [`canvist_extension_clipboard`](../clipboard) with its `table` feature.
+
+[`Table`]: https://docs.rs/canvist_extension_table/latest/canvist_extension_table/struct.Table.html
+
+## License
+
+[Unlicense](https://unlicense.org)

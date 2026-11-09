@@ -1,0 +1,38 @@
+{
+	"name": "@canvist/extension-text-align",
+	"version": "0.2.1",
+	"description": "TipTap's `textAlign` attribute, with `Mod-Shift-l`, `e`, `r`, and `j`, for canvist.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/text-align#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/extensions/text-align"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"keywords": [
+		"canvist",
+		"editor",
+		"rich-text",
+		"extension",
+		"text-align"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./mod.d.ts",
+			"default": "./mod.js"
+		}
+	},
+	"files": [
+		"mod.js",
+		"mod.d.ts"
+	],
+	"sideEffects": false,
+	"dependencies": {
+		"@canvist/headless": "^0.2.1"
+	}
+}

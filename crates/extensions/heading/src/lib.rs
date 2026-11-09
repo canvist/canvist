@@ -1,0 +1,389 @@
+#![doc(
+	html_logo_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/icon.svg",
+	html_favicon_url = "https://raw.githubusercontent.com/canvist/canvist/main/assets/brand/web/favicon.svg"
+)]
+//! # `canvist_extension_heading`
+//!
+//! TipTap's `heading` node for the canvist editor, as in TipTap's
+//! `@tiptap/extension-heading`. [`Heading`] registers a text block with a
+//! `level` attribute from 1 to 6, the `toggleHeading` and `setHeading`
+//! commands (each taking a `level`), and the `headingLevel` query. Typing
+//! `#` to `######` and a space at the start of a block turns it into a
+//! heading of that level, and `Mod-Alt-1` to `Mod-Alt-6` toggle one.
+//! [`Heading::max_level`] caps the levels offered, like TipTap's `levels`
+//! option.
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use canvist_core::Editor;
+//! use canvist_core::Env;
+//! use canvist_extension_document::Document;
+//! use canvist_extension_heading::Heading;
+//! use canvist_extension_heading::HeadingLevel;
+//! use canvist_extension_paragraph::Paragraph;
+//!
+//! let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+//! let heading = builder.add(Heading::default());
+//! let mut editor = builder.build()?;
+//! let mut env = Env::headless(Duration::ZERO);
+//!
+//! for character in "## Title".chars() {
+//! 	editor.insert_text(&character.to_string(), &mut env)?;
+//! }
+//! assert_eq!(heading.level(editor.state()), Some(HeadingLevel::H2));
+//!
+//! editor.run(&heading.toggle(HeadingLevel::H2), &mut env)?;
+//! assert_eq!(heading.level(editor.state()), None);
+//! # Ok::<(), canvist_core::EditorError>(())
+//! ```
+
+use canvist_core::Args;
+use canvist_core::Binding;
+use canvist_core::Command;
+use canvist_core::CommandSpec;
+use canvist_core::EditorError;
+use canvist_core::EditorState;
+use canvist_core::Extension;
+use canvist_core::Field;
+use canvist_core::InputRule;
+use canvist_core::NodeKind;
+use canvist_core::NodeMeta;
+use canvist_core::Platform;
+use canvist_core::QuerySpec;
+use canvist_core::Registration;
+use canvist_core::RuleMatch;
+use canvist_core::TypedExtension;
+use canvist_core::ValueType;
+use canvist_core::block_type;
+use canvist_core::command;
+use canvist_core::commands;
+use canvist_model::Attrs;
+use canvist_model::BlockSpec;
+use canvist_model::Schema;
+use canvist_model::SchemaBuilder;
+use canvist_model::Value;
+
+/// A heading level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum HeadingLevel {
+	/// `<h1>`.
+	H1 = 1,
+	/// `<h2>`.
+	H2,
+	/// `<h3>`.
+	H3,
+	/// `<h4>`.
+	H4,
+	/// `<h5>`.
+	H5,
+	/// `<h6>`.
+	H6,
+}
+
+impl HeadingLevel {
+	/// Every level, from 1 to 6.
+	pub const ALL: [Self; 6] = [Self::H1, Self::H2, Self::H3, Self::H4, Self::H5, Self::H6];
+
+	/// The level as a number from 1 to 6.
+	#[must_use]
+	pub const fn number(self) -> i64 {
+		self as i64
+	}
+
+	/// The level for a number from 1 to 6.
+	#[must_use]
+	pub fn from_number(number: i64) -> Option<Self> {
+		Self::ALL.into_iter().find(|level| level.number() == number)
+	}
+
+	fn attrs(self) -> Attrs {
+		Attrs::new().with("level", self.number())
+	}
+}
+
+/// A `heading` text block with a `level` attribute. `#` to `######`
+/// followed by a space turn a paragraph into a heading, and `Mod-Alt-1`
+/// to `Mod-Alt-6` toggle one.
+#[derive(Clone, Copy, Debug)]
+pub struct Heading {
+	/// The deepest level offered.
+	pub max_level: HeadingLevel,
+}
+
+impl Default for Heading {
+	fn default() -> Self {
+		Self {
+			max_level: HeadingLevel::H6,
+		}
+	}
+}
+
+/// Typed access to [`Heading`].
+#[derive(Clone, Copy, Debug)]
+pub struct HeadingHandle {
+	_registration: Registration,
+}
+
+#[allow(
+	clippy::unused_self,
+	reason = "handle methods require proof of registration"
+)]
+impl HeadingHandle {
+	/// Make the selected text blocks headings of `level`, or paragraphs if
+	/// they already are.
+	#[must_use]
+	pub fn toggle(self, level: HeadingLevel) -> Command {
+		toggle(level)
+	}
+
+	/// Make the selected text blocks headings of `level`.
+	#[must_use]
+	pub fn set(self, level: HeadingLevel) -> Command {
+		set(level)
+	}
+
+	/// The level every selected text block shares, if they are all
+	/// headings of one level.
+	#[must_use]
+	pub fn level(self, state: &EditorState) -> Option<HeadingLevel> {
+		level(state)
+	}
+}
+
+fn toggle(level: HeadingLevel) -> Command {
+	command(move |state| {
+		let heading = block_type(state.schema(), "heading", "heading")?;
+		commands::toggle_block_type(state, heading, &level.attrs())
+	})
+}
+
+fn set(level: HeadingLevel) -> Command {
+	command(move |state| {
+		let heading = block_type(state.schema(), "heading", "heading")?;
+		commands::set_block_type(state, heading, &level.attrs())
+	})
+}
+
+fn level(state: &EditorState) -> Option<HeadingLevel> {
+	let heading = state.schema().block_type("heading")?;
+	HeadingLevel::ALL
+		.into_iter()
+		.find(|level| commands::is_block_active(state, heading, &level.attrs()))
+}
+
+impl Heading {
+	fn levels(self) -> impl Iterator<Item = HeadingLevel> {
+		HeadingLevel::ALL
+			.into_iter()
+			.filter(move |&level| level <= self.max_level)
+	}
+
+	fn level_type(self) -> ValueType {
+		ValueType::IntRange {
+			min: 1,
+			max: self.max_level.number(),
+		}
+	}
+
+	/// Read a checked level argument.
+	fn level_arg(args: &Args<'_>) -> Result<HeadingLevel, EditorError> {
+		let number = args.int("level")?;
+		HeadingLevel::from_number(number).ok_or_else(|| {
+			EditorError::InvalidArgs {
+				name: "heading".to_owned(),
+				reason: format!("no heading level {number}"),
+			}
+		})
+	}
+}
+
+const KEYS: [&str; 6] = [
+	"Mod-Alt-1",
+	"Mod-Alt-2",
+	"Mod-Alt-3",
+	"Mod-Alt-4",
+	"Mod-Alt-5",
+	"Mod-Alt-6",
+];
+
+impl Extension for Heading {
+	fn name(&self) -> &'static str {
+		"heading"
+	}
+
+	fn schema(&self, schema: SchemaBuilder) -> SchemaBuilder {
+		schema.block(BlockSpec::text("heading").attrs(Attrs::new().with("level", 1)))
+	}
+
+	fn nodes(&self) -> Vec<NodeMeta> {
+		let level = Field::optional("level", self.level_type(), 1, "The heading level.");
+		vec![NodeMeta::new(NodeKind::Block, "heading").attr(level)]
+	}
+
+	fn commands(&self, _schema: &Schema) -> Result<Vec<CommandSpec>, EditorError> {
+		let level = || Field::required("level", self.level_type(), "The heading level.");
+		let toggle_spec = CommandSpec::new(
+			"toggleHeading",
+			"Make the selected text blocks headings of a level, or paragraphs if they already are.",
+			|args| Ok(toggle(Self::level_arg(args)?)),
+		);
+		let set_spec = CommandSpec::new(
+			"setHeading",
+			"Make the selected text blocks headings of a level.",
+			|args| Ok(set(Self::level_arg(args)?)),
+		);
+		Ok(vec![toggle_spec.arg(level()), set_spec.arg(level())])
+	}
+
+	fn queries(&self, _schema: &Schema) -> Result<Vec<QuerySpec>, EditorError> {
+		let returns = ValueType::nullable(self.level_type());
+		let query = QuerySpec::new(
+			"headingLevel",
+			"The level every selected text block shares, or null if they are not all headings of \
+			 one level.",
+			returns,
+			|state, _| Ok(level(state).map_or(Value::Null, |level| Value::Int(level.number()))),
+		);
+		Ok(vec![query])
+	}
+
+	fn keymap(&self, _schema: &Schema, _platform: Platform) -> Result<Vec<Binding>, EditorError> {
+		Ok(self
+			.levels()
+			.map(|level| (KEYS[level as usize - 1], toggle(level)))
+			.collect())
+	}
+
+	fn input_rules(&self, schema: &Schema) -> Result<Vec<InputRule>, EditorError> {
+		let kind = block_type(schema, self.name(), "heading")?;
+		let pattern = format!(r"^(#{{1,{}}})\s$", self.max_level.number());
+		let level = |found: &RuleMatch| {
+			Attrs::new().with("level", found.group(1).map_or(1, str::len) as i64)
+		};
+		Ok(vec![InputRule::block_type(&pattern, kind, level)?])
+	}
+}
+
+impl TypedExtension for Heading {
+	type Handle = HeadingHandle;
+
+	fn handle(&self, registration: Registration) -> HeadingHandle {
+		HeadingHandle {
+			_registration: registration,
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use canvist_core::Editor;
+	use canvist_core::Env;
+	use canvist_core::KeyPress;
+	use canvist_core::Modifiers;
+	use canvist_extension_document::Document;
+	use canvist_extension_paragraph::Paragraph;
+	use canvist_model::Point;
+	use canvist_model::Selection;
+
+	use super::*;
+
+	fn editor(heading: Heading) -> Result<(Editor, HeadingHandle), EditorError> {
+		let mut builder = Editor::builder().extension(Document).extension(Paragraph);
+		let handle = builder.add(heading);
+		Ok((builder.build()?, handle))
+	}
+
+	fn type_text(editor: &mut Editor, text: &str, env: &mut Env<'_>) -> Result<(), EditorError> {
+		for character in text.chars() {
+			editor.insert_text(&character.to_string(), env)?;
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn hashes_set_the_level() -> Result<(), EditorError> {
+		for level in HeadingLevel::ALL {
+			let (mut editor, heading) = editor(Heading::default())?;
+			let mut env = Env::headless(Duration::ZERO);
+			let hashes = "#".repeat(level as usize);
+			type_text(&mut editor, &format!("{hashes} Title"), &mut env)?;
+
+			assert_eq!(heading.level(editor.state()), Some(level));
+			assert_eq!(editor.state().doc().plain_text(), "Title");
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn max_level_limits_hashes_keys_and_arguments() -> Result<(), EditorError> {
+		let options = Heading {
+			max_level: HeadingLevel::H2,
+		};
+		let (mut editor, heading) = editor(options)?;
+		let mut env = Env::headless(Duration::ZERO);
+		let mod_alt = Modifiers {
+			ctrl: true,
+			alt: true,
+			..Modifiers::NONE
+		};
+
+		type_text(&mut editor, "### ", &mut env)?;
+		assert_eq!(heading.level(editor.state()), None);
+		editor.handle_key(KeyPress::new("3", mod_alt), &mut env)?;
+		assert_eq!(heading.level(editor.state()), None);
+		editor.handle_key(KeyPress::new("2", mod_alt), &mut env)?;
+		assert_eq!(heading.level(editor.state()), Some(HeadingLevel::H2));
+
+		let too_deep = Attrs::new().with("level", 3);
+		assert!(editor.run_named("setHeading", &too_deep, &mut env).is_err());
+		Ok(())
+	}
+
+	#[test]
+	fn toggle_returns_to_a_paragraph() -> Result<(), EditorError> {
+		let (mut editor, heading) = editor(Heading::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+
+		editor.run(&heading.toggle(HeadingLevel::H3), &mut env)?;
+		assert_eq!(heading.level(editor.state()), Some(HeadingLevel::H3));
+		editor.run(&heading.toggle(HeadingLevel::H2), &mut env)?;
+		assert_eq!(heading.level(editor.state()), Some(HeadingLevel::H2));
+		editor.run(&heading.toggle(HeadingLevel::H2), &mut env)?;
+		assert_eq!(heading.level(editor.state()), None);
+		Ok(())
+	}
+
+	#[test]
+	fn mixed_levels_share_no_level() -> Result<(), EditorError> {
+		let (mut editor, heading) = editor(Heading::default())?;
+		let mut env = Env::headless(Duration::ZERO);
+		editor.run(&heading.set(HeadingLevel::H1), &mut env)?;
+		editor.insert_text("a", &mut env)?;
+		editor.run(&command(commands::split_block), &mut env)?;
+		editor.run(&heading.set(HeadingLevel::H2), &mut env)?;
+		editor.insert_text("b", &mut env)?;
+
+		let blocks = editor.state().doc().children(None).to_vec();
+		let both = Selection::text(Point::new(blocks[0], 0), Point::new(blocks[1], 1));
+		editor.select(both, &mut env)?;
+
+		assert_eq!(heading.level(editor.state()), None);
+		assert_eq!(editor.query("headingLevel", &Attrs::new())?, Value::Null);
+		Ok(())
+	}
+
+	#[test]
+	fn levels_round_trip_through_numbers() {
+		for level in HeadingLevel::ALL {
+			assert_eq!(HeadingLevel::from_number(level.number()), Some(level));
+		}
+
+		assert_eq!(HeadingLevel::from_number(0), None);
+		assert_eq!(HeadingLevel::from_number(7), None);
+	}
+}

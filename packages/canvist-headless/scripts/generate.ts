@@ -34,11 +34,11 @@ const starterKitSnapshot = new URL(
 	import.meta.url,
 );
 const gemoji = new URL(
-	"../../../crates/canvist_extensions/src/emoji/gemoji.txt",
+	"../../../crates/extensions/emoji/src/gemoji.txt",
 	import.meta.url,
 );
 const gemojiLicense = new URL(
-	"../../../crates/canvist_extensions/src/emoji/gemoji-license.txt",
+	"../../../crates/extensions/emoji/src/gemoji-license.txt",
 	import.meta.url,
 );
 

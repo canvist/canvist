@@ -122,3 +122,4 @@ pub use table::TableMap;
 pub use transaction::Commit;
 pub use transaction::Transaction;
 pub use url::is_safe_link_url;
+pub use url::video_kind;

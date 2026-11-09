@@ -195,7 +195,7 @@ fn main() -> Result<(), canvist::headless::HeadlessError> {
 }
 ```
 
-An extension can also add blocks, marks, and embeds with `Extension::schema`, plus queries, input rules, and paste rules. The StarterKit's own extensions in `canvist_extensions` are good models to copy.
+An extension can also add blocks, marks, and embeds with `Extension::schema`, plus queries, input rules, and paste rules. The StarterKit's own extensions, one crate each under `crates/extensions` (such as `canvist_extension_heading`), are good models to copy. Two building blocks save most of the work for common shapes: `canvist_core::SimpleMark` describes a mark that only switches on and off, like bold, and `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, like an image. `canvist_core::query` answers questions about the selection's surroundings by type name, and `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad` for mention-like extensions.
 
 ## Next
 

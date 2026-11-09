@@ -1,0 +1,58 @@
+[package]
+name = "canvist_extension_clipboard"
+version = "0.2.1"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_clipboard"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["text-editor", "rich-text", "editor", "canvist", "clipboard"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: HTML, Markdown, and plain-text conversion for the canvist editor's clipboard, reading TipTap, Google Docs, and Word markup"
+
+# Each feature reads and writes the markup of the extension of the same
+# name; without it, that markup is treated as plain HTML or Markdown.
+[features]
+audio = []
+callout = []
+comments = []
+conditional = []
+details = []
+emoji = []
+file = []
+hashtag = []
+highlight = []
+image = []
+ink = []
+kinetic = []
+mathematics = []
+mention = []
+subscript = []
+superscript = []
+table = []
+text-align = []
+text-style = []
+twitch = []
+youtube = []
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_model = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+canvist_extension_bold = { workspace = true }
+canvist_extension_code_block = { workspace = true }
+canvist_extension_document = { workspace = true }
+canvist_extension_image = { workspace = true }
+canvist_extension_link = { workspace = true }
+canvist_extension_list = { workspace = true }
+canvist_extension_paragraph = { workspace = true }
+canvist_extension_table = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,38 @@
+{
+	"name": "@canvist/extension-typography",
+	"version": "0.2.1",
+	"description": "Smart quotes, dashes, arrows, ellipses, and fractions as you type, like TipTap's Typography, for canvist.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/typography#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/extensions/typography"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"keywords": [
+		"canvist",
+		"editor",
+		"rich-text",
+		"extension",
+		"typography"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./mod.d.ts",
+			"default": "./mod.js"
+		}
+	},
+	"files": [
+		"mod.js",
+		"mod.d.ts"
+	],
+	"sideEffects": false,
+	"dependencies": {
+		"@canvist/headless": "^0.2.1"
+	}
+}

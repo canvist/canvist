@@ -29,7 +29,7 @@ in
       rustup
       shellcheck
       shfmt
-      swift-format
+      extra.swift-format
       wasm-pack
     ]
     ++ lib.optionals stdenv.isDarwin [
@@ -185,15 +185,16 @@ in
       exec = ''
         set -e
         cd "$DEVENV_ROOT/platforms/dart"
-        # The Dart SDK alone is enough; fvm's comes with Flutter when present.
+        # The Dart workspace holds the Flutter packages too, so pub needs
+        # Flutter's SDK: fvm's (pinned in `.fvmrc`) when present.
         dart=(dart)
-        command -v dart >/dev/null || dart=(fvm dart)
+        command -v fvm >/dev/null && dart=(fvm dart)
         "''${dart[@]}" pub get
         "''${dart[@]}" analyze --fatal-infos
         "''${dart[@]}" run tool/generate.dart --check
         "''${dart[@]}" test
       '';
-      description = "Run the pure Dart package's conformance, API, and server tests (no Flutter).";
+      description = "Run the pure Dart package's conformance, API, and server tests.";
       binary = "bash";
     };
     "test:headless-js" = {
@@ -326,6 +327,7 @@ in
         monostyle check crates/canvist_layout --fail-under 90
         monostyle check crates/canvist_core --fail-under 90
         monostyle check crates/canvist_extensions --fail-under 90
+        monostyle check crates/extensions --fail-under 90
         monostyle check crates/canvist_collab --fail-under 90
         monostyle check crates/canvist_scene --fail-under 90
         monostyle check crates/canvist_canvas --fail-under 90

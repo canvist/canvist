@@ -1,0 +1,38 @@
+{
+	"name": "@canvist/extension-conditional",
+	"version": "0.2.1",
+	"description": "A `conditional` mark for text kept only in some versions of a document, for canvist.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/conditional#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/extensions/conditional"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"keywords": [
+		"canvist",
+		"editor",
+		"rich-text",
+		"extension",
+		"conditional"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./mod.d.ts",
+			"default": "./mod.js"
+		}
+	},
+	"files": [
+		"mod.js",
+		"mod.d.ts"
+	],
+	"sideEffects": false,
+	"dependencies": {
+		"@canvist/headless": "^0.2.1"
+	}
+}

@@ -1,0 +1,22 @@
+[package]
+name = "canvist_extension_suggestion"
+version = "0.2.1"
+authors.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/canvist_extension_suggestion"
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords = ["text-editor", "rich-text", "editor", "canvist", "suggestion"]
+license.workspace = true
+readme = "readme.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "canvist: Trigger-character suggestions (`@`, `#`, `:`) that mention, hashtag, and emoji extensions build on, like TipTap's `@tiptap/suggestion`"
+
+[dependencies]
+canvist_core = { workspace = true }
+canvist_model = { workspace = true }
+
+[lints]
+workspace = true

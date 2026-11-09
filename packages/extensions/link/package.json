@@ -1,0 +1,38 @@
+{
+	"name": "@canvist/extension-link",
+	"version": "0.2.1",
+	"description": "TipTap's `link` mark, with autolinking and linking on paste, for canvist.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/link#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/extensions/link"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"keywords": [
+		"canvist",
+		"editor",
+		"rich-text",
+		"extension",
+		"link"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./mod.d.ts",
+			"default": "./mod.js"
+		}
+	},
+	"files": [
+		"mod.js",
+		"mod.d.ts"
+	],
+	"sideEffects": false,
+	"dependencies": {
+		"@canvist/headless": "^0.2.1"
+	}
+}

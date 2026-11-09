@@ -63,6 +63,9 @@ jobs:
       - name: generated types are up to date
         run: npm run check:generated
 
+      - name: per-extension packages are up to date
+        run: node ../../tools/extension-packages.ts --check
+
       - name: type-level tests (tsc --noEmit)
         run: npm run check:types
 

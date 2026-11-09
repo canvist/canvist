@@ -28,6 +28,9 @@
 //!   describes all of it for binding generators; and [`Editor::can`] and
 //!   [`Editor::chain`] dry-run or combine commands without side effects,
 //!   on top of the model's exact savepoints.
+//! - Building blocks for extensions: [`query`] reads the selection's
+//!   surroundings by type name, and [`SimpleMark`] describes a mark that
+//!   only switches on and off.
 //!
 //! Grapheme and word boundaries follow Unicode (UAX #29), and inline embeds
 //! behave as single atoms everywhere.
@@ -103,7 +106,9 @@ mod meta;
 pub mod motion;
 mod navigation;
 pub mod position;
+pub mod query;
 mod rules;
+mod simple_mark;
 mod spec;
 mod state;
 mod structure;
@@ -172,6 +177,8 @@ pub use rules::RULE_CONTEXT;
 pub use rules::RuleHandler;
 pub use rules::RuleInput;
 pub use rules::RuleMatch;
+pub use simple_mark::MarkHandle;
+pub use simple_mark::SimpleMark;
 pub use spec::Args;
 pub use spec::CommandBuilder;
 pub use spec::CommandSpec;

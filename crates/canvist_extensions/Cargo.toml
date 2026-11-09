@@ -6,20 +6,13 @@ categories.workspace = true
 documentation = "https://docs.rs/canvist_extensions"
 edition.workspace = true
 homepage.workspace = true
-# The emoji table and its licence are data the `emoji-data` feature compiles in.
-include = [
-	"Cargo.toml",
-	"license",
-	"readme.md",
-	"src/**/*.rs",
-	"src/emoji/*.txt",
-]
+include.workspace = true
 keywords = ["text-editor", "rich-text", "editor", "extensions"]
 license.workspace = true
 readme = "readme.md"
 repository.workspace = true
 rust-version.workspace = true
-description = "canvist extensions: the TipTap StarterKit and Remirror and TipTap extensions beyond it, each behind its own Cargo feature"
+description = "canvist extensions in one crate: the TipTap StarterKit and the Remirror and TipTap extensions beyond it, each a `canvist_extension_*` crate behind its own Cargo feature"
 
 [features]
 default = ["starter-kit"]
@@ -83,71 +76,116 @@ text-style-kit = [
 	"text-style",
 ]
 background-color = ["text-style"]
-blockquote = []
-bold = []
+blockquote = ["dep:canvist_extension_blockquote"]
+bold = ["dep:canvist_extension_bold"]
 bullet-list = ["list-item"]
-callout = []
-character-count = ["dep:unicode-segmentation"]
-clipboard = []
-code = []
-code-block = []
+callout = ["dep:canvist_extension_callout", "canvist_extension_clipboard?/callout"]
+character-count = ["dep:canvist_extension_character_count"]
+clipboard = ["dep:canvist_extension_clipboard"]
+code = ["dep:canvist_extension_code"]
+code-block = ["dep:canvist_extension_code_block"]
 color = ["text-style"]
-details = []
-emoji = []
+details = ["dep:canvist_extension_details", "canvist_extension_clipboard?/details"]
+emoji = ["dep:canvist_extension_emoji", "canvist_extension_clipboard?/emoji"]
 # The gemoji table, compiled in.
-emoji-data = ["emoji"]
+emoji-data = ["emoji", "canvist_extension_emoji/data"]
 font-family = ["text-style"]
 font-size = ["text-style"]
-hard-break = []
-hashtag = []
-heading = []
-highlight = []
-history = []
-horizontal-rule = []
-italic = []
+hard-break = ["dep:canvist_extension_hard_break"]
+hashtag = ["dep:canvist_extension_hashtag", "canvist_extension_clipboard?/hashtag"]
+heading = ["dep:canvist_extension_heading"]
+highlight = ["dep:canvist_extension_highlight", "canvist_extension_clipboard?/highlight"]
+history = ["dep:canvist_extension_history"]
+horizontal-rule = ["dep:canvist_extension_horizontal_rule"]
+italic = ["dep:canvist_extension_italic"]
 line-height = ["text-style"]
-link = []
-list-item = []
-mathematics = []
-table = []
-table-of-contents = []
-find-and-replace = []
-comments = []
-conditional = []
-drag-handle = []
-clear-formatting = []
-ink = []
-kinetic = []
+link = ["dep:canvist_extension_link"]
+list-item = ["dep:canvist_extension_list"]
+mathematics = ["dep:canvist_extension_mathematics", "canvist_extension_clipboard?/mathematics"]
+table = ["dep:canvist_extension_table", "canvist_extension_clipboard?/table"]
+table-of-contents = ["dep:canvist_extension_table_of_contents"]
+find-and-replace = ["dep:canvist_extension_find_and_replace"]
+comments = ["dep:canvist_extension_comments", "canvist_extension_clipboard?/comments"]
+conditional = ["dep:canvist_extension_conditional", "canvist_extension_clipboard?/conditional"]
+drag-handle = ["dep:canvist_extension_drag_handle"]
+clear-formatting = ["dep:canvist_extension_clear_formatting"]
+ink = ["dep:canvist_extension_ink", "canvist_extension_clipboard?/ink"]
+kinetic = ["dep:canvist_extension_kinetic", "canvist_extension_clipboard?/kinetic"]
 # Images, YouTube and Twitch videos, audio, and file attachments.
 media = ["audio", "file", "image", "twitch", "youtube"]
-audio = []
-file = []
-image = []
-twitch = []
-youtube = []
-mention = []
+audio = ["dep:canvist_extension_audio", "dep:canvist_extension_media", "canvist_extension_clipboard?/audio"]
+file = ["dep:canvist_extension_file", "dep:canvist_extension_media", "canvist_extension_clipboard?/file"]
+image = ["dep:canvist_extension_image", "dep:canvist_extension_media", "canvist_extension_clipboard?/image"]
+twitch = ["dep:canvist_extension_twitch", "dep:canvist_extension_media", "canvist_extension_clipboard?/twitch"]
+youtube = ["dep:canvist_extension_youtube", "dep:canvist_extension_media", "canvist_extension_clipboard?/youtube"]
+mention = ["dep:canvist_extension_mention", "canvist_extension_clipboard?/mention"]
 ordered-list = ["list-item"]
-placeholder = []
-strike = []
-subscript = []
-superscript = []
-task-list = []
-text-align = []
-text-style = []
-trailing-node = []
-typography = []
-underline = []
+placeholder = ["dep:canvist_extension_placeholder"]
+strike = ["dep:canvist_extension_strike"]
+subscript = ["dep:canvist_extension_subscript", "canvist_extension_clipboard?/subscript"]
+superscript = ["dep:canvist_extension_superscript", "canvist_extension_clipboard?/superscript"]
+task-list = ["dep:canvist_extension_list"]
+text-align = ["dep:canvist_extension_text_align", "canvist_extension_clipboard?/text-align"]
+text-style = ["dep:canvist_extension_text_style", "canvist_extension_clipboard?/text-style"]
+trailing-node = ["dep:canvist_extension_trailing_node"]
+typography = ["dep:canvist_extension_typography"]
+underline = ["dep:canvist_extension_underline"]
 
 [dependencies]
 canvist_core = { workspace = true }
+canvist_extension_audio = { workspace = true, optional = true }
+canvist_extension_blockquote = { workspace = true, optional = true }
+canvist_extension_bold = { workspace = true, optional = true }
+canvist_extension_callout = { workspace = true, optional = true }
+canvist_extension_character_count = { workspace = true, optional = true }
+canvist_extension_clear_formatting = { workspace = true, optional = true }
+canvist_extension_clipboard = { workspace = true, optional = true }
+canvist_extension_code = { workspace = true, optional = true }
+canvist_extension_code_block = { workspace = true, optional = true }
+canvist_extension_comments = { workspace = true, optional = true }
+canvist_extension_conditional = { workspace = true, optional = true }
+canvist_extension_details = { workspace = true, optional = true }
+canvist_extension_document = { workspace = true }
+canvist_extension_drag_handle = { workspace = true, optional = true }
+canvist_extension_emoji = { workspace = true, optional = true }
+canvist_extension_file = { workspace = true, optional = true }
+canvist_extension_find_and_replace = { workspace = true, optional = true }
+canvist_extension_hard_break = { workspace = true, optional = true }
+canvist_extension_hashtag = { workspace = true, optional = true }
+canvist_extension_heading = { workspace = true, optional = true }
+canvist_extension_highlight = { workspace = true, optional = true }
+canvist_extension_history = { workspace = true, optional = true }
+canvist_extension_horizontal_rule = { workspace = true, optional = true }
+canvist_extension_image = { workspace = true, optional = true }
+canvist_extension_ink = { workspace = true, optional = true }
+canvist_extension_italic = { workspace = true, optional = true }
+canvist_extension_kinetic = { workspace = true, optional = true }
+canvist_extension_link = { workspace = true, optional = true }
+canvist_extension_list = { workspace = true, optional = true }
+canvist_extension_mathematics = { workspace = true, optional = true }
+canvist_extension_media = { workspace = true, optional = true }
+canvist_extension_mention = { workspace = true, optional = true }
+canvist_extension_paragraph = { workspace = true }
+canvist_extension_placeholder = { workspace = true, optional = true }
+canvist_extension_strike = { workspace = true, optional = true }
+canvist_extension_subscript = { workspace = true, optional = true }
+canvist_extension_superscript = { workspace = true, optional = true }
+canvist_extension_table = { workspace = true, optional = true }
+canvist_extension_table_of_contents = { workspace = true, optional = true }
+canvist_extension_text_align = { workspace = true, optional = true }
+canvist_extension_text_style = { workspace = true, optional = true }
+canvist_extension_trailing_node = { workspace = true, optional = true }
+canvist_extension_twitch = { workspace = true, optional = true }
+canvist_extension_typography = { workspace = true, optional = true }
+canvist_extension_underline = { workspace = true, optional = true }
+canvist_extension_youtube = { workspace = true, optional = true }
 canvist_model = { workspace = true }
-serde_json = { workspace = true, features = ["std"] }
-unicode-segmentation = { workspace = true, optional = true }
 
 [dev-dependencies]
 divan = { workspace = true }
 insta = { workspace = true, features = ["json"] }
 proptest = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["std"] }
 
 [[bench]]
 name = "keystroke"

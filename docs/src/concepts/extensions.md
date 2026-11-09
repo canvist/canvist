@@ -58,7 +58,7 @@ The count includes the four extensions every engine has: the document, paragraph
 
 ## In Rust, features are compiled out too
 
-In Rust, each extension sits behind a Cargo feature of `canvist_extensions`, so extensions you don't enable aren't compiled at all. Register extensions with `Engine::new`, and each `builder.add` returns that extension's typed handle. `Engine::new` registers exactly what you add, so include `Document` and `Paragraph`, and `BaseKeymap` if you want the standard editing keys:
+In Rust, each extension is its own crate, named `canvist_extension_<name>` (`canvist_extension_bold`, `canvist_extension_table`, …), and `canvist_extensions` combines them, each behind a Cargo feature of the same name. Extensions you don't enable aren't compiled at all. Depend on the combined crate (or `canvist`), or on just the extension crates you register. Register extensions with `Engine::new`, and each `builder.add` returns that extension's typed handle. `Engine::new` registers exactly what you add, so include `Document` and `Paragraph`, and `BaseKeymap` if you want the standard editing keys:
 
 ```rust
 use canvist::extensions::Bold;

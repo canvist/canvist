@@ -28,6 +28,8 @@ The [canvist](https://github.com/canvist/canvist) StarterKit: the extensions Tip
 
 Most apps add it through [`canvist`](../canvist), the crate to install, as `canvist::extensions`: `cargo add canvist`.
 
+Each extension is its own crate under [`crates/extensions`](https://github.com/canvist/canvist/tree/main/crates/extensions), named `canvist_extension_<name>` (such as `canvist_extension_heading` or `canvist_extension_table`). This crate combines them behind Cargo features of the same names and re-exports their types, so `canvist_extensions::Heading` and `canvist_extension_heading::Heading` are the same type. Depend on an extension crate directly to compile only that extension.
+
 - **Nodes:** paragraph, heading (levels 1 to 6), blockquote, code block, hard break, horizontal rule, bullet list, ordered list, list item, and task list.
 - **Marks:** bold, italic, underline, strike, code, and link (non-inclusive, with autolinking and linking on paste).
 - **Behaviour:** Markdown-style input rules (`##`, `-`, `1.`, `[ ]`, `>`, `` ``` ``, `---`, `**bold**`), TipTap's key bindings, undo and redo keys, and a trailing paragraph.

@@ -1,0 +1,19 @@
+name: canvist_extension_mathematics
+description: "TipTap's `inlineMath` and `blockMath` nodes, holding LaTeX typed as `$$x$$`, for canvist's Dart engine."
+version: 0.2.1
+repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/mathematics
+issue_tracker: https://github.com/canvist/canvist/issues
+# Reserved on pub.dev? Remove this line (see ../readme.md).
+publish_to: none
+topics:
+  - rich-text
+  - editor
+  - canvist
+
+environment:
+  sdk: ^3.13.0
+
+resolution: workspace
+
+dependencies:
+  canvist: ^0.2.1

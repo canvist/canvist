@@ -17,6 +17,7 @@ members = [
 	"crates/canvist_scene",
 	"crates/canvist_testkit",
 	"crates/canvist_web",
+	"crates/extensions/*",
 	"docs",
 	"examples/desktop",
 	"platforms/dart/rust",
@@ -41,6 +42,7 @@ default-members = [
 	"crates/canvist_layout",
 	"crates/canvist_scene",
 	"crates/canvist_web",
+	"crates/extensions/*",
 	"docs",
 	"services/cloud",
 	"services/dictation",
@@ -104,6 +106,53 @@ canvist_collab = { path = "./crates/canvist_collab", version = "0.2.1" }
 canvist_core = { path = "./crates/canvist_core", version = "0.2.1" }
 canvist_desktop = { path = "./crates/canvist_desktop", version = "0.2.1" }
 canvist_dictation = { path = "./crates/canvist_dictation", version = "0.2.1" }
+canvist_extension_audio = { path = "./crates/extensions/audio", version = "0.2.1" }
+canvist_extension_blockquote = { path = "./crates/extensions/blockquote", version = "0.2.1" }
+canvist_extension_bold = { path = "./crates/extensions/bold", version = "0.2.1" }
+canvist_extension_callout = { path = "./crates/extensions/callout", version = "0.2.1" }
+canvist_extension_character_count = { path = "./crates/extensions/character_count", version = "0.2.1" }
+canvist_extension_clear_formatting = { path = "./crates/extensions/clear_formatting", version = "0.2.1" }
+canvist_extension_clipboard = { path = "./crates/extensions/clipboard", version = "0.2.1" }
+canvist_extension_code = { path = "./crates/extensions/code", version = "0.2.1" }
+canvist_extension_code_block = { path = "./crates/extensions/code_block", version = "0.2.1" }
+canvist_extension_comments = { path = "./crates/extensions/comments", version = "0.2.1" }
+canvist_extension_conditional = { path = "./crates/extensions/conditional", version = "0.2.1" }
+canvist_extension_details = { path = "./crates/extensions/details", version = "0.2.1" }
+canvist_extension_document = { path = "./crates/extensions/document", version = "0.2.1" }
+canvist_extension_drag_handle = { path = "./crates/extensions/drag_handle", version = "0.2.1" }
+canvist_extension_emoji = { path = "./crates/extensions/emoji", version = "0.2.1" }
+canvist_extension_file = { path = "./crates/extensions/file", version = "0.2.1" }
+canvist_extension_find_and_replace = { path = "./crates/extensions/find_and_replace", version = "0.2.1" }
+canvist_extension_hard_break = { path = "./crates/extensions/hard_break", version = "0.2.1" }
+canvist_extension_hashtag = { path = "./crates/extensions/hashtag", version = "0.2.1" }
+canvist_extension_heading = { path = "./crates/extensions/heading", version = "0.2.1" }
+canvist_extension_highlight = { path = "./crates/extensions/highlight", version = "0.2.1" }
+canvist_extension_history = { path = "./crates/extensions/history", version = "0.2.1" }
+canvist_extension_horizontal_rule = { path = "./crates/extensions/horizontal_rule", version = "0.2.1" }
+canvist_extension_image = { path = "./crates/extensions/image", version = "0.2.1" }
+canvist_extension_ink = { path = "./crates/extensions/ink", version = "0.2.1" }
+canvist_extension_italic = { path = "./crates/extensions/italic", version = "0.2.1" }
+canvist_extension_kinetic = { path = "./crates/extensions/kinetic", version = "0.2.1" }
+canvist_extension_link = { path = "./crates/extensions/link", version = "0.2.1" }
+canvist_extension_list = { path = "./crates/extensions/list", version = "0.2.1" }
+canvist_extension_mathematics = { path = "./crates/extensions/mathematics", version = "0.2.1" }
+canvist_extension_media = { path = "./crates/extensions/media", version = "0.2.1" }
+canvist_extension_mention = { path = "./crates/extensions/mention", version = "0.2.1" }
+canvist_extension_paragraph = { path = "./crates/extensions/paragraph", version = "0.2.1" }
+canvist_extension_placeholder = { path = "./crates/extensions/placeholder", version = "0.2.1" }
+canvist_extension_strike = { path = "./crates/extensions/strike", version = "0.2.1" }
+canvist_extension_subscript = { path = "./crates/extensions/subscript", version = "0.2.1" }
+canvist_extension_suggestion = { path = "./crates/extensions/suggestion", version = "0.2.1" }
+canvist_extension_superscript = { path = "./crates/extensions/superscript", version = "0.2.1" }
+canvist_extension_table = { path = "./crates/extensions/table", version = "0.2.1" }
+canvist_extension_table_of_contents = { path = "./crates/extensions/table_of_contents", version = "0.2.1" }
+canvist_extension_text_align = { path = "./crates/extensions/text_align", version = "0.2.1" }
+canvist_extension_text_style = { path = "./crates/extensions/text_style", version = "0.2.1" }
+canvist_extension_trailing_node = { path = "./crates/extensions/trailing_node", version = "0.2.1" }
+canvist_extension_twitch = { path = "./crates/extensions/twitch", version = "0.2.1" }
+canvist_extension_typography = { path = "./crates/extensions/typography", version = "0.2.1" }
+canvist_extension_underline = { path = "./crates/extensions/underline", version = "0.2.1" }
+canvist_extension_youtube = { path = "./crates/extensions/youtube", version = "0.2.1" }
 canvist_extensions = { path = "./crates/canvist_extensions", version = "0.2.1" }
 canvist_ffi = { path = "./crates/canvist_ffi", version = "0.2.1" }
 canvist_headless = { path = "./crates/canvist_headless", version = "0.2.1" }

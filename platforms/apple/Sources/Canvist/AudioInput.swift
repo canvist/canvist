@@ -80,7 +80,8 @@ final class MicrophoneInput: AudioInput {
     do {
       try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     } catch {
-      logger.error("deactivating the audio session failed: \(error.localizedDescription, privacy: .public)")
+      logger.error(
+        "deactivating the audio session failed: \(error.localizedDescription, privacy: .public)")
     }
   }
 

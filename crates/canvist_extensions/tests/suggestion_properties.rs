@@ -62,10 +62,12 @@ fn expected_query(text: &str) -> Option<String> {
 		start += 1;
 	}
 
-	let before = &text[start..];
-	let at = before.rfind('@')?;
-	let query = &before[at + 1..];
-	let prefix_ok = before[..at]
+	// The trigger must sit inside the window, but the character before it
+	// may not: a trigger at the window's edge still needs white space, or
+	// the block's start, before it.
+	let at = start + text[start..].rfind('@')?;
+	let query = &text[at + 1..];
+	let prefix_ok = text[..at]
 		.chars()
 		.next_back()
 		.is_none_or(char::is_whitespace);
