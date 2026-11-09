@@ -148,7 +148,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
+          # Playwright's WebKit build for Ubuntu 26.04 types the 1,000-key
+          # burst four times slower than its 24.04 build, with stalls of up
+          # to half a second, so the latency budget measures the runner
+          # rather than the editor. Stay on 24.04 until that build catches up.
+          - ubuntu-24.04
           - macos-latest
         browser:
           - chromium
