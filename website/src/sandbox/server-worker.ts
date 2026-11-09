@@ -87,10 +87,10 @@ Object.assign(scope, {
  * `@canvist/headless`, `@canvist/collab`, and their `/full` modules share
  * their classes; documents from any of them are previewed.
  */
-const watched = <M extends Parameters<DocumentTracker["watch"]>[0]>(
-	module: M,
-): M => {
-	tracker.watch(module);
+const watched = (module: object): unknown => {
+	// Checking a module's typed classes against the tracker's is deeper than
+	// TypeScript instantiates; every loader here passes a module that has them.
+	tracker.watch(module as Parameters<DocumentTracker["watch"]>[0]);
 	return module;
 };
 
