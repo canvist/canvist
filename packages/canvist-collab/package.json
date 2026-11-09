@@ -1,0 +1,62 @@
+{
+	"name": "@canvist/collab",
+	"version": "0.2.1",
+	"description": "canvist documents as Yjs peers with no DOM: join shared state, merge updates, and serve y-websocket's sync protocol, with typed commands, for Node, Deno, Bun, and Workers.",
+	"license": "Unlicense",
+	"homepage": "https://github.com/canvist/canvist/tree/main/packages/canvist-collab#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/canvist/canvist.git",
+		"directory": "packages/canvist-collab"
+	},
+	"bugs": {
+		"url": "https://github.com/canvist/canvist/issues",
+		"email": "support@canvist.dev"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/mod.d.ts",
+			"default": "./dist/mod.js"
+		},
+		"./full": {
+			"types": "./dist/full.d.ts",
+			"default": "./dist/full.js"
+		},
+		"./wasm/canvist_collab_bg.wasm": "./wasm/canvist_collab_bg.wasm",
+		"./wasm-full/canvist_collab_full_bg.wasm": "./wasm-full/canvist_collab_full_bg.wasm"
+	},
+	"files": [
+		"dist",
+		"wasm/*.js",
+		"wasm/*.d.ts",
+		"wasm/*.wasm",
+		"wasm-full/*.js",
+		"wasm-full/*.d.ts",
+		"wasm-full/*.wasm"
+	],
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build:wasm": "npm run build:wasm:document && npm run build:wasm:full",
+		"build:wasm:document": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-collab/wasm --out-name canvist_collab --no-pack -- --features collab && rm packages/canvist-collab/wasm/.gitignore",
+		"build:wasm:full": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-collab/wasm-full --out-name canvist_collab_full --no-pack -- --features full,collab && rm packages/canvist-collab/wasm-full/.gitignore",
+		"check:types": "tsc --noEmit",
+		"test": "node --test tests/*.test.ts",
+		"test:coverage": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 tests/*.test.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"prepack": "npm run build",
+		"bench": "node bench/overhead.ts"
+	},
+	"dependencies": {
+		"@canvist/core": "^0.2.1"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"lib0": "^0.2.115",
+		"typescript": "^7.0.2",
+		"y-protocols": "^1.0.7",
+		"yjs": "^13.6.33"
+	}
+}

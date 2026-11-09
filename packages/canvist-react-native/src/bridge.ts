@@ -5,7 +5,7 @@
  *
  * @module
  */
-import type { NativeBridge } from "@canvist/headless/native";
+import type { NativeBridge } from "@canvist/core/native";
 import type * as React from "react";
 
 import {

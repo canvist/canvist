@@ -35,7 +35,7 @@
 		"prepack": "npm run build"
 	},
 	"dependencies": {
-		"@canvist/headless": "^0.2.1"
+		"@canvist/core": "^0.2.1"
 	},
 	"devDependencies": {
 		"typescript": "^7.0.2"

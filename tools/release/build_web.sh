@@ -9,17 +9,22 @@ if [ "$(uname -s)" = "Darwin" ]; then
 	export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=none
 fi
 
-for package in canvist-headless canvist-web canvist-react canvist-vue canvist-canvas; do
+# @canvist/core first: every other package builds against it.
+packages=(
+	canvist-core canvist-headless canvist-collab canvist-ssr canvist-scene
+	canvist-web canvist-react canvist-vue canvist-canvas
+)
+
+for package in "${packages[@]}"; do
 	(
 		cd "packages/$package"
 		npm ci --no-audit --no-fund
 		case "$package" in
-		canvist-headless | canvist-web | canvist-canvas) npm run build:wasm ;;
+		canvist-core | canvist-react | canvist-vue) ;;
+		*) npm run build:wasm ;;
 		esac
 		npm run build
 	)
 done
 
-node tools/release/check_npm_pack.ts \
-	packages/canvist-headless packages/canvist-web packages/canvist-react \
-	packages/canvist-vue packages/canvist-canvas
+node tools/release/check_npm_pack.ts "${packages[@]/#/packages/}"

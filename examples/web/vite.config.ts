@@ -28,7 +28,7 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: [
 			"@canvist/web",
-			"@canvist/headless",
+			"@canvist/ssr",
 			"@canvist/react",
 			"@canvist/vue",
 		],

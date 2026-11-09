@@ -38,7 +38,7 @@ on:
       - "crates/*/Cargo.toml"
       - "monochange.toml"
       - "packages/*/package.json"
-      - "packages/canvist-headless/deno.json"
+      - "packages/*/deno.json"
       - "platforms/dart/pubspec.yaml"
       - "platforms/flutter/pubspec.yaml"
       - "tools/release/**"

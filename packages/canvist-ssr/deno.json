@@ -1,0 +1,18 @@
+{
+	"license": "Unlicense",
+	"exports": {
+		".": "./src/mod.ts"
+	},
+	"imports": {
+		"@canvist/core": "../canvist-core/src/mod.ts",
+		"@canvist/core/extensions": "../canvist-core/src/extensions.generated.ts",
+		"@canvist/core/extras": "../canvist-core/src/extras.generated.ts",
+		"@canvist/core/gemoji": "../canvist-core/src/gemoji.generated.ts",
+		"@canvist/core/native": "../canvist-core/src/native.ts",
+		"@canvist/core/scene": "../canvist-core/src/scene-types.ts",
+		"@canvist/headless": "../canvist-headless/src/mod.ts"
+	},
+	"tasks": {
+		"test": "deno test --allow-read --allow-env tests/"
+	}
+}

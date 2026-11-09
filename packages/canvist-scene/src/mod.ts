@@ -3,11 +3,11 @@
  * canvas commands and inspector edits, and export SVG and PNG with the
  * renderer the canvas draws with.
  *
- * Scenes live in their own WebAssembly module, so the document entry point
- * stays small.
+ * Scenes live in their own WebAssembly module, so document packages such as
+ * `@canvist/headless` stay small.
  *
  * ```ts
- * import { createSceneEngine } from "@canvist/headless/scene";
+ * import { createSceneEngine } from "@canvist/scene";
  *
  * const engine = await createSceneEngine();
  * using doc = engine.fromJson({
@@ -26,21 +26,18 @@
  *
  * @module
  */
-import init, {
-	WasmSceneDoc,
-	WasmSceneEngine,
-} from "../wasm-scene/canvist_headless_scene.js";
-import { bundled, type WasmSource } from "./load.ts";
-import type { ExportOptions, NodeId, SceneJson } from "./scene-types.ts";
+import { bundled, type WasmSource } from "@canvist/core";
+import type { ExportOptions, NodeId, SceneJson } from "@canvist/core/scene";
+import init, { WasmSceneDoc, WasmSceneEngine } from "../wasm/canvist_scene.js";
 
-export { type CanvistError, isCanvistError } from "./engine.ts";
-export type { WasmSource } from "./load.ts";
-export type * from "./scene-types.ts";
+export {
+	type CanvistError,
+	isCanvistError,
+	type WasmSource,
+} from "@canvist/core";
+export type * from "@canvist/core/scene";
 
-const BUNDLED = new URL(
-	"../wasm-scene/canvist_headless_scene_bg.wasm",
-	import.meta.url,
-);
+const BUNDLED = new URL("../wasm/canvist_scene_bg.wasm", import.meta.url);
 
 let loading: Promise<void> | undefined;
 

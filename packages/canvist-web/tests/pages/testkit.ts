@@ -14,8 +14,8 @@
  * as real browser keyboard events, which the editor's own input layer
  * handles — that is the point of the dom target.
  */
-import * as generated from "@canvist/headless/extensions";
-import { starterKit } from "@canvist/headless/extensions";
+import * as generated from "@canvist/core/extensions";
+import { starterKit } from "@canvist/core/extensions";
 import { createEditor, detectPlatform } from "../../src/mod.ts";
 
 /** A named extension, in the StarterKit's own shape. */

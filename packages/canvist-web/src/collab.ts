@@ -22,7 +22,7 @@
  *
  * @module
  */
-import type { Extensions, StarterKit } from "@canvist/headless";
+import type { Extensions, StarterKit } from "@canvist/core";
 import init, { WebEditor } from "../wasm-collab/canvist_web.js";
 import { Editor, type EditorOptions } from "./editor.ts";
 import type { WasmSource } from "./load.ts";

@@ -21,7 +21,7 @@ on:
       - "Cargo.toml"
       - "conformance/**"
       - "crates/**"
-      - "packages/canvist-headless/**"
+      - "packages/canvist-core/**"
       - "packages/canvist-web/tests/pages/testkit.*"
       - "platforms/**"
       - "rust-toolchain.toml"
@@ -81,11 +81,10 @@ jobs:
 
       # What the page needs, built the way the web workflow builds it; the
       # daemon's own preparation then finds everything and skips.
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
         run: |
           npm ci
-          npm run build:wasm
           npm run build
       - name: install dependencies
         working-directory: packages/canvist-web

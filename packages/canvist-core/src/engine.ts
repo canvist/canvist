@@ -1,15 +1,14 @@
 /**
- * The typed engine and document, over either WebAssembly module: the
- * StarterKit one `@canvist/headless` loads, or the one with every extension
- * `@canvist/headless/full` loads. Both export the same classes.
+ * The typed engine and document, over any canvist WebAssembly module: the
+ * StarterKit one `@canvist/headless` loads, the one with every extension
+ * `@canvist/headless/full` loads, or the collaborating ones
+ * `@canvist/collab` loads. This module loads none of them itself.
  *
  * @module
  */
-import type { WasmDoc, WasmEngine } from "../wasm/canvist_headless_wasm.js";
+import type { WasmSource } from "./bundled.ts";
 import { calls, encode } from "./calls.ts";
-export { type CanvistError, isCanvistError } from "./errors.ts";
 import { core } from "./extensions.generated.ts";
-import type { WasmSource } from "./load.ts";
 import type {
 	CommandName,
 	CommandParams,
@@ -27,6 +26,7 @@ import type {
 	Registered,
 	StarterKit,
 } from "./types.ts";
+import type { WasmDoc, WasmEngine } from "./wasm.ts";
 
 /** Options for `createEngine`. */
 export interface EngineOptions {
@@ -36,33 +36,29 @@ export interface EngineOptions {
 	readonly wasm?: WasmSource;
 }
 
-/** What {@link Doc.receiveSync} says to send. */
-export interface SyncReply {
-	/** Messages for the connection the message came from. */
-	readonly reply: readonly Uint8Array[];
-	/** Messages for every other connection to the document. */
-	readonly broadcast: readonly Uint8Array[];
-	/** Whether the document changed. */
-	readonly changed: boolean;
-}
-
-/** How well a shared document's state fits the schema. */
-export interface Validation {
-	/** Shared items the schema rejects; they are hidden from the document but kept. */
-	readonly rejectedBlocks: number;
-	/** Whether updates wait for earlier updates that have not arrived. */
-	readonly waiting: boolean;
-}
+/**
+ * Wraps a module's document in the class an engine hands out: {@link Doc},
+ * or a subclass that adds what its module compiles in.
+ *
+ * @internal
+ */
+export type DocWrapper<E extends Extensions, D extends Doc<E>> = (
+	wasm: WasmDoc,
+	extensions: Registered<E>,
+) => D;
 
 /** A set of extensions that creates documents. Create one with `createEngine`. */
-export class Engine<E extends Extensions> {
+export class Engine<E extends Extensions, D extends Doc<E> = Doc<E>> {
 	readonly #wasm: WasmEngine;
 	readonly #extensions: Registered<E>;
+	readonly #wrap: DocWrapper<E, D>;
 
 	/** @internal Use `createEngine`, which loads the WebAssembly module first. */
-	constructor(wasm: WasmEngine, extensions: E) {
+	constructor(wasm: WasmEngine, extensions: E, wrap?: DocWrapper<E, D>) {
 		this.#extensions = [...core, ...extensions];
 		this.#wasm = wasm;
+		this.#wrap = wrap ??
+			((doc, registered) => new Doc<E>(doc, registered) as D);
 	}
 
 	/** The registered extensions, including the ones every engine has. */
@@ -79,28 +75,23 @@ export class Engine<E extends Extensions> {
 	}
 
 	/** A document with one empty paragraph. */
-	create(): Doc<E> {
-		return new Doc(this.#wasm.create(), this.#extensions);
+	create(): D {
+		return this.#wrap(this.#wasm.create(), this.#extensions);
 	}
 
 	/** Read `input` as `format`. */
-	parse(format: Format, input: string): Doc<E> {
-		return new Doc(this.#wasm.parse(format, input), this.#extensions);
+	parse(format: Format, input: string): D {
+		return this.#wrap(this.#wasm.parse(format, input), this.#extensions);
 	}
 
 	/** Read a ProseMirror or TipTap document that uses only the registered extensions. */
-	fromJson(json: DocJson<Registered<E>>): Doc<E> {
+	fromJson(json: DocJson<Registered<E>>): D {
 		return this.parse("json", JSON.stringify(json));
 	}
 
-	/** Join a shared document from v1 Yjs state as yrs client `clientId`. */
-	fromYjs(state: Uint8Array, clientId: number): Doc<E> {
-		return new Doc(this.#wasm.fromYjs(state, clientId), this.#extensions);
-	}
-
 	/** Recreate a document from {@link Doc.snapshot} text. */
-	restore(snapshot: string): Doc<E> {
-		return new Doc(this.#wasm.restore(snapshot), this.#extensions);
+	restore(snapshot: string): D {
+		return this.#wrap(this.#wasm.restore(snapshot), this.#extensions);
 	}
 
 	/** Release the engine's memory now rather than when it is collected. */
@@ -235,57 +226,6 @@ export class Doc<E extends Extensions> {
 	/** The content and selection as snapshot JSON text, for {@link Engine.restore}. */
 	snapshot(): string {
 		return this.#wasm.snapshot();
-	}
-
-	/** Start sharing the document as yrs client `clientId`. */
-	share(clientId: number): void {
-		this.#wasm.share(clientId);
-	}
-
-	/** Apply a v1 Yjs update from another peer; returns whether the document changed. */
-	applyUpdate(update: Uint8Array): boolean {
-		return this.#wasm.applyUpdate(update);
-	}
-
-	/** The whole shared state as one v1 update. */
-	encodeState(): Uint8Array {
-		return this.#wasm.encodeState();
-	}
-
-	/** The v1 state vector. */
-	stateVector(): Uint8Array {
-		return this.#wasm.stateVector();
-	}
-
-	/** Everything a peer at `stateVector` is missing, as one v1 update. */
-	encodeDiff(stateVector: Uint8Array): Uint8Array {
-		return this.#wasm.encodeDiff(stateVector);
-	}
-
-	/** Drain this peer's own v1 updates for broadcasting. */
-	takeUpdates(): Uint8Array[] {
-		return this.#wasm.takeUpdates();
-	}
-
-	/** Check the shared state against the schema. */
-	validate(): Validation {
-		return JSON.parse(this.#wasm.validate());
-	}
-
-	/** The y-sync message to greet a connecting client with. */
-	syncStart(): Uint8Array {
-		return this.#wasm.syncStart();
-	}
-
-	/** Handle one y-sync message from a client connection. */
-	receiveSync(message: Uint8Array): SyncReply {
-		const [reply, broadcast, changed] = this.#wasm.receiveSync(message);
-		return { reply, broadcast, changed };
-	}
-
-	/** This peer's changes since the last call, as y-sync messages for every connection. */
-	flushSync(): Uint8Array[] {
-		return this.#wasm.flushSync();
 	}
 
 	/** Release the document's memory now rather than when it is collected. */

@@ -9,7 +9,7 @@
 # or `platforms/android/build.sh` and a Maven Local publication of
 # `canvist-android`); set `CANVIST_SKIP_ENGINE_BUILD=1` to reuse the last one,
 # and `CANVIST_PERF_SLACK` to multiply the benchmark's budgets on a slow device.
-# `@canvist/headless` and `@canvist/lynx` must be built (`npm run build` in
+# `@canvist/core` and `@canvist/lynx` must be built (`npm run build` in
 # each) and this example's dependencies installed.
 set -euo pipefail
 

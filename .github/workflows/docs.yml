@@ -12,7 +12,11 @@ on:
       - "docs/**"
       - "skills/**"
       - "crates/**"
+      - "packages/canvist-collab/**"
+      - "packages/canvist-core/**"
       - "packages/canvist-headless/**"
+      - "packages/canvist-scene/**"
+      - "packages/canvist-ssr/**"
       - "platforms/dart/**"
       - "platforms/flutter/**"
       - "Cargo.lock"
@@ -62,11 +66,14 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: build @canvist/headless
-        working-directory: packages/canvist-headless
+      # The TypeScript samples run against every package's own module.
+      - name: build the headless packages' wasm
+        working-directory: packages
         run: |
-          npm ci
-          npm run build:wasm
+          (cd canvist-core && npm ci)
+          for package in canvist-headless canvist-collab canvist-ssr canvist-scene; do
+            (cd "$package" && npm ci && npm run build:wasm)
+          done
 
       # The web samples type-check against @canvist/web's sources.
       - name: build @canvist/web's wasm

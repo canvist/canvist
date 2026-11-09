@@ -12,7 +12,7 @@
 //! The first run builds what the page needs (skipped for anything already
 //! built, and everything, with `CANVIST_TEST_PREP=skip`):
 //!
-//! 1. `@canvist/headless`'s JavaScript and types, which the page imports;
+//! 1. `@canvist/core`'s JavaScript and types, which the page imports;
 //! 2. the `node_modules` the dev server resolves them through;
 //! 3. the `canvist_web` WebAssembly the editor runs.
 
@@ -535,14 +535,11 @@ async fn prepare(root: &Path, web: &Path) -> TestResult<()> {
 		return Ok(());
 	}
 
-	let headless = root.join("packages/canvist-headless");
+	let core = root.join("packages/canvist-core");
 
-	if !headless.join("dist").is_dir() {
-		npm(&headless, &["ci"]).await?;
-		// The package's own wasm modules must exist before its TypeScript
-		// compiles, which imports them.
-		npm(&headless, &["run", "build:wasm"]).await?;
-		npm(&headless, &["run", "build"]).await?;
+	if !core.join("dist").is_dir() {
+		npm(&core, &["ci"]).await?;
+		npm(&core, &["run", "build"]).await?;
 	}
 
 	if !web.join("node_modules").is_dir() {

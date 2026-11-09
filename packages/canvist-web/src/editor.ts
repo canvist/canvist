@@ -23,8 +23,8 @@ import type {
 	Registered,
 	StarterKit,
 	ThemeOptions,
-} from "@canvist/headless";
-import { core, starterKit } from "@canvist/headless/extensions";
+} from "@canvist/core";
+import { core, starterKit } from "@canvist/core/extensions";
 import { WebEditor } from "../wasm/canvist_web.js";
 import { FontWatcher } from "./font-watcher.ts";
 import { Input, type InputMode } from "./input.ts";
@@ -1146,7 +1146,7 @@ export function detectBreaks(userAgent: string): LineBreaks {
 
 type Call = (args?: unknown) => unknown;
 
-/** An object with one method per name, each calling `invoke`; see `@canvist/headless`. */
+/** An object with one method per name, each calling `invoke`; see `@canvist/core`. */
 function calls<Methods>(
 	names: readonly string[],
 	invoke: (name: string, args: unknown) => unknown,

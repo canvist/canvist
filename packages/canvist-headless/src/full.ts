@@ -18,14 +18,19 @@
  *
  * @module
  */
+import {
+	bundled,
+	Engine,
+	type EngineOptions,
+	type Extensions,
+	type StarterKit,
+	type WasmSource,
+} from "@canvist/core";
+import { starterKit } from "@canvist/core/extensions";
 import init, {
 	loadEmoji,
 	WasmEngine,
 } from "../wasm-full/canvist_headless_full.js";
-import { Engine, type EngineOptions } from "./engine.ts";
-import { starterKit } from "./extensions.generated.ts";
-import { bundled, type WasmSource } from "./load.ts";
-import type { Extensions, StarterKit } from "./types.ts";
 
 export {
 	type CanvistError,
@@ -33,13 +38,11 @@ export {
 	Engine,
 	type EngineOptions,
 	isCanvistError,
-	type SyncReply,
-	type Validation,
-} from "./engine.ts";
-export * from "./extensions.generated.ts";
-export * from "./extras.generated.ts";
-export type { WasmSource } from "./load.ts";
-export type * from "./types.ts";
+	type WasmSource,
+} from "@canvist/core";
+export type * from "@canvist/core";
+export * from "@canvist/core/extensions";
+export * from "@canvist/core/extras";
 
 const BUNDLED = new URL(
 	"../wasm-full/canvist_headless_full_bg.wasm",
@@ -63,7 +66,7 @@ export function load(source?: WasmSource): Promise<void> {
 
 /** Give the module the emoji table, once. */
 function emojiTable(): Promise<void> {
-	loadingEmoji ??= import("./gemoji.generated.ts").then(({ gemoji }) => {
+	loadingEmoji ??= import("@canvist/core/gemoji").then(({ gemoji }) => {
 		loadEmoji(gemoji);
 	});
 	return loadingEmoji;

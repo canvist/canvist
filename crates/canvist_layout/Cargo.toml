@@ -55,7 +55,7 @@ provisional = []
 tables = []
 editor = ["dep:canvist_core"]
 # `StarterKitOptions::from_json`: theme options as `@canvist/web` and
-# `@canvist/headless/ssr` pass them.
+# `@canvist/ssr` pass them.
 json = ["dep:serde_json"]
 parley = ["dep:parley"]
 

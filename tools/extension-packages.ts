@@ -6,8 +6,9 @@
  *
  * The TypeScript and Dart engines compile every extension into one native
  * module, so these packages hold no code of their own: each re-exports its
- * extensions from `@canvist/headless` or `package:canvist`, the way TipTap
- * ships `@tiptap/extension-bold`. The names come from the metadata
+ * extensions' descriptors from `@canvist/core`, which loads no WebAssembly,
+ * or its classes from `package:canvist`, the way TipTap ships
+ * `@tiptap/extension-bold`. The names come from the metadata
  * snapshots `canvist_extensions` tests, and the check fails if an
  * extension there has no package.
  *
@@ -182,8 +183,8 @@ function npm(item: Package): Record<string, string> {
 	const name = `@canvist/extension-${kebab(item.crate)}`;
 	const directory = `packages/extensions/${kebab(item.crate)}`;
 	const from = item.starterKit
-		? "@canvist/headless/extensions"
-		: "@canvist/headless/extras";
+		? "@canvist/core/extensions"
+		: "@canvist/core/extras";
 	const module = item.starterKit
 		? "@canvist/headless"
 		: "@canvist/headless/full";
@@ -229,7 +230,7 @@ function npm(item: Package): Record<string, string> {
 		files: ["mod.js", "mod.d.ts"],
 		sideEffects: false,
 		dependencies: {
-			"@canvist/headless": `^${VERSION}`,
+			"@canvist/core": `^${VERSION}`,
 		},
 	};
 	const list = item.names.map((extension) => `\`${extension}\``).join(", ");
@@ -242,10 +243,10 @@ This package exports ${list} from \`${from}\`, so you can import ${
 		item.names.length === 1 ? "it" : "them"
 	} on ${
 		item.names.length === 1 ? "its" : "their"
-	} own, as TipTap ships each extension. canvist compiles every extension into its WebAssembly module, so this package adds no code: ${
+	} own, as TipTap ships each extension. It loads no WebAssembly: an engine package brings the module, and ${
 		item.starterKit
-			? "the StarterKit module, `@canvist/headless`, has these extensions."
-			: "these extensions are in the full module, `@canvist/headless/full`, so create the engine from there."
+			? "every one of them, from the StarterKit module `@canvist/headless` up, has these extensions."
+			: "these extensions are in the full modules, `@canvist/headless/full` and `@canvist/collab/full`, so create the engine from one of those."
 	}
 
 \`\`\`sh

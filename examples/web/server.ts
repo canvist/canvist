@@ -11,7 +11,7 @@
  * node server.ts   # http://localhost:5180
  * ```
  */
-import { createRenderer } from "@canvist/headless/ssr";
+import { createRenderer } from "@canvist/ssr";
 import { readFile } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createViteServer } from "vite";

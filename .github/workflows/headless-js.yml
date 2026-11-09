@@ -16,17 +16,98 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-defaults:
-  run:
-    working-directory: packages/canvist-headless
-
 jobs:
-  test:
+  # `@canvist/core`: the typed classes, descriptors, and types every other
+  # TypeScript package builds on. It loads no WebAssembly.
+  core:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/canvist-core
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: install node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: install deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: generated types are up to date
+        run: npm run check:generated
+
+      - name: per-extension packages are up to date
+        run: node ../../tools/extension-packages.ts --check
+
+      - name: type-level tests (tsc --noEmit)
+        run: npm run check:types
+
+      - name: build
+        run: npm run build
+
+      - name: unit tests with full coverage (node)
+        run: npm run test:coverage
+
+      - name: unit tests (deno)
+        run: deno task test
+
+  # Each package that brings a WebAssembly module, over `@canvist/core`.
+  package:
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: canvist-headless
+            bench: true
+            smoke: >-
+              const { createEngine } = await import("@canvist/headless");
+              const doc = (await createEngine()).parse("markdown", "**ok**");
+              if (doc.export("html") !== "<p><strong>ok</strong></p>") process.exit(1);
+              const full = await import("@canvist/headless/full");
+              const emoji = (await full.createEngine([full.emoji])).create();
+              emoji.typeText(":smile: ");
+              if (emoji.export("text") !== "😄 ") process.exit(1);
+          - package: canvist-collab
+            bench: true
+            smoke: >-
+              const { createEngine } = await import("@canvist/collab");
+              const engine = await createEngine();
+              const server = engine.parse("markdown", "ok");
+              server.share(1);
+              const peer = engine.fromYjs(server.encodeState(), 2);
+              if (peer.export("text") !== "ok") process.exit(1);
+          - package: canvist-ssr
+            # The SSR tests parse their documents with `@canvist/headless`.
+            needs-headless: true
+            smoke: >-
+              const { createRenderer } = await import("@canvist/ssr");
+              const renderer = await createRenderer();
+              const { html } = renderer.html({ format: "markdown", input: "# ok" }, { width: 320 });
+              if (!html.includes("ok")) process.exit(1);
+          - package: canvist-scene
+            smoke: >-
+              const { createSceneEngine } = await import("@canvist/scene");
+              const engine = await createSceneEngine();
+              const doc = engine.fromJson({ type: "canvist-scene", version: 1, nodes: [{ type: "page" }] });
+              if (!doc.exportSvg().startsWith("<svg")) process.exit(1);
+    name: ${{ matrix.package }}
     env:
       # Shared runners are slower and noisier than a developer machine.
       CANVIST_PERF_SLACK: "3"
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,6 +119,8 @@ jobs:
 
       - name: cache rust
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.package }}
 
       - name: install wasm-pack
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
@@ -54,35 +137,41 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: build @canvist/core
+        working-directory: packages/canvist-core
+        run: npm ci && npm run build
+
+      - name: build @canvist/headless
+        if: matrix.needs-headless
+        working-directory: packages/canvist-headless
+        run: npm ci && npm run build:wasm && npm run build
+
       - name: install dependencies
         run: npm ci
 
-      - name: build the StarterKit, full, and scene wasm modules
+      - name: build the wasm modules
         run: npm run build:wasm
-
-      - name: generated types are up to date
-        run: npm run check:generated
-
-      - name: per-extension packages are up to date
-        run: node ../../tools/extension-packages.ts --check
 
       - name: type-level tests (tsc --noEmit)
         run: npm run check:types
 
-      - name: conformance and api tests (node)
-        run: npm test
+      - name: tests with full coverage of the package's own code (node)
+        run: npm run test:coverage
 
-      - name: conformance, api, and server tests (deno)
+      - name: tests (deno)
         run: deno task test
 
       - name: per-call overhead and wasm size budgets
+        if: matrix.bench
         run: node bench/overhead.ts --check
 
       - name: the packed package works as a dependency
+        env:
+          SMOKE: ${{ matrix.smoke }}
         run: |
+          (cd ../canvist-core && npm pack --pack-destination "$RUNNER_TEMP")
           npm pack --pack-destination "$RUNNER_TEMP"
           mkdir "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
           npm init -y > /dev/null && npm pkg set type=module
-          npm install --no-audit --no-fund "$RUNNER_TEMP"/canvist-headless-*.tgz
-          node --input-type=module -e 'const { createEngine } = await import("@canvist/headless"); const doc = (await createEngine()).parse("markdown", "**ok**"); if (doc.export("html") !== "<p><strong>ok</strong></p>") process.exit(1);'
-          node --input-type=module -e 'const { createEngine, emoji } = await import("@canvist/headless/full"); const doc = (await createEngine([emoji])).create(); doc.typeText(":smile: "); if (doc.export("text") !== "😄 ") process.exit(1);'
+          npm install --no-audit --no-fund "$RUNNER_TEMP"/*.tgz
+          node --input-type=module -e "$SMOKE"

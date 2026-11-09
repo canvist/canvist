@@ -1,7 +1,7 @@
 {
 	"name": "@canvist/headless",
 	"version": "0.2.1",
-	"description": "canvist's document model and editing engine with no DOM: ProseMirror JSON, HTML, and Markdown conversion, typed commands, Yjs collaboration, and server-side rendering for Node, Deno, Bun, and Workers.",
+	"description": "canvist's document model and editing engine with no DOM: ProseMirror JSON, HTML, and Markdown conversion and typed commands for Node, Deno, Bun, and Workers.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/canvist-headless#readme",
 	"repository": {
@@ -20,12 +20,12 @@
 			"default": "./dist/mod.js"
 		},
 		"./extensions": {
-			"types": "./dist/extensions.generated.d.ts",
-			"default": "./dist/extensions.generated.js"
+			"types": "./dist/extensions.d.ts",
+			"default": "./dist/extensions.js"
 		},
 		"./extras": {
-			"types": "./dist/extras.generated.d.ts",
-			"default": "./dist/extras.generated.js"
+			"types": "./dist/extras.d.ts",
+			"default": "./dist/extras.js"
 		},
 		"./full": {
 			"types": "./dist/full.d.ts",
@@ -35,18 +35,8 @@
 			"types": "./dist/native.d.ts",
 			"default": "./dist/native.js"
 		},
-		"./scene": {
-			"types": "./dist/scene.d.ts",
-			"default": "./dist/scene.js"
-		},
-		"./ssr": {
-			"types": "./dist/ssr.d.ts",
-			"default": "./dist/ssr.js"
-		},
 		"./wasm/canvist_headless_wasm_bg.wasm": "./wasm/canvist_headless_wasm_bg.wasm",
-		"./wasm-full/canvist_headless_full_bg.wasm": "./wasm-full/canvist_headless_full_bg.wasm",
-		"./wasm-scene/canvist_headless_scene_bg.wasm": "./wasm-scene/canvist_headless_scene_bg.wasm",
-		"./wasm-ssr/canvist_headless_ssr_bg.wasm": "./wasm-ssr/canvist_headless_ssr_bg.wasm"
+		"./wasm-full/canvist_headless_full_bg.wasm": "./wasm-full/canvist_headless_full_bg.wasm"
 	},
 	"files": [
 		"dist",
@@ -55,36 +45,27 @@
 		"wasm/*.wasm",
 		"wasm-full/*.js",
 		"wasm-full/*.d.ts",
-		"wasm-full/*.wasm",
-		"wasm-scene/*.js",
-		"wasm-scene/*.d.ts",
-		"wasm-scene/*.wasm",
-		"wasm-ssr/*.js",
-		"wasm-ssr/*.d.ts",
-		"wasm-ssr/*.wasm"
+		"wasm-full/*.wasm"
 	],
 	"engines": {
 		"node": ">=22"
 	},
 	"scripts": {
-		"build:wasm": "npm run build:wasm:document && npm run build:wasm:full && npm run build:wasm:scene && npm run build:wasm:ssr",
+		"build:wasm": "npm run build:wasm:document && npm run build:wasm:full",
 		"build:wasm:document": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-headless/wasm --no-pack && rm packages/canvist-headless/wasm/.gitignore",
 		"build:wasm:full": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-headless/wasm-full --out-name canvist_headless_full --no-pack -- --features full && rm packages/canvist-headless/wasm-full/.gitignore",
-		"build:wasm:scene": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-headless/wasm-scene --out-name canvist_headless_scene --no-pack -- --features scene && rm packages/canvist-headless/wasm-scene/.gitignore",
-		"build:wasm:ssr": "cd ../.. && wasm-pack build crates/canvist_headless_wasm --target web --profile wasm-release --out-dir ../../packages/canvist-headless/wasm-ssr --out-name canvist_headless_ssr --no-pack -- --features ssr && rm packages/canvist-headless/wasm-ssr/.gitignore",
-		"generate": "node scripts/generate.ts",
-		"check:generated": "node scripts/generate.ts --check",
 		"check:types": "tsc --noEmit",
 		"test": "node --test tests/*.test.ts",
+		"test:coverage": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 tests/*.test.ts",
 		"bench": "node bench/overhead.ts",
 		"build": "tsc -p tsconfig.build.json",
 		"prepack": "npm run build"
 	},
+	"dependencies": {
+		"@canvist/core": "^0.2.1"
+	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",
-		"typescript": "^7.0.2",
-		"y-protocols": "^1.0.7",
-		"yjs": "^13.6.33",
-		"lib0": "^0.2.115"
+		"typescript": "^7.0.2"
 	}
 }

@@ -9,7 +9,7 @@
 		"check:types": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@canvist/headless": "file:../../packages/canvist-headless",
+		"@canvist/core": "file:../../packages/canvist-core",
 		"@canvist/lynx": "file:../../packages/canvist-lynx",
 		"@lynx-js/react": "^0.127.0"
 	},

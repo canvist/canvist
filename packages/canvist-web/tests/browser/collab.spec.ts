@@ -5,7 +5,7 @@
  *
  * @module
  */
-import { createEngine } from "@canvist/headless";
+import { createEngine } from "@canvist/collab";
 import { expect, type Page, test } from "@playwright/test";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";

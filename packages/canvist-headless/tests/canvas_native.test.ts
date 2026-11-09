@@ -1,14 +1,12 @@
 /**
  * Ink and kinetic text through `@canvist/headless/full`: typed commands,
- * query results, and JSON; argument errors; HTML and Markdown round trips;
- * and drawings and kinetic text shared with a JavaScript Yjs peer.
+ * query results, and JSON; argument errors; and HTML and Markdown round
+ * trips.
  *
  * @module
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import * as Y from "yjs";
 
 import {
 	bold,
@@ -16,7 +14,6 @@ import {
 	ink,
 	isCanvistError,
 	kinetic,
-	paragraph,
 } from "../src/full.ts";
 import { comparable } from "./descriptors.ts";
 
@@ -182,35 +179,4 @@ test("kinetic text has a typed effect and round trips through HTML", async () =>
 		typed.export("html"),
 		'<p><strong><span data-kinetic="shake">Hey</span></strong></p>',
 	);
-});
-
-test("a JavaScript Yjs peer sees strokes and kinetic text and adds its own", async () => {
-	using engine = await createEngine([paragraph, ink, kinetic]);
-	using server = engine.fromJson({
-		type: "doc",
-		content: [
-			{ type: "ink" },
-			{ type: "paragraph", content: [{ type: "text", text: "Say hello" }] },
-		],
-	});
-	server.share(1);
-	server.commands.addInkStroke({ ink: 0, points: [1, 2, 3, 4] });
-
-	const peer = new Y.Doc();
-	Y.applyUpdate(peer, server.encodeState());
-	server.takeUpdates();
-	const blocks = peer.getArray<Y.Map<unknown>>("blocks");
-	assert.equal(blocks.get(0)?.get("type"), "ink");
-
-	const updates: Uint8Array[] = [];
-	peer.on("update", (update: Uint8Array) => updates.push(update));
-	(blocks.get(1)?.get("text") as Y.Text).format(4, 5, {
-		kinetic: { effect: "rainbow" },
-	});
-	updates.forEach((update) => assert.equal(server.applyUpdate(update), true));
-
-	server.select({ path: [1], offset: 5 }, { path: [1], offset: 6 });
-	assert.equal(server.query.kineticEffect(), "rainbow");
-	assert.deepEqual(server.query.inks(), [{ height: 400, strokes: 1 }]);
-	assert.deepEqual(server.validate(), { rejectedBlocks: 0, waiting: false });
 });

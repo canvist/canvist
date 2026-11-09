@@ -186,19 +186,28 @@ async function checkTypeScript(
 	const dir = join(ROOT, "target/doc-snippets/ts");
 	await Deno.remove(dir, { recursive: true }).catch(() => {});
 	await Deno.mkdir(dir, { recursive: true });
+	const core = join(ROOT, "packages/canvist-core");
 	const headless = join(ROOT, "packages/canvist-headless");
+	const collab = join(ROOT, "packages/canvist-collab");
 	const web = join(ROOT, "packages/canvist-web");
 	const canvas = join(ROOT, "packages/canvist-canvas");
 	await Deno.writeTextFile(
 		join(dir, "deno.json"),
 		JSON.stringify({
 			imports: {
+				"@canvist/core": `${core}/src/mod.ts`,
+				"@canvist/core/extensions": `${core}/src/extensions.generated.ts`,
+				"@canvist/core/extras": `${core}/src/extras.generated.ts`,
+				"@canvist/core/gemoji": `${core}/src/gemoji.generated.ts`,
+				"@canvist/core/native": `${core}/src/native.ts`,
+				"@canvist/core/scene": `${core}/src/scene-types.ts`,
 				"@canvist/headless": `${headless}/src/mod.ts`,
-				"@canvist/headless/extensions":
-					`${headless}/src/extensions.generated.ts`,
+				"@canvist/headless/extensions": `${headless}/src/extensions.ts`,
 				"@canvist/headless/full": `${headless}/src/full.ts`,
-				"@canvist/headless/ssr": `${headless}/src/ssr.ts`,
-				"@canvist/headless/scene": `${headless}/src/scene.ts`,
+				"@canvist/collab": `${collab}/src/mod.ts`,
+				"@canvist/collab/full": `${collab}/src/full.ts`,
+				"@canvist/ssr": join(ROOT, "packages/canvist-ssr/src/mod.ts"),
+				"@canvist/scene": join(ROOT, "packages/canvist-scene/src/mod.ts"),
 				"@canvist/canvas": `${canvas}/src/mod.ts`,
 				"@canvist/web": `${web}/src/mod.ts`,
 				"@canvist/web/fonts": `${web}/src/fonts.ts`,
@@ -207,6 +216,7 @@ async function checkTypeScript(
 				// Workers import the module through their bundler; it is a WebAssembly.Module.
 				"@canvist/headless/wasm/canvist_headless_wasm_bg.wasm":
 					"./worker-wasm.ts",
+				"@canvist/collab/wasm/canvist_collab_bg.wasm": "./worker-wasm.ts",
 				"yjs": "npm:yjs@^13.6.33",
 				"y-websocket": "npm:y-websocket@^3.0.0",
 				"y-protocols/": "npm:/y-protocols@^1.0.7/",

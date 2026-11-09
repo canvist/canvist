@@ -1,6 +1,6 @@
 /**
  * Hydrate server-rendered HTML. `server.ts` rendered the document into the
- * page with `@canvist/headless/ssr`, using the theme this editor uses. The
+ * page with `@canvist/ssr`, using the theme this editor uses. The
  * editor reads the document from that HTML, keeps it on screen until Inter
  * has loaded, then swaps in the canvas in one frame.
  */

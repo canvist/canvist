@@ -69,7 +69,7 @@ jobs:
         working-directory: .
         run: cargo clippy -p canvist_canvas_wasm --target wasm32-unknown-unknown -- -D warnings
 
-      # A release commit rewrites @canvist/headless to a version that is not
+      # A release commit rewrites @canvist/core to a version that is not
       # on npm yet; the demo builds from the workspace instead.
       - name: relink internal dependencies
         working-directory: .

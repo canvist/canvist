@@ -1,10 +1,12 @@
 /**
  * canvist's document model and editing engine with no DOM, for Node, Deno,
  * Bun, and Workers: load and export ProseMirror JSON, HTML, Markdown, and
- * text, run typed commands, and serve Yjs collaboration.
+ * text, and run typed commands.
  *
  * This module compiles in TipTap's StarterKit. Every other extension is in
- * `@canvist/headless/full`, a larger module with the same API.
+ * `@canvist/headless/full`, a larger module with the same API. Yjs
+ * collaboration is in `@canvist/collab`, server-side rendering in
+ * `@canvist/ssr`, and canvas scenes in `@canvist/scene`.
  *
  * ```ts
  * import { createEngine } from "@canvist/headless";
@@ -18,16 +20,14 @@
  *
  * @module
  */
-export { createEngine } from "./create.ts";
 export {
 	type CanvistError,
 	Doc,
 	Engine,
 	type EngineOptions,
 	isCanvistError,
-	type SyncReply,
-	type Validation,
-} from "./engine.ts";
-export * from "./extensions.generated.ts";
+} from "@canvist/core";
+export type * from "@canvist/core";
+export * from "@canvist/core/extensions";
+export { createEngine } from "./create.ts";
 export { load, type WasmSource } from "./load.ts";
-export type * from "./types.ts";

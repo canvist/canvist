@@ -12,7 +12,7 @@
 		"@std/http": "jsr:@std/http@^1",
 		"@std/path": "jsr:@std/path@^1",
 		"playwright": "npm:playwright@1.58",
-		"@canvist/headless/scene": "../canvist-headless/src/scene-types.ts"
+		"@canvist/core/scene": "../canvist-core/src/scene-types.ts"
 	},
 	"compilerOptions": {
 		"strict": true,

@@ -1,5 +1,5 @@
 //! Server-side rendering, behind the `ssr` feature: `WasmRenderer`, which
-//! `@canvist/headless/ssr` wraps.
+//! `@canvist/ssr` wraps.
 
 use std::sync::Arc;
 

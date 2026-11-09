@@ -39,8 +39,8 @@ export type {
 	Registered,
 	StarterKit,
 	ThemeOptions,
-} from "@canvist/headless";
-export * from "@canvist/headless/extensions";
+} from "@canvist/core";
+export * from "@canvist/core/extensions";
 export {
 	borderScale,
 	createEditor,

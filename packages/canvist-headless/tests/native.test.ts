@@ -8,9 +8,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { Extensions, Range } from "@canvist/core";
+import { type NativeBridge, NativeEditor } from "@canvist/core/native";
 import { bold, heading, isCanvistError, load, starterKit } from "../src/mod.ts";
-import { type NativeBridge, NativeEditor } from "../src/native.ts";
-import type { Extensions, Range } from "../src/types.ts";
 import { type WasmDoc, WasmEngine } from "../wasm/canvist_headless_wasm.js";
 
 /**
