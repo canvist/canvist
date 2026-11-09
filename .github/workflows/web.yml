@@ -53,6 +53,14 @@ jobs:
           npm ci
           npm run build
 
+      # The collaboration tests join the editors as a @canvist/collab peer.
+      - name: build @canvist/collab
+        working-directory: packages/canvist-collab
+        run: |
+          npm ci
+          npm run build:wasm
+          npm run build
+
       - name: install dependencies
         working-directory: packages/canvist-web
         run: npm ci
