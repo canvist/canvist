@@ -48,11 +48,12 @@ jobs:
       - name: per-extension packages are up to date
         run: node ../../tools/extension-packages.ts --check
 
-      - name: type-level tests (tsc --noEmit)
-        run: npm run check:types
-
+      # The conformance runner imports the package by name, from `dist`.
       - name: build
         run: npm run build
+
+      - name: type-level tests (tsc --noEmit)
+        run: npm run check:types
 
       - name: unit tests with full coverage (node)
         run: npm run test:coverage
