@@ -100,7 +100,7 @@ jobs:
             smoke: >-
               const { createSceneEngine } = await import("@canvist/scene");
               const engine = await createSceneEngine();
-              const doc = engine.fromJson({ type: "canvist-scene", version: 1, nodes: [{ type: "page" }] });
+              const doc = engine.fromJson({ type: "canvist-scene", version: 1, nodes: [{ type: "page", children: [{ type: "rectangle", props: { size: [10, 10] } }] }] });
               if (!doc.exportSvg().startsWith("<svg")) process.exit(1);
     name: ${{ matrix.package }}
     env:
