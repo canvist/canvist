@@ -188,8 +188,12 @@ in
         # The Dart workspace holds the Flutter packages too, so pub needs
         # Flutter's SDK: fvm's (pinned in `.fvmrc`) when present.
         dart=(dart)
-        command -v fvm >/dev/null && dart=(fvm dart)
-        "''${dart[@]}" pub get
+        flutter=(flutter)
+        if command -v fvm >/dev/null; then
+          dart=(fvm dart)
+          flutter=(fvm flutter)
+        fi
+        "''${flutter[@]}" pub get
         "''${dart[@]}" analyze --fatal-infos
         "''${dart[@]}" run tool/generate.dart --check
         "''${dart[@]}" test
@@ -203,8 +207,8 @@ in
         cd "$DEVENV_ROOT/packages/canvist-core"
         npm ci
         npm run check:generated
-        npm run check:types
         npm run build
+        npm run check:types
         npm run test:coverage
         deno task test
         for package in canvist-headless canvist-collab canvist-ssr canvist-scene; do
@@ -225,6 +229,10 @@ in
         set -e
         cd "$DEVENV_ROOT/packages/canvist-core"
         npm ci
+        npm run build
+        cd "$DEVENV_ROOT/packages/canvist-collab"
+        npm ci
+        npm run build:wasm
         npm run build
         cd "$DEVENV_ROOT/packages/canvist-web"
         npm ci
