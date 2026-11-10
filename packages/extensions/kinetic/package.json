@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-kinetic",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "A `kinetic` mark for text that moves: wave, shake, pulse, and more, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/kinetic#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

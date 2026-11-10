@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-character-count",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "Character and word counts with an optional limit, like TipTap's CharacterCount, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/character-count#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

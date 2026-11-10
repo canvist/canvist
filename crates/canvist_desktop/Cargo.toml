@@ -1,6 +1,6 @@
 [package]
 name = "canvist_desktop"
-version = "0.2.1"
+version = "0.3.0"
 authors.workspace = true
 categories = ["gui", "text-editors", "accessibility", "rendering"]
 documentation = "https://docs.rs/canvist_desktop"

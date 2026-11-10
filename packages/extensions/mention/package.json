@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-mention",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "TipTap's `mention` node, with `@` suggestions, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/mention#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

@@ -1,5 +1,77 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.3.0](https://github.com/canvist/canvist/releases/tag/v0.3.0) (2026-11-10)
+
+### 🚀 Feature
+
+#### One crate per extension, combined by canvist_extensions
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ [848865b](https://github.com/canvist/canvist/commit/848865bfa3758bf51b68a0eb6c3b7543faa91d28) · _Last updated in:_ [ee11cba](https://github.com/canvist/canvist/commit/ee11cba6ff942d82d30958c8c8612c26c98370dd)
+
+Each Rust extension is now its own crate under `crates/extensions`, named `canvist_extension_<name>`: `canvist_extension_bold`, `canvist_extension_heading`, `canvist_extension_table`, and so on. An app can depend on exactly the extensions it registers.
+
+`canvist_extensions` keeps every feature and every public path: each feature now enables the matching crate and re-exports its types, so `canvist_extensions::Heading` and `canvist_extension_heading::Heading` are the same type. Nothing changes for code that uses `canvist_extensions` or `canvist::extensions`.
+
+The crates follow TipTap's packages: one per mark and per media type, `canvist_extension_list` for every list type (as `@tiptap/extension-list`), and `canvist_extension_text_style` for the `textStyle` mark and its attributes (as `@tiptap/extension-text-style`).
+
+The helpers the extensions shared are now public, for anyone writing their own:
+
+- `canvist_core::query`: `around`, `attr_around`, `mark_active`, and `shared_mark_attr` read the selection's surroundings by type name.
+- `canvist_core::SimpleMark` and `MarkHandle` describe a mark that only switches on and off, such as bold.
+- `canvist_model::video_kind` is the policy for which URLs a video block may embed.
+- `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
+- `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
+
+Each extension also has an npm package, `@canvist/extension-<name>`, that re-exports its descriptor from `@canvist/core`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. These packages load no WebAssembly.
+
+Dart keeps every extension in one package, `canvist_extensions`, which re-exports the typed descriptors and handles from `canvist`. The engine and existing `Extensions.bold` API remain in `canvist`; no per-extension pub.dev rollout is needed.
+
+### 📝 Changed
+
+#### `@canvist/headless` splits into packages you pick from
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ [a3af64a](https://github.com/canvist/canvist/commit/a3af64a3b237ab7fd0717a4a274beb07ed7f4307)
+
+`@canvist/headless` carried every feature: the StarterKit and full modules with Yjs compiled in, server-side rendering, and canvas scenes, about 10 MB of WebAssembly in one install. Each now has its own package, and the typed half moves to one with no WebAssembly at all:
+
+| Package             | What it has                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `@canvist/core`     | `Engine`, `Doc`, errors, types, and every extension's descriptor. No WebAssembly. |
+| `@canvist/headless` | The StarterKit module, and `/full` with every extension. No Yjs.                  |
+| `@canvist/collab`   | The same API with Yjs: `fromYjs`, `share`, `applyUpdate`, y-sync, and `/full`.    |
+| `@canvist/ssr`      | Server-side rendering, formerly `@canvist/headless/ssr`, now without Yjs.         |
+| `@canvist/scene`    | Canvas scenes, formerly `@canvist/headless/scene`.                                |
+
+Without Yjs, the StarterKit module is 634 KB instead of 1,119 KB (267 KB gzipped instead of 457 KB), the full module 964 KB instead of 1,429 KB, and the renderer 1,826 KB instead of 2,306 KB. The collaborating modules are the size the old ones were.
+
+Every `@canvist/extension-*` package, `@canvist/web`, `@canvist/canvas`, `@canvist/react-native`, and `@canvist/lynx` now depend on `@canvist/core` instead of `@canvist/headless`, so picking an extension or an editor installs no engine module.
+
+##### Migrating
+
+- Documents that collaborate: import `createEngine` from `@canvist/collab` (or `@canvist/collab/full`) instead of `@canvist/headless`. Its engines are `CollabEngine`s and their documents `CollabDoc`s, with the same methods the old ones had. `SyncReply` and `Validation` come from there too.
+- `@canvist/headless/ssr` is `@canvist/ssr`, and `@canvist/headless/scene` is `@canvist/scene`, with the same exports. Scene JSON types are also in `@canvist/core/scene`.
+- `@canvist/headless/extensions`, `/extras`, and `/native` still work; new code can import them from `@canvist/core`.
+
+### 🐛 Fixed
+
+#### Fix bugs found reviewing every extension
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ [848865b](https://github.com/canvist/canvist/commit/848865bfa3758bf51b68a0eb6c3b7543faa91d28) · _Last updated in:_ [ee11cba](https://github.com/canvist/canvist/commit/ee11cba6ff942d82d30958c8c8612c26c98370dd)
+
+- `linkHref` returned the first link of a selection spanning two different links; it is now null, like the other style queries. Typed URLs after `(`, `[`, `<`, or a quote now autolink, as pasted ones already did.
+- Enter with text selected in a code block replaced the selection with a line break instead of splitting the block.
+- Character and word counts no longer split a word or character where its marks change.
+- `replace` treats a match selected backwards as the current match.
+- `InkHandle::insert` clamps the height to 1 to 4000, as `insertInk` does.
+- Comment thread text no longer includes a placeholder character for mentions.
+- A suggestion no longer opens for one keystroke when its trigger sits 64 bytes back without white space before it.
+- Enter in a details summary whose content starts with an image selects the image.
+- Backspace after a mention keeps the mention's marks on the trigger character it leaves.
+- `insertHashtag` with an empty tag does nothing.
+- `TableHandle::insert` with zero rows or columns does nothing, as `insertTable` does.
+- Pasted HTML: column and row spans are capped at 1000 and 65534, `>` inside a quoted attribute no longer ends the tag, and an uppercase `</SCRIPT>` no longer drops the rest of the paste.
+- Markdown: link destinations escape `(`, `)`, `<`, `>` and `\`, and read back whole; image alt text no longer gains a backslash on each round trip; code fences are longer than any fence inside the code; links with unsafe schemes are written as plain text, as in HTML; and an ordered list starting at the largest number no longer overflows.
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### 🚀 Feature

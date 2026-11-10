@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-italic",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "TipTap's `italic` mark, with `Mod-i`, `*text*`, and `_text_`, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/italic#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

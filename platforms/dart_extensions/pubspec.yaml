@@ -1,6 +1,6 @@
 name: canvist_extensions
 description: All built-in canvist extensions and typed command handles for Dart, in one package.
-version: 0.2.1
+version: 0.3.0
 repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions
 issue_tracker: https://github.com/canvist/canvist/issues
 topics:
@@ -14,7 +14,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  canvist: ^0.2.1
+  canvist: ^0.3.0
 
 dev_dependencies:
   lints: ^6.0.0
