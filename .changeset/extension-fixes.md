@@ -1,5 +1,5 @@
 ---
-"canvist_extensions": fix
+"canvist_extensions-rust": fix
 "canvist_headless": fix
 "@canvist/headless": fix
 "@canvist/web": fix
