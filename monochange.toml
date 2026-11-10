@@ -129,7 +129,7 @@ path = "crates/canvist_model"
 [package.canvist_core]
 path = "crates/canvist_core"
 
-[package.canvist_extensions]
+[package.canvist_extensions-rust]
 path = "crates/canvist_extensions"
 
 # One crate per extension (`crates/extensions/*`). `canvist_extensions`
@@ -664,7 +664,7 @@ packages = [
 	"canvist_desktop",
 	"canvist_dictation",
 	"canvist_dictation_relay",
-	"canvist_extensions",
+	"canvist_extensions-rust",
 	"canvist_extension_audio-rust",
 	"canvist_extension_blockquote-rust",
 	"canvist_extension_bold-rust",
