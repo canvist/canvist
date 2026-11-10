@@ -571,19 +571,14 @@ jobs:
       - name: setup dart
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
 
-      # The extension packages re-export from `canvist`, so they follow it.
-      # One still marked `publish_to: none` is not reserved on pub.dev yet
-      # (`platforms/dart_extensions/readme.md`).
-      - name: publish canvist, the extension packages, then canvist_flutter
+      # The extensions re-export from `canvist`, so publish them after it.
+      - name: publish canvist, canvist_extensions, then canvist_flutter
         run: |
           set -euo pipefail
           flag="--force"
           if [ "$DRY_RUN" = "true" ]; then flag="--dry-run"; fi
           (cd platforms/dart && dart pub publish "$flag")
-          for package in platforms/dart_extensions/*/; do
-            if grep -q '^publish_to: none$' "$package/pubspec.yaml"; then continue; fi
-            (cd "$package" && dart pub publish "$flag")
-          done
+          (cd platforms/dart_extensions && dart pub publish "$flag")
           (cd platforms/flutter && flutter pub publish "$flag")
 
   # Railway deploys the app itself: staging follows `main`, and production

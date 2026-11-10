@@ -102,3 +102,5 @@ Two limits today:
 
 - [Commands and typed handles](./commands.md): run, check, and query what extensions add.
 - [Build your own editor](../extensions/build-your-own-editor.md): grow an editor one extension at a time.
+
+Dart exposes all built-in descriptors and typed handles in one `canvist_extensions` package. Import `package:canvist_extensions/canvist_extensions.dart` for constants such as `bold` and `table`, or keep using `Extensions.bold` from `canvist`. Dart does not require a separate pub.dev package per extension.

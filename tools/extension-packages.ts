@@ -1,25 +1,15 @@
 /**
- * Write the per-extension npm and Dart packages: `@canvist/extension-<name>`
- * in `packages/extensions/<name>` and `canvist_extension_<name>` in
- * `platforms/dart_extensions/<name>`, one for each Rust crate in
- * `crates/extensions` that adds extensions.
+ * Generate the per-extension npm packages and the single Dart
+ * `canvist_extensions` package from Rust's extension metadata.
  *
- * The TypeScript and Dart engines compile every extension into one native
- * module, so these packages hold no code of their own: each re-exports its
- * extensions' descriptors from `@canvist/core`, which loads no WebAssembly,
- * or its classes from `package:canvist`, the way TipTap ships
- * `@tiptap/extension-bold`. The names come from the metadata
- * snapshots `canvist_extensions` tests, and the check fails if an
- * extension there has no package.
- *
- * A Dart package starts with `publish_to: none`, which keeps the release
- * job from publishing it, until its name is reserved on pub.dev and
- * automated publishing is on (`platforms/dart_extensions/readme.md`). The
- * generator keeps whatever the pubspec says.
+ * The packages re-export typed extension descriptors and handles from
+ * `@canvist/core` and `package:canvist`; engines supply the native code.
+ * Dart keeps all extensions together so publishing does not require
+ * reserving a separate pub.dev package for every extension.
  *
  * ```sh
- * node tools/extension-packages.ts          # write the packages
- * node tools/extension-packages.ts --check  # fail if any is out of date
+ * node tools/extension-packages.ts
+ * node tools/extension-packages.ts --check
  * ```
  *
  * @module
@@ -142,23 +132,6 @@ function packages(): readonly Package[] {
 	return found;
 }
 
-/** `text` in lines of at most 80 columns, each starting with `prefix`. */
-function wrap(text: string, prefix: string): string[] {
-	const lines: string[] = [];
-	let line = prefix;
-
-	for (const word of text.split(" ")) {
-		if (line !== prefix && `${line} ${word}`.length > 80) {
-			lines.push(line);
-			line = prefix;
-		}
-
-		line = line === prefix ? `${prefix}${word}` : `${line} ${word}`;
-	}
-
-	return [...lines, line];
-}
-
 /** An export of `names` from `uri`, laid out as `dart format` lays it out. */
 function exportShow(uri: string, names: readonly string[]): string {
 	const line = `export '${uri}' show ${names.join(", ")};`;
@@ -276,50 +249,40 @@ The [extension catalogue](https://github.com/canvist/canvist/blob/main/docs/src/
 	};
 }
 
-/** The files of the Dart package `canvist_extension_<name>`. */
-function dart(
-	item: Package,
-	existing: string | undefined,
-): Record<string, string> {
-	const name = `canvist_extension_${item.crate}`;
-	const classes = item.names.flatMap((extension) => [
-		`${pascal(extension)}Extension`,
-		`${pascal(extension)}Handle`,
-	]);
-	const constants = item.names.map((extension) =>
-		`/// The \`${extension}\` extension: register it with [EngineBuilder.add].\nconst ${extension} = Extensions.${extension};\n`
-	);
+/** All Dart extension descriptors and handles, in one package. */
+function dart(items: readonly Package[]): Record<string, string> {
+	const names = items.flatMap((item) => item.names).sort();
+	const classes = [
+		"Extension",
+		"ExtensionHandle",
+		"Extensions",
+		...names.flatMap((name) => [
+			`${pascal(name)}Extension`,
+			`${pascal(name)}Handle`,
+		]),
+	].sort();
 	const library = [
 		HEADER,
-		...wrap(`${item.description}, for canvist.`, "/// "),
-		"///",
-		"/// canvist compiles every extension into its engine, so this library",
-		"/// adds no code: it re-exports from `package:canvist`, so you can",
-		"/// import an extension on its own.",
+		"/// All built-in canvist extensions and their typed handles.",
+		"/// Register descriptors such as [bold] or [table] with [EngineBuilder.add].",
 		"library;",
 		"",
 		"import 'package:canvist/canvist.dart';",
 		"",
 		exportShow("package:canvist/canvist.dart", classes),
 		"",
-		constants.join("\n"),
+		...names.flatMap((name) => [
+			`/// The \`${name}\` extension: register it with [EngineBuilder.add].`,
+			`const ${name} = Extensions.${name};`,
+			"",
+		]),
 	].join("\n");
-	// Keep `publish_to: none` until the name is reserved on pub.dev.
-	const unpublished = existing === undefined ||
-		/^publish_to: none$/m.test(existing);
-	const summary = `${item.description}, for canvist's Dart engine.`;
 	const pubspec = [
-		`name: ${name}`,
-		`description: ${JSON.stringify(summary)}`,
+		"name: canvist_extensions",
+		"description: All built-in canvist extensions and typed command handles for Dart, in one package.",
 		`version: ${VERSION}`,
-		`repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions/${item.crate}`,
+		"repository: https://github.com/canvist/canvist/tree/main/platforms/dart_extensions",
 		"issue_tracker: https://github.com/canvist/canvist/issues",
-		...(unpublished
-			? [
-				"# Reserved on pub.dev? Remove this line (see ../readme.md).",
-				"publish_to: none",
-			]
-			: []),
 		"topics:",
 		"  - rich-text",
 		"  - editor",
@@ -333,36 +296,14 @@ function dart(
 		"dependencies:",
 		`  canvist: ^${VERSION}`,
 		"",
+		"dev_dependencies:",
+		"  lints: ^6.0.0",
+		"  test: ^1.26.0",
+		"",
 	].join("\n");
-	const first = item.names[0];
-	const readme = `# ${name}
-
-${item.description}, for [canvist](https://github.com/canvist/canvist)'s Dart engine.
-
-This package exports ${
-		item.names.map((extension) => `\`${extension}\``).join(", ")
-	} from \`package:canvist\`, so you can import ${
-		item.names.length === 1 ? "it" : "them"
-	} on ${
-		item.names.length === 1 ? "its" : "their"
-	} own. canvist compiles every extension into its engine, so this package adds no code.
-
-\`\`\`dart
-import 'package:canvist/canvist.dart';
-import 'package:${name}/${name}.dart';
-
-final builder = EngineBuilder();
-final ${first}Handle = builder.add(${first});
-final engine = await builder.build();
-\`\`\`
-
-The [extension catalogue](https://github.com/canvist/canvist/blob/main/docs/src/extensions/readme.md) lists each extension's commands, queries, and keys.
-`;
-
 	return {
 		"pubspec.yaml": pubspec,
-		[`lib/${name}.dart`]: library,
-		"README.md": readme,
+		"lib/canvist_extensions.dart": library,
 		LICENSE,
 	};
 }
@@ -388,16 +329,11 @@ function write(directory: URL, files: Record<string, string>): void {
 	}
 }
 
-for (const item of packages()) {
+const items = packages();
+for (const item of items) {
 	write(new URL(`packages/extensions/${kebab(item.crate)}/`, root), npm(item));
-
-	const directory = new URL(`platforms/dart_extensions/${item.crate}/`, root);
-	const pubspec = new URL("pubspec.yaml", directory);
-	const existing = existsSync(pubspec)
-		? readFileSync(pubspec, "utf8")
-		: undefined;
-	write(directory, dart(item, existing));
 }
+write(new URL("platforms/dart_extensions/", root), dart(items));
 
 if (stale.length > 0) {
 	console.error(

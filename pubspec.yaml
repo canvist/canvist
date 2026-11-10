@@ -11,6 +11,6 @@ environment:
 
 workspace:
   - platforms/dart
-  - platforms/dart_extensions/*
+  - platforms/dart_extensions
   - platforms/flutter
   - platforms/flutter/example
