@@ -1,9 +1,9 @@
 ---
 "canvist_core": feat
 "canvist_model": feat
-"canvist_extensions-rust": feat
+"canvist_extensions": feat
 "@canvist/headless": feat
-"canvist-dart": feat
+"dart:canvist": feat
 "sdk": feat
 ---
 
