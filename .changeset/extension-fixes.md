@@ -1,9 +1,9 @@
 ---
-"canvist_extensions-rust": fix
+"canvist_extensions": fix
 "canvist_headless": fix
 "@canvist/headless": fix
 "@canvist/web": fix
-"canvist-dart": fix
+"dart:canvist": fix
 ---
 
 # Fix bugs found reviewing every extension
