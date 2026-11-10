@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-table",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "TipTap's `table`, `tableRow`, `tableCell`, and `tableHeader`, with commands to add, remove, merge, and split cells, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/table#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

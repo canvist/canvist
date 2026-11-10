@@ -1,6 +1,6 @@
 {
 	"name": "@canvist/extension-heading",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "TipTap's `heading` block, with `#` to `######` and `Mod-Alt-1` to `Mod-Alt-6`, for canvist.",
 	"license": "Unlicense",
 	"homepage": "https://github.com/canvist/canvist/tree/main/packages/extensions/heading#readme",
@@ -33,6 +33,6 @@
 	],
 	"sideEffects": false,
 	"dependencies": {
-		"@canvist/core": "^0.2.1"
+		"@canvist/core": "^0.3.0"
 	}
 }

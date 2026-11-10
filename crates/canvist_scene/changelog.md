@@ -1,5 +1,11 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.3.0](https://github.com/canvist/canvist/releases/tag/v0.3.0) (2026-11-10)
+
+### 🐛 Fixed
+
+- **Avoid redundant allocations when importing scene JSON.** Scene imports reserve their flattened node list up front and share diagnostic prefixes and format node paths only when an error occurs. Large flat parent chains and cycles keep the same validation and deterministic cycle errors while allocating fewer strings and growing fewer vectors. _Owner:_ Ifiok Jr. · _Introduced in:_ [ae65f35](https://github.com/canvist/canvist/commit/ae65f35ce879577edfc87d26101414b5740116fc)
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### Changed

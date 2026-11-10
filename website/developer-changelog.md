@@ -2,6 +2,14 @@
 
 Deployment, infrastructure, and implementation notes for the website and canvist Cloud. The user-facing changelog lives at `/changelog` on the website.
 
+## 0.2.0 (2026-11-10)
+
+Grouped release for `app`.
+
+### Changed
+
+- **Prepare release.**
+
 ## 0.1.2 (2026-11-07)
 
 Grouped release for `app`.
