@@ -23,4 +23,6 @@ The helpers the extensions shared are now public, for anyone writing their own:
 - `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
 - `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
 
-Each extension also has an npm package, `@canvist/extension-<name>`, and a Dart package, `canvist_extension_<name>`, that re-export it from `@canvist/headless` and `canvist`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. The engines compile every extension in, so these packages add no code. The Dart packages reach pub.dev in batches, since pub.dev limits how many new packages an account creates a day.
+Each extension also has an npm package, `@canvist/extension-<name>`, that re-exports its descriptor from `@canvist/core`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. These packages load no WebAssembly.
+
+Dart keeps every extension in one package, `canvist_extensions`, which re-exports the typed descriptors and handles from `canvist`. The engine and existing `Extensions.bold` API remain in `canvist`; no per-extension pub.dev rollout is needed.

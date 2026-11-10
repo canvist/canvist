@@ -7,6 +7,7 @@
 //! allocated, keys follow list order), and nodes may nest their children in
 //! a `children` array instead of naming a `parent`.
 
+use std::fmt;
 use std::sync::Arc;
 
 use canvist_model::Document;
@@ -119,10 +120,22 @@ fn props_json(props: &Props, defaults: &Props) -> Json {
 
 /// A flattened node before ids, parents, and keys are resolved.
 struct Pending<'json> {
-	path: String,
+	path: NodePath,
 	node: &'json Map<String, Json>,
 	id: Option<NodeId>,
 	parent: Option<usize>,
+}
+
+/// Share the array's diagnostic prefix; format a node's path only on errors.
+struct NodePath {
+	prefix: Arc<str>,
+	index: usize,
+}
+
+impl fmt::Display for NodePath {
+	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(formatter, "{}[{}]", self.prefix, self.index)
+	}
 }
 
 struct Reader<'scene> {
@@ -138,8 +151,8 @@ impl<'scene> Reader<'scene> {
 	/// resolve each parent (nesting or `parent`) and key (given, or after the
 	/// previous sibling in list order), then order the records parents first.
 	fn read(self, nodes: &[Json]) -> Result<Vec<NodeRecord>, SceneError> {
-		let mut pending = Vec::new();
-		flatten(nodes, "nodes", None, &mut pending)?;
+		let mut pending = Vec::with_capacity(nodes.len());
+		flatten(nodes, Arc::from("nodes"), None, &mut pending)?;
 
 		for item in &mut pending {
 			item.id = optional_id(item.node, &item.path)?;
@@ -222,35 +235,46 @@ impl<'scene> Reader<'scene> {
 
 fn flatten<'json>(
 	nodes: &'json [Json],
-	path: &str,
+	path: Arc<str>,
 	parent: Option<usize>,
 	out: &mut Vec<Pending<'json>>,
 ) -> Result<(), SceneError> {
 	for (index, node) in nodes.iter().enumerate() {
-		let path = format!("{path}[{index}]");
+		let node_path = NodePath {
+			prefix: path.clone(),
+			index,
+		};
 		let map = node
 			.as_object()
-			.ok_or_else(|| SceneError::json(&path, "expected an object"))?;
+			.ok_or_else(|| SceneError::json(node_path.to_string(), "expected an object"))?;
+		let children = map
+			.get("children")
+			.map(|children| -> Result<_, SceneError> {
+				let path = format!("{node_path}.children");
+				let children = children
+					.as_array()
+					.ok_or_else(|| SceneError::json(&path, "expected an array"))?;
+
+				Ok((children, Arc::from(path)))
+			})
+			.transpose()?;
 		let me = out.len();
 		out.push(Pending {
-			path: path.clone(),
+			path: node_path,
 			node: map,
 			id: None,
 			parent,
 		});
 
-		if let Some(children) = map.get("children") {
-			let children = children
-				.as_array()
-				.ok_or_else(|| SceneError::json(format!("{path}.children"), "expected an array"))?;
-			flatten(children, &format!("{path}.children"), Some(me), out)?;
+		if let Some((children, path)) = children {
+			flatten(children, path, Some(me), out)?;
 		}
 	}
 
 	Ok(())
 }
 
-fn optional_id(node: &Map<String, Json>, path: &str) -> Result<Option<NodeId>, SceneError> {
+fn optional_id(node: &Map<String, Json>, path: &NodePath) -> Result<Option<NodeId>, SceneError> {
 	node.get("id")
 		.map(|id| {
 			id.as_str()
@@ -263,7 +287,7 @@ fn optional_id(node: &Map<String, Json>, path: &str) -> Result<Option<NodeId>, S
 		.transpose()
 }
 
-fn parent_of(node: &Map<String, Json>, path: &str) -> Result<NodeId, SceneError> {
+fn parent_of(node: &Map<String, Json>, path: &NodePath) -> Result<NodeId, SceneError> {
 	match node.get("parent") {
 		Some(parent) => {
 			parent
@@ -285,7 +309,7 @@ fn parent_of(node: &Map<String, Json>, path: &str) -> Result<NodeId, SceneError>
 
 fn key_of(
 	node: &Map<String, Json>,
-	path: &str,
+	path: &NodePath,
 	previous: Option<&FracKey>,
 ) -> Result<FracKey, SceneError> {
 	match node.get("key") {
@@ -300,7 +324,11 @@ fn key_of(
 	}
 }
 
-fn props_from_json(props: Option<&Json>, kind: NodeKind, path: &str) -> Result<Props, SceneError> {
+fn props_from_json(
+	props: Option<&Json>,
+	kind: NodeKind,
+	path: &NodePath,
+) -> Result<Props, SceneError> {
 	let mut out = Props::for_kind(kind);
 	let Some(props) = props else {
 		return Ok(out);

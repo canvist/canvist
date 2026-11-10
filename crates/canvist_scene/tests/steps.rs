@@ -411,6 +411,18 @@ fn json_errors_name_the_path() {
 			json!({ "type": "canvist-scene", "nodes": [{ "type": "page", "props": { "width": 3 } }] }),
 			"nodes[0].props.width",
 		),
+		(
+			json!({ "type": "canvist-scene", "nodes": [{ "type": "page", "children": false }] }),
+			"nodes[0].children",
+		),
+		(
+			json!({ "type": "canvist-scene", "nodes": [{ "type": "page", "children": [null] }] }),
+			"nodes[0].children[0]",
+		),
+		(
+			json!({ "type": "canvist-scene", "nodes": [{ "type": "page", "children": [{ "type": "rectangle", "props": { "opacity": "x" } }] }] }),
+			"nodes[0].children[0].props.opacity",
+		),
 	];
 
 	for (json, path) in cases {

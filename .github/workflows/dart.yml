@@ -72,14 +72,14 @@ jobs:
       - name: generated handles are up to date
         run: dart run tool/generate.dart --check
 
-      # Each re-exports its extension from `canvist`; analysis proves every
-      # name it exports exists.
-      - name: per-extension packages analyze
+      # The single extension package re-exports every typed descriptor.
+      - name: extension package analysis and tests
         if: matrix.os == 'ubuntu-latest'
         working-directory: platforms/dart_extensions
         run: |
           dart analyze --fatal-infos
           dart format --output=none --set-exit-if-changed .
+          dart test --reporter expanded
 
       - name: conformance, api, and server tests
         run: dart test --reporter expanded
@@ -190,12 +190,9 @@ jobs:
           flutter pub get
           flutter pub publish --dry-run
 
-      - name: the released extension packages publish cleanly
-        run: |
-          for package in ../dart_extensions/*/; do
-            if grep -q '^publish_to: none$' "$package/pubspec.yaml"; then continue; fi
-            (cd "$package" && dart pub publish --dry-run)
-          done
+      - name: canvist_extensions publishes cleanly
+        working-directory: platforms/dart_extensions
+        run: dart pub publish --dry-run
 
       # pub archives what git tracks, minus ignored files. The crates.io
       # release this version pins does not exist until the release publishes
