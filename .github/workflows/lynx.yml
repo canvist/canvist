@@ -4,13 +4,14 @@ name: "lynx"
 # bundle in its Release host apps on an iOS Simulator and an Android emulator,
 # driven by Maestro.
 #
-# The device jobs take 15-30 minutes on scarce runners, so pull requests only
-# run this workflow when they touch the package, its example, the
-# @canvist/core types it builds on, or the native editors and engine under
-# it. Every push to `main` and a nightly run cover the rest.
+# The device jobs take 15-30 minutes on scarce runners, so pull requests and
+# pushes to `main` only run this workflow when they touch the package, its
+# example, the @canvist/core types it builds on, or the native editors and
+# engine under it. A nightly run covers the rest. Device jobs themselves are
+# schedule/dispatch only so everyday JS checks are not queued behind them.
 on:
   pull_request:
-    paths:
+    paths: &paths
       - ".github/workflows/lynx.yml"
       - "Cargo.lock"
       - "Cargo.toml"
@@ -25,6 +26,7 @@ on:
   push:
     branches:
       - main
+    paths: *paths
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
@@ -108,6 +110,7 @@ jobs:
     needs: javascript
     timeout-minutes: 130
     runs-on: macos-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,6 +177,7 @@ jobs:
     timeout-minutes: 90
     # Pinned for the same KVM and emulator setup `native.yml` verifies.
     runs-on: ubuntu-24.04
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

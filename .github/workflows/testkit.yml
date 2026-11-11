@@ -15,7 +15,7 @@ on:
   pull_request:
     branches:
       - main
-    paths:
+    paths: &paths
       - ".github/workflows/testkit.yml"
       - "Cargo.lock"
       - "Cargo.toml"
@@ -28,6 +28,7 @@ on:
   push:
     branches:
       - main
+    paths: *paths
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
@@ -100,7 +101,10 @@ jobs:
     name: ios (simulator)
     timeout-minutes: 90
     runs-on: macos-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    # Device boots are scarce and flaky on cold starts; keep them off the
+    # everyday push/PR path so they do not queue behind (and delay) the
+    # cheap engine/dom jobs. Nightly + dispatch still cover the simulator.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Not the devenv action: its nix shell points DEVELOPER_DIR at a
@@ -139,7 +143,7 @@ jobs:
     # Pinned: `ubuntu-latest` moves to 26.04 from 2026-10-19 and the emulator
     # setup (KVM, x86_64 image) is only verified on 24.04.
     runs-on: ubuntu-24.04
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Not the devenv action: its disk-space cleanup deletes the runner's

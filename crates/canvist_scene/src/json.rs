@@ -152,7 +152,7 @@ impl<'scene> Reader<'scene> {
 	/// previous sibling in list order), then order the records parents first.
 	fn read(self, nodes: &[Json]) -> Result<Vec<NodeRecord>, SceneError> {
 		let mut pending = Vec::with_capacity(nodes.len());
-		flatten(nodes, Arc::from("nodes"), None, &mut pending)?;
+		flatten(nodes, &Arc::from("nodes"), None, &mut pending)?;
 
 		for item in &mut pending {
 			item.id = optional_id(item.node, &item.path)?;
@@ -235,13 +235,13 @@ impl<'scene> Reader<'scene> {
 
 fn flatten<'json>(
 	nodes: &'json [Json],
-	path: Arc<str>,
+	path: &Arc<str>,
 	parent: Option<usize>,
 	out: &mut Vec<Pending<'json>>,
 ) -> Result<(), SceneError> {
 	for (index, node) in nodes.iter().enumerate() {
 		let node_path = NodePath {
-			prefix: path.clone(),
+			prefix: Arc::clone(path),
 			index,
 		};
 		let map = node
@@ -267,7 +267,7 @@ fn flatten<'json>(
 		});
 
 		if let Some((children, path)) = children {
-			flatten(children, path, Some(me), out)?;
+			flatten(children, &path, Some(me), out)?;
 		}
 	}
 

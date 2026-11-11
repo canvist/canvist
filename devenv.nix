@@ -434,7 +434,7 @@ in
     "lint:clippy" = {
       exec = ''
         set -e
-        cargo clippy --workspace --all-features --all-targets
+        cargo clippy --workspace --all-features --all-targets -- --deny warnings
       '';
       description = "Check that all rust lints are passing.";
       binary = "bash";
