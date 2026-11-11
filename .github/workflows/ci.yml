@@ -31,7 +31,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: lint clippy
-        run: cargo clippy --workspace --all-features --all-targets
+        # Match canvas-web / desktop: warnings are errors so scene clippy
+        # cannot stay green here while those workflows fail.
+        run: cargo clippy --workspace --all-features --all-targets -- --deny warnings
         shell: devenv shell -c -- bash -e {0}
 
       - name: lint formatting

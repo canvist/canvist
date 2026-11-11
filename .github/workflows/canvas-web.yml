@@ -8,10 +8,7 @@ on:
   push:
     branches:
       - main
-  # Every pull request, including stacked ones whose base is another
-  # feature branch, that touches what the canvas demo is built from.
-  pull_request:
-    paths:
+    paths: &paths
       - ".github/workflows/canvas-web.yml"
       - "Cargo.lock"
       - "crates/canvist_canvas/**"
@@ -25,6 +22,10 @@ on:
       - "crates/canvist_paint/**"
       - "crates/canvist_scene/**"
       - "packages/canvist-canvas/**"
+  # Every pull request, including stacked ones whose base is another
+  # feature branch, that touches what the canvas demo is built from.
+  pull_request:
+    paths: *paths
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

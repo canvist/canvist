@@ -3,15 +3,15 @@ name: "native"
 # Builds the UniFFI/flutter_rust_bridge bindings and runs every native test on
 # an iOS Simulator and an Android emulator.
 #
-# These jobs take 10-20 minutes, so pull requests only run them when they touch
-# the native surface, and they are not required checks. Every push to `main`
-# and a nightly run cover changes elsewhere (Rust core, toolchains, runner
-# images) that could still break the native builds.
+# These jobs take 10-20 minutes on scarce runners, so pull requests and pushes
+# to `main` only run them when they touch the native surface. A nightly run
+# covers changes elsewhere (toolchains, runner images) that could still break
+# the native builds without touching those paths.
 on:
   pull_request:
     branches:
       - main
-    paths:
+    paths: &paths
       - ".github/workflows/native.yml"
       - "Cargo.lock"
       - "Cargo.toml"
@@ -23,6 +23,7 @@ on:
   push:
     branches:
       - main
+    paths: *paths
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:

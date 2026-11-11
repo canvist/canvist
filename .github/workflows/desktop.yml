@@ -8,20 +8,51 @@ on:
   push:
     branches:
       - main
-  # Every pull request, including stacked ones whose base is another
-  # feature branch.
+    paths: &paths
+      - ".github/workflows/desktop.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "rust-toolchain.toml"
+  # Every pull request that touches the editor surface, including stacked
+  # ones whose base is another feature branch.
   pull_request:
+    paths: *paths
+  schedule:
+    # Catch runner / toolchain drift when the desktop crates did not change.
+    - cron: "0 6 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Clippy once: the three OS test jobs used to each recompile the world for
+  # the same lint and contend for runners with every other workflow.
+  lint:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: install rust toolchain
+        run: rustup toolchain install
+
+      - name: cache rust
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: desktop-lint
+
+      - name: lint
+        run: cargo clippy --locked -p canvist_desktop -p canvist_desktop_example --all-features --all-targets -- --deny warnings
+
   # Build and test canvist_desktop and the example app on every desktop
   # platform. Input, IME, clipboard, selection, accessibility, collaboration,
   # and screenshots are driven headlessly, so no display is needed; the
   # GPU-against-CPU test runs where the runner has an adapter and says it
-  # skipped where it has none.
+  # skipped where it has none. Clippy lives in `lint` above so each OS does
+  # not recompile the world for the same deny-warnings check.
   test:
     name: test (${{ matrix.os }})
     timeout-minutes: 45
@@ -50,6 +81,3 @@ jobs:
 
       - name: build the example app
         run: cargo build --locked -p canvist_desktop_example
-
-      - name: lint
-        run: cargo clippy --locked -p canvist_desktop -p canvist_desktop_example --all-features --all-targets -- --deny warnings
