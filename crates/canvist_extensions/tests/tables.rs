@@ -1046,7 +1046,7 @@ fn each_command_undoes_to_the_exact_document_and_redoes() {
 		let args: Attrs = args.iter().cloned().collect();
 		let applied = typist
 			.editor
-			.run_named(name, &args, &mut Env::headless(Duration::from_secs(3600)))
+			.run_named(name, &args, &mut Env::headless(Duration::from_hours(1)))
 			.expect("commands run");
 		assert!(applied.is_some(), "{name} applies");
 		let after = typist.snapshot()["doc"].clone();
