@@ -22,7 +22,14 @@ cd "$root"
 rustup target add "${targets[@]}" >/dev/null
 
 rm -rf "$module/jniLibs"
-cargo ndk \
+# CI installs the pinned cargo-ndk binary. Locally, `cargo ndk` is the
+# cargo-run-bin alias from .cargo/config.toml.
+if command -v cargo-ndk >/dev/null 2>&1; then
+	ndk=(cargo-ndk)
+else
+	ndk=(cargo ndk)
+fi
+"${ndk[@]}" \
 	--target arm64-v8a \
 	--target x86_64 \
 	--platform 24 \

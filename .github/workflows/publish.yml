@@ -505,10 +505,13 @@ jobs:
         with:
           key: publish-android
 
-      - name: install cargo-run-bin
+      # Pinned to workspace.metadata.bin. cargo-binstall's anonymous GitHub
+      # API calls were rate-limited (403) from this job; install-action
+      # downloads the release with the workflow token.
+      - name: install cargo-ndk
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
-          tool: cargo-run-bin
+          tool: cargo-ndk@4.1.2
 
       - name: build the android library
         run: platforms/android/build.sh
