@@ -219,7 +219,7 @@ Everything a design tool's interaction needs is geometry and state in Rust:
 | Browser frame on WebGPU, 2k-node demo, p95         | < 8 ms                   | 1.0 ms        |
 | Browser frame on the CPU fallback, 2k nodes, p95   | < 33 ms                  | 21 ms         |
 
-Each model, index, and paint metric is a release-mode test in its crate's `tests/perf_budgets.rs`. The browser rows come from the `@canvist/canvas` Playwright test, which records the main-thread time of every frame painted during a scripted pan and drag at 1280 by 720 (headless Chromium on an Apple M-series laptop; CI runs without a GPU, so its WebGPU run falls back to the CPU and is reported as such).
+Each model, index, and paint metric was measured with `cargo bench` in its crate. The browser rows come from a scripted pan and drag at 1280 by 720 on headless Chromium (an Apple M-series laptop; a machine without a GPU falls back to the CPU).
 
 ## What changes in existing crates
 

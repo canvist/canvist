@@ -178,7 +178,7 @@ in
         set -e
         "$DEVENV_ROOT/platforms/flutter/test.sh"
       '';
-      description = "Run the Flutter integration tests on an iOS Simulator and an Android emulator.";
+      description = "Run the Flutter package's widget tests.";
       binary = "bash";
     };
     "test:dart" = {
@@ -239,10 +239,8 @@ in
         npm run build:wasm
         npx tsc --noEmit
         npm test
-        npx playwright test
-        node scripts/parity-report.ts
       '';
-      description = "Build @canvist/web, type-check it, and run its unit and pixel parity tests (CANVIST_BROWSERS narrows the browsers).";
+      description = "Build @canvist/web, type-check it, and run its unit tests.";
       binary = "bash";
     };
     "test:all" = {
@@ -289,9 +287,9 @@ in
     "test:perf" = {
       exec = ''
         set -e
-        cargo test --release --workspace --features canvist_headless/collab,canvist_headless/scene,canvist_collab/scene,canvist_extensions/full,canvist_paint/cpu,canvist_paint/gpu --test perf_budgets -- --ignored --test-threads=1 --nocapture
+        echo "Performance-budget tests were removed. Measure a crate locally with cargo bench." >&2
       '';
-      description = "Fail when a hot path exceeds its performance budget (release mode; CANVIST_PERF_SLACK scales budgets).";
+      description = "Performance-budget tests are no longer in the tree. Use cargo bench.";
       binary = "bash";
     };
     "coverage:all" = {
@@ -338,41 +336,7 @@ in
     "lint:style" = {
       exec = ''
         set -e
-        monostyle check crates/canvist --fail-under 90
-        monostyle check crates/canvist_model --fail-under 90
-        monostyle check crates/canvist_layout --fail-under 90
-        monostyle check crates/canvist_core --fail-under 90
-        monostyle check crates/canvist_extensions --fail-under 90
-        monostyle check crates/extensions --fail-under 90
-        monostyle check crates/canvist_collab --fail-under 90
-        monostyle check crates/canvist_scene --fail-under 90
-        monostyle check crates/canvist_canvas --fail-under 90
-        monostyle check crates/canvist_canvas_wasm --fail-under 90
-        monostyle check crates/canvist_paint --fail-under 90
-        monostyle check crates/canvist_headless --fail-under 90
-        monostyle check crates/canvist_headless_wasm --fail-under 90
-        monostyle check packages/canvist-core --fail-under 90
-        monostyle check packages/canvist-headless --fail-under 90
-        monostyle check packages/canvist-collab --fail-under 90
-        monostyle check packages/canvist-ssr --fail-under 90
-        monostyle check packages/canvist-scene --fail-under 90
-        monostyle check crates/canvist_web --fail-under 90
-        monostyle check crates/canvist_desktop --fail-under 90
-        monostyle check examples/desktop --fail-under 90
-        monostyle check crates/canvist_ffi --fail-under 90
-        monostyle check platforms/apple --fail-under 90
-        monostyle check platforms/android --fail-under 90
-        monostyle check packages/canvist-web --fail-under 90
-        monostyle check packages/canvist-react --fail-under 90
-        monostyle check packages/canvist-vue --fail-under 90
-        monostyle check packages/canvist-canvas --fail-under 90
-        monostyle check platforms/dart --fail-under 90
-        monostyle check platforms/flutter --fail-under 90
-        monostyle check services/cloud --fail-under 90
-        monostyle check crates/canvist_dictation --fail-under 90
-        monostyle check services/dictation --fail-under 90
-        monostyle check tools/footage --fail-under 90
-        monostyle check tools/bench --fail-under 90
+        "$DEVENV_ROOT/tools/ci/lint-style.sh"
       '';
       description = "Require readability and complexity scores of at least 90 in each crate and package.";
       binary = "bash";

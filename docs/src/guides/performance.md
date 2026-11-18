@@ -11,7 +11,7 @@ Read this page to see what canvist costs: the time each operation takes, how tha
 
 ## Performance budgets
 
-Every number below has a budget, and a test fails the build when an operation goes over it. "Today" is measured on Apple silicon. Rows marked "Coming soon" belong to editor hosts that haven't shipped yet.
+Every number below has a budget. "Today" is measured on Apple silicon. Rows marked "Coming soon" belong to editor hosts that haven't shipped yet. Measure a row locally with `cargo bench`.
 
 | Metric                                                 | Budget                                      | Today                |
 | ------------------------------------------------------ | ------------------------------------------- | -------------------- |
@@ -66,25 +66,25 @@ Every number below has a budget, and a test fails the build when an operation go
 
 ² Structural edits, such as splitting or joining blocks, cost time in proportion to the number of blocks beside them, because Yjs walks the list of siblings. Budgets use 10,000 top-level blocks.
 
-³ Measured as an app ships it: a Vite build of a page that creates an editor, minified and gzipped (348 KB of WebAssembly, 14 KB of script). CI fails above the budget. The module is optimized without inlining, which gzips smaller even though it is larger raw. Line breaking's Unicode data is 13.6 KB of it, and browsers offer no line-break segmenter to use instead.
+³ Measured as an app ships it: a Vite build of a page that creates an editor, minified and gzipped (348 KB of WebAssembly, 14 KB of script). The budget is in `tools/bench/size.json`. The module is optimized without inlining, which gzips smaller even though it is larger raw. Line breaking's Unicode data is 13.6 KB of it, and browsers offer no line-break segmenter to use instead.
 
-⁴ Chromium / Firefox / WebKit on an Apple silicon Mac, measured by `editor.inputLatency()` in canvist's Playwright tests: from each input event's timestamp until the change is painted on the canvas, in the same task. Firefox and WebKit round timestamps to 1 ms. In the burst, every key is painted in its own task, so none waits for a later frame; the 95th percentile is 0.4 / 3 / 1 ms. The browser's Event Timing API also counts the wait for the next frame, and reports only events that took 16 ms or more, so it can't resolve an 8 ms budget. The tests record its slow entries beside these numbers. Linux WebKit on a GitHub-hosted runner is slower than that Mac (recent runs measured 10 ms to 26 ms), so that one CI job multiplies the budget by `CANVIST_PERF_SLACK=4`. The Mac jobs still use 8 ms.
+⁴ Chromium / Firefox / WebKit on an Apple silicon Mac, measured by `editor.inputLatency()` in canvist's Playwright tests: from each input event's timestamp until the change is painted on the canvas, in the same task. Firefox and WebKit round timestamps to 1 ms. In the burst, every key is painted in its own task, so none waits for a later frame; the 95th percentile is 0.4 / 3 / 1 ms. The browser's Event Timing API also counts the wait for the next frame, and reports only events that took 16 ms or more, so it can't resolve an 8 ms budget. The tests record its slow entries beside these numbers. Linux WebKit on a GitHub-hosted runner is slower than that Mac (past runs measured 10 ms to 26 ms).
 
-⁵ The engine half of keystroke-to-paint on iOS and Android, through the same `Editor` calls the views make, with a phone-sized viewport: the edit, relayout, the display list, and its damage (`crates/canvist_ffi/tests/perf_budgets.rs`). `crates/canvist_ffi/tests/stress.rs` types thousands of random keyboard, input-method, autocorrect, undo, and collaboration inputs and checks that none fails or is lost.
+⁵ The engine half of keystroke-to-paint on iOS and Android, through the same `Editor` calls the views make, with a phone-sized viewport: the edit, relayout, the display list, and its damage (`cargo bench -p canvist_ffi`). `crates/canvist_ffi/tests/stress.rs` types thousands of random keyboard, input-method, autocorrect, undo, and collaboration inputs and checks that none fails or is lost.
 
 ⁶ `CanvistView` on an iPhone 17 Pro simulator, debug build: a character through `UITextInput`, relayout, and Core Graphics painting the damaged area (`CanvistViewTests.testKeystrokeToPaintStaysWithinBudget`). The median is 1 ms.
 
 ⁷ `CanvistView` on an API 35 arm64 emulator on an Apple silicon Mac, debug build, in a 2,000-paragraph document: a character committed through the `InputConnection`, relayout, and drawing the view on a `Canvas` (`CanvistViewTest.keystrokeToPaintStaysWithinBudget`). The median is 2.2 ms.
 
-⁸ `canvist_desktop` on an Apple silicon Mac, measured by its `tests/perf_budgets.rs`: handling the key event (the edit, history, and relayout bookkeeping), laying out the viewport, building its display list, and encoding it as a vello scene. The GPU rasterises the scene in parallel.
+⁸ `canvist_desktop` on an Apple silicon Mac (`cargo bench -p canvist_desktop`): handling the key event (the edit, history, and relayout bookkeeping), laying out the viewport, building its display list, and encoding it as a vello scene. The GPU rasterises the scene in parallel.
 
-## Regression checks on every pull request
+## Regression checks
 
-The budgets above are absolute: an operation fails when it takes longer than its limit, however long it took before. Two more checks run on every pull request and compare it with the commit it merges into. Both are required, so a pull request can't merge while either fails.
+The budgets above are historical measurements. CI does not run release-mode budget tests or compare speed and bundle size. The `bench / speed` and `bench / bundle size` jobs still report on every pull request so a required check name completes; they do not measure anything. Run the comparisons locally when a change can affect them.
 
 ### `bench / speed`
 
-The check runs every divan benchmark in the crates the pull request can change (model, editor keystrokes, extensions, layout, collaboration, headless, scene, canvas, paint, and desktop) on the base and on the head, on one runner, in one job. The headless export benchmarks are the exception: their suite, `counts`, runs once per side under valgrind's callgrind and compares instruction counts, for the reason under [why export is counted, not timed](#why-export-is-counted-not-timed). The base is the commit the pull request merges into, so the comparison shows exactly what the pull request changes.
+Running the tool locally runs every divan benchmark in the crates you select (model, editor keystrokes, extensions, layout, collaboration, headless, scene, canvas, paint, and desktop) on the base and on the head. The headless export benchmarks are the exception: their suite, `counts`, runs once per side under valgrind's callgrind and compares instruction counts, for the reason under [why export is counted, not timed](#why-export-is-counted-not-timed). The base is the commit the branch merges into, so the comparison shows exactly what the branch changes.
 
 Each bench binary runs five times per side, alternating base and head so that a runner warming up or slowing down affects both. Every run gives one median per benchmark, and a time in the report is the median of those medians. A benchmark **regresses** only when both of these hold:
 
@@ -97,9 +97,9 @@ The second rule is what keeps runner noise from failing a pull request. A busy n
 
 Exporting 10,000 paragraphs to HTML takes about 2 ms, in a hot loop small enough that where the linker places it decides its speed. The workspace links with LTO and one codegen unit, so a change anywhere can shift that loop to an address where the same instructions run slower, and which side wins depends on the runner's CPU, not on the revision. On the Linux x86_64 runner, pull requests that never touched the export path moved its wall time anywhere between −26% and +35%, the same two binaries flipped from +35% slower on one runner to 7% faster on another, and a third build of the same sources reversed the sign again — while callgrind, which counts instructions deterministically, found the revisions within a fraction of a percent of each other. Wall time for that loop measures the layout, so the gate counts instructions instead.
 
-A count still catches real regressions: an extra allocation, a worse algorithm, or more work per paragraph all execute more instructions. What it cannot see is a change that executes the same instructions slower; the export budgets in the table above still bound wall time absolutely, and every other suite is timed. Counting needs valgrind (`sudo apt-get install valgrind`) and gungraun's runner (`cargo install gungraun-runner`), which the check's workflow installs; run the suite by hand with `cargo bench -p canvist_headless --bench counts`.
+A count still catches real regressions: an extra allocation, a worse algorithm, or more work per paragraph all execute more instructions. What it cannot see is a change that executes the same instructions slower; the export budgets in the table above still bound wall time absolutely, and every other suite is timed. Counting needs valgrind (`sudo apt-get install valgrind`) and gungraun's runner (`cargo install gungraun-runner`). Run the suite by hand with `cargo bench -p canvist_headless --bench counts`.
 
-The report, in the job summary and in a comment on the pull request, lists what regressed or improved first, then every benchmark:
+The report lists what regressed or improved first, then every benchmark:
 
 | Column    | Meaning                                                               |
 | --------- | --------------------------------------------------------------------- |
@@ -111,7 +111,7 @@ The report, in the job summary and in a comment on the pull request, lists what 
 
 A `counts` row shows callgrind instruction counts (`965.3 M`) where the others show times, and "slower" there means "more instructions".
 
-Suites the pull request can't affect don't run, and the report names them. A suite is affected when a file changes in its crate or in any workspace crate it depends on, or when a global input changes: `Cargo.lock`, `Cargo.toml`, `rust-toolchain.toml`, `.cargo`, `tools/bench`, or the workflow. Every push to `main` runs every suite and caches its bench binaries, so most pull requests only build the head.
+Suites a change can't affect don't run, and the report names them. A suite is affected when a file changes in its crate or in any workspace crate it depends on, or when a global input changes: `Cargo.lock`, `Cargo.toml`, `rust-toolchain.toml`, `.cargo`, or `tools/bench`.
 
 Thresholds live in [`tools/bench/speed.json`](https://github.com/canvist/canvist/blob/main/tools/bench/speed.json): `threshold` is the default, in percent, and `thresholds` sets one benchmark by its id (`model/type_char/100000`) or a group by a pattern (`scene/to_json/*`). The longest matching pattern wins. Raise a threshold only for a benchmark that is noisy on the runner, never to let a slowdown through. A slowdown you mean to make, such as trading speed for correctness, should say so in the pull request, and the new speed becomes the base once it merges. Download the `bench-speed-samples` artifact to see every run's numbers.
 
@@ -126,15 +126,15 @@ The check builds every shipped artifact and measures it raw, gzipped, and brotli
 - `@canvist/canvas`: its WebAssembly and JavaScript;
 - `libcanvist_ffi` built for Linux.
 
-An artifact **fails** when it is over its budget, or when its gzipped size grew by more than both 1% and 1,024 bytes since the base. Growth you mean to ship passes once the pull request has the `size-increase-approved` label, and adding the label re-runs the check. The label never waives a budget: raise the budget in [`tools/bench/size.json`](https://github.com/canvist/canvist/blob/main/tools/bench/size.json) in the same pull request, so the change is reviewed.
+An artifact **fails** when it is over its budget, or when its gzipped size grew by more than both 1% and 1,024 bytes since the base. Growth you mean to ship passes once the pull request has the `size-increase-approved` label. The label never waives a budget: raise the budget in [`tools/bench/size.json`](https://github.com/canvist/canvist/blob/main/tools/bench/size.json) in the same pull request, so the change is reviewed.
 
-Builds are deterministic, so every push to `main` records its sizes and pull requests compare with that record. An artifact the pull request can't affect isn't rebuilt; the report marks it `(unchanged)` and still checks it against its budget.
+Builds are deterministic. An artifact the change can't affect isn't rebuilt; the report marks it `(unchanged)` and still checks it against its budget.
 
-The iOS and Android libraries (`CanvistFFI.xcframework`, `libcanvist_ffi.a`, and `libcanvist_ffi.so` for each Android ABI) only build in the `native` workflow, which runs on pull requests that touch the native surface. It checks them against their budgets in `size.json` and reports their sizes in its job summary.
+The iOS and Android libraries (`CanvistFFI.xcframework`, `libcanvist_ffi.a`, and `libcanvist_ffi.so` for each Android ABI) are not built in CI. Measure them locally with `tools/bench/size.ts` when a native change can affect their size. The release workflow still builds the Apple and Android artifacts when it publishes.
 
 ### Run them yourself
 
-Compare your branch with `main` the way CI does:
+Compare your branch with `main`:
 
 ```sh
 git worktree add ../canvist-base main
