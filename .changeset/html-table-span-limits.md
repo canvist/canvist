@@ -1,6 +1,8 @@
 ---
 "canvist_layout": fix
 "canvist_model": change
+"canvist_extension_table-rust": refactor
+"canvist_extension_clipboard-rust": refactor
 "@canvist/ssr": fix
 ---
 
