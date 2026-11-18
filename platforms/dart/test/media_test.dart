@@ -104,7 +104,13 @@ void main() {
     });
     expect(
       doc.export(Format.html),
-      contains('<iframe title="YouTube video" src="https://youtu.be/x">'),
+      contains(
+        '<iframe title="YouTube video" src="https://youtu.be/x" start="30">',
+      ),
+    );
+    expect(
+      doc.export(Format.html),
+      contains('<iframe title="Twitch video" src="https://twitch.tv/a" muted>'),
     );
     expect(doc.export(Format.markdown), endsWith('[Report](r.pdf)\n\nb'));
 
