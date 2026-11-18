@@ -1,0 +1,58 @@
+name: setup-rust
+description: Install the toolchain pinned in rust-toolchain.toml and cache Cargo. No Nix.
+
+inputs:
+  targets:
+    description: Comma-separated extra rustup targets, such as wasm32-unknown-unknown
+    required: false
+    default: ""
+  cache-key:
+    description: Extra Swatinem rust-cache key
+    required: false
+    default: ""
+  free-disk:
+    description: Remove unused preinstalled SDKs before the build
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: free disk space
+      if: inputs.free-disk == 'true'
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        sudo docker image prune --all --force || true
+        df -h /
+
+    - name: read rust-toolchain.toml
+      id: channel
+      shell: bash
+      run: |
+        set -euo pipefail
+        channel=$(python3 -c 'import pathlib,re; text=pathlib.Path("rust-toolchain.toml").read_text(); print(re.search(r"channel\s*=\s*\"([^\"]+)\"", text).group(1))')
+        echo "channel=$channel" >> "$GITHUB_OUTPUT"
+        echo "Using Rust $channel from rust-toolchain.toml"
+
+    - name: install rust toolchain
+      if: inputs.targets == ''
+      uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc
+      with:
+        toolchain: ${{ steps.channel.outputs.channel }}
+        # rust-toolchain.toml also lists rust-analyzer for editors. CI needs
+        # rustfmt and clippy; cargo ships with the toolchain.
+        components: rustfmt, clippy
+
+    - name: install rust toolchain and targets
+      if: inputs.targets != ''
+      uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc
+      with:
+        toolchain: ${{ steps.channel.outputs.channel }}
+        components: rustfmt, clippy
+        targets: ${{ inputs.targets }}
+
+    - name: cache rust
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        key: ${{ inputs.cache-key }}
