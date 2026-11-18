@@ -24,7 +24,8 @@ impl Editor {
 		self.lock().text.len()
 	}
 
-	/// The editor's text in `range`: text blocks joined by line feeds.
+	/// The editor's text in `range`: text blocks joined by line feeds. A
+	/// range that ends before it starts is empty.
 	pub fn text_in(&self, range: OffsetRange) -> String {
 		let session = self.lock();
 		session.text.text(session.doc.document(), range)

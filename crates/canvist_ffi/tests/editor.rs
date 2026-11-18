@@ -128,6 +128,18 @@ fn text_offsets_address_blocks_joined_by_line_feeds() -> Result {
 }
 
 #[test]
+fn text_in_a_range_ending_before_its_start_is_empty() {
+	let editor = editor("# Hi\n\nab😀c");
+
+	// An input method can ask for `end + n` with `n` large enough to wrap,
+	// which the host clamps to 0. That must not panic across the FFI, where
+	// Swift calls non-throwing functions with `try!`.
+	assert_eq!(editor.text_in(OffsetRange { start: 5, end: 3 }), "");
+	assert_eq!(editor.text_in(OffsetRange { start: 8, end: 0 }), "");
+	assert_eq!(editor.text_in(OffsetRange { start: 99, end: 98 }), "");
+}
+
+#[test]
 fn autocorrect_replaces_a_range_and_dictation_inserts() -> Result {
 	let editor = editor("teh cat");
 	editor.select(7, 7)?;
