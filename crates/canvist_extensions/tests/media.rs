@@ -582,7 +582,7 @@ fn backspace_right_after_a_typed_image_restores_the_syntax() {
 fn undo_and_redo_insert_and_remove_media() {
 	let mut typist = typist("Hi");
 	let before = typist.snapshot();
-	let mut later = Env::headless(Duration::from_secs(60));
+	let mut later = Env::headless(Duration::from_mins(1));
 	let command = typist
 		.editor
 		.command_named("insertFile", &Attrs::new().with("url", "r.pdf"))

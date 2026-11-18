@@ -7,6 +7,22 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { fontFaceCss, stack } from "../src/fonts.ts";
 import { splitFamilies, splitLigatures } from "../src/measure.ts";
+import { latencyBudgetMs } from "./latency-budget.ts";
+
+describe("latencyBudgetMs", () => {
+	it("keeps the 8 ms Apple silicon budget unless slack is a positive number", () => {
+		assert.equal(latencyBudgetMs(undefined), 8);
+		assert.equal(latencyBudgetMs(""), 8);
+		assert.equal(latencyBudgetMs("1"), 8);
+		assert.equal(latencyBudgetMs("0"), 8);
+		assert.equal(latencyBudgetMs("-2"), 8);
+		assert.equal(latencyBudgetMs("nope"), 8);
+	});
+
+	it("multiplies the budget by CANVIST_PERF_SLACK", () => {
+		assert.equal(latencyBudgetMs("4"), 32);
+	});
+});
 
 describe("splitFamilies", () => {
 	it("splits on commas outside quotes", () => {

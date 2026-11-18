@@ -840,7 +840,7 @@ fn escape_without_a_suggestion_falls_through_to_the_standard_key() {
 /// so it is its own undo step.
 fn run_later(editor: &mut Editor, name: &str, args: &[(&'static str, Value)], minute: u64) -> bool {
 	let args: Attrs = args.iter().cloned().collect();
-	let mut env = Env::headless(Duration::from_secs(60 * minute));
+	let mut env = Env::headless(Duration::from_mins(minute));
 	editor
 		.run_named(name, &args, &mut env)
 		.expect("commands run")
@@ -858,7 +858,7 @@ fn undo_and_redo_restore_suggestions_and_atoms() {
 		1,
 	);
 	let inserted = typist.snapshot();
-	let mut env = Env::headless(Duration::from_secs(120));
+	let mut env = Env::headless(Duration::from_mins(2));
 
 	typist.editor.undo(&mut env).expect("undoes");
 	assert_eq!(typist.snapshot(), suggesting);

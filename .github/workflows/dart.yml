@@ -8,9 +8,23 @@ on:
   push:
     branches:
       - main
-  # Every pull request, including stacked ones whose base is another
-  # feature branch.
+    paths: &paths
+      - ".github/workflows/dart.yml"
+      - ".fvmrc"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "platforms/dart/**"
+      - "platforms/dart_extensions/**"
+      - "platforms/flutter/**"
+      - "pubspec.yaml"
+      - "rust-toolchain.toml"
+  # Every pull request that touches the Dart / Flutter surface, including
+  # stacked ones whose base is another feature branch.
   pull_request:
+    paths: *paths
+  schedule:
+    - cron: "15 6 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,6 +40,7 @@ jobs:
     # resolves in the repository's Dart workspace (`pubspec.yaml`), which
     # holds the Flutter packages too, so the SDK comes from Flutter; the
     # `publish` job builds its archive alone, outside the workspace.
+    #
     name: dart (${{ matrix.os }})
     timeout-minutes: 40
     strategy:
