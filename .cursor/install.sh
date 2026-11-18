@@ -5,8 +5,8 @@
 # init, not systemd, so a multi-user nix-daemon would not stay running after
 # a snapshot. Single-user Nix reads the store directly and needs no daemon.
 #
-# devenv then provides the same toolchain CI uses. iOS, Android, and the
-# macOS-only checks still need those hosts.
+# devenv then provides the local toolchain. CI installs its own tools and does
+# not enter this shell. iOS and Android checks still need those hosts.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive

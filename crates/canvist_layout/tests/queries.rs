@@ -574,3 +574,22 @@ fn forgetting_measurements_measures_again() {
 	assert_eq!(measurer.calls(), 2);
 	assert_eq!(layout.dump(), before);
 }
+
+#[test]
+fn a_block_taller_than_any_page_still_stacks() {
+	// An attribute can hold any finite height.
+	let doc = doc(json!([
+		{ "type": "image", "attrs": { "src": "cat.png", "height": 1e30 } },
+		{ "type": "paragraph", "content": [{ "type": "text", "text": "after" }] },
+		{ "type": "image", "attrs": { "src": "cat.png", "height": 1e30 } },
+		{ "type": "paragraph", "content": [{ "type": "text", "text": "end" }] }
+	]));
+	let layout = layout(&doc, WIDE);
+	let blocks = doc.children(None);
+	let after = layout.block_rect(blocks[1]).expect("laid out");
+	let end = layout.block_rect(blocks[3]).expect("laid out");
+
+	assert!(after.y > 0.0 && end.y > after.y, "{after:?} then {end:?}");
+	// Past 2^32 px, an f32 cannot tell a line's height from nothing.
+	assert!(layout.height() >= end.y);
+}

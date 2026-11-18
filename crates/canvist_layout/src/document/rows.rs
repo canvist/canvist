@@ -467,7 +467,7 @@ impl Flattener<'_> {
 
 					Marker {
 						kind,
-						ordinal: start + index as i64,
+						ordinal: start.saturating_add(index as i64),
 						depth: frame.lists.saturating_sub(1),
 						checked,
 					}

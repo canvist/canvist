@@ -13,7 +13,7 @@ direnv allow .     # or: devenv shell
 install:all
 ```
 
-Cursor cloud agents on Linux run `.cursor/install.sh`, which installs single-user Nix (flakes and `nix-command` enabled) and devenv, trusts the devenv binary cache, and warms `devenv shell`. After that, use the same `devenv shell` commands as anywhere else. `.cursor/start.sh` starts Postgres for the cloud integration tests (`CANVIST_TEST_DATABASE_URL=postgres://canvist:canvist@localhost:5432/canvist_test`). iOS, Android, and the macOS-only checks still need those hosts.
+Cursor cloud agents on Linux run `.cursor/install.sh`, which installs single-user Nix (flakes and `nix-command` enabled) and devenv, trusts the devenv binary cache, and warms `devenv shell`. After that, use the same `devenv shell` commands as anywhere else. CI does not use Nix or devenv: GitHub Actions installs the Rust toolchain from `rust-toolchain.toml` and the other tools it needs directly. `.cursor/start.sh` starts Postgres for local cloud integration tests (`CANVIST_TEST_DATABASE_URL=postgres://canvist:canvist@localhost:5432/canvist_test`). iOS and Android checks still need those hosts.
 
 ## Make a change
 
@@ -25,11 +25,10 @@ Cursor cloud agents on Linux run `.cursor/install.sh`, which installs single-use
    fix:all      # format and fix lints
    test:all     # Rust tests and doc tests
    lint:style   # readability and complexity gates
-   test:perf    # performance budgets, in release mode
    ```
 
 4. Add a changeset if your change affects a package, with `mc change` (see [Changesets and releases](#changesets-and-releases)).
-5. Open a pull request. CI runs every platform's tests, the performance budgets, and the docs checks.
+5. Open a pull request. CI runs formatting, clippy, a Linux build, and the unit tests of `canvist`, `canvist_model`, `canvist_core`, and `canvist_headless`.
 
 ## Changesets and releases
 
@@ -74,7 +73,7 @@ On every push to `main`, the `release-pr` workflow opens or updates a release pu
 
 ## Rules worth knowing
 
-- **Performance budgets are tests.** Each hot path has a budget in [Performance](../guides/performance.md), and a release-mode test fails when it's exceeded. New hot paths add a budget and a benchmark.
+- **Performance numbers live in the guide.** [Performance](../guides/performance.md) records budgets and how to measure them locally with `cargo bench`. CI does not run those comparisons.
 - **Every binding passes the same fixtures.** A change to behaviour updates `conformance/fixtures`, so Rust, TypeScript, and Dart stay identical.
 - **Docs samples are tested.** Rust samples run as doc tests through `docs/src/lib.rs`. TypeScript and Dart samples are type-checked and run by `docs/check-snippets.ts`. A sample's expected output goes in comments after the line that prints it.
 - **Style:** hard tabs and edition 2024 in Rust, and a doc comment on every public item.

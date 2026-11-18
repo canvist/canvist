@@ -31,8 +31,7 @@ flutter:
       fonts:
         - asset: assets/fonts/AtkinsonHyperlegible-Regular.ttf
 
-# Patrol runs `patrol_test/` on devices with native automation: the real
-# keyboard, system dialogs, and screenshots of what the device draws.
+# Device automation settings for a local check of the example app.
 patrol:
   app_name: canvist
   android:
