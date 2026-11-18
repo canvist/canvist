@@ -26,6 +26,7 @@ import {
 	bundled,
 	type Content,
 	type Extensions,
+	loadOnce,
 	type StarterKit,
 	type ThemeOptions,
 	type WasmSource,
@@ -44,18 +45,18 @@ export {
 
 const BUNDLED = new URL("../wasm/canvist_ssr_bg.wasm", import.meta.url);
 
-let loading: Promise<void> | undefined;
+const loading = loadOnce<WasmSource>(async (source) => {
+	await init({ module_or_path: source ?? await bundled(BUNDLED) });
+});
 
 /**
- * Load the rendering WebAssembly module once. Later calls return the first
- * call's promise. Without a source, Node, Deno, and Bun read the bundled
- * file; runtimes without a file system pass the module they imported.
+ * Load the rendering WebAssembly module once. Later calls share the first
+ * call's promise, or try again if it failed. Without a source, Node, Deno,
+ * and Bun read the bundled file; runtimes without a file system pass the
+ * module they imported.
  */
 export function loadRenderer(source?: WasmSource): Promise<void> {
-	loading ??= (async () => {
-		await init({ module_or_path: source ?? await bundled(BUNDLED) });
-	})();
-	return loading;
+	return loading(source);
 }
 
 /** Options for {@link createRenderer}. */

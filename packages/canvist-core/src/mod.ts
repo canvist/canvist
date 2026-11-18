@@ -14,7 +14,7 @@
  *
  * @module
  */
-export { bundled, type WasmSource } from "./bundled.ts";
+export { bundled, loadOnce, type WasmSource } from "./bundled.ts";
 export { Doc, type DocWrapper, Engine, type EngineOptions } from "./engine.ts";
 export { type CanvistError, isCanvistError } from "./errors.ts";
 export * from "./extensions.generated.ts";

@@ -4,24 +4,24 @@
  *
  * @module
  */
-import { bundled, type WasmSource } from "@canvist/core";
+import { bundled, loadOnce, type WasmSource } from "@canvist/core";
 import init from "../wasm/canvist_collab.js";
 
 const BUNDLED = new URL("../wasm/canvist_collab_bg.wasm", import.meta.url);
 
-let loading: Promise<void> | undefined;
+const loading = loadOnce(instantiate);
 
 /**
- * Load the WebAssembly module once. Later calls return the first call's
- * promise, so passing a source only matters the first time.
+ * Load the WebAssembly module once. Later calls share the first call's
+ * promise, so passing a source only matters the first time, unless that
+ * load failed: then the next call tries again.
  *
  * Without a source, Node, Deno, and Bun read the bundled file from disk.
  * Runtimes without a file system, such as Workers, pass the module they
  * imported: `await load(wasmModule)`.
  */
 export function load(source?: WasmSource): Promise<void> {
-	loading ??= instantiate(source);
-	return loading;
+	return loading(source);
 }
 
 async function instantiate(source: WasmSource | undefined): Promise<void> {

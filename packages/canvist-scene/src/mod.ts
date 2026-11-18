@@ -26,7 +26,7 @@
  *
  * @module
  */
-import { bundled, type WasmSource } from "@canvist/core";
+import { bundled, loadOnce, type WasmSource } from "@canvist/core";
 import type { ExportOptions, NodeId, SceneJson } from "@canvist/core/scene";
 import init, { WasmSceneDoc, WasmSceneEngine } from "../wasm/canvist_scene.js";
 
@@ -39,18 +39,18 @@ export type * from "@canvist/core/scene";
 
 const BUNDLED = new URL("../wasm/canvist_scene_bg.wasm", import.meta.url);
 
-let loading: Promise<void> | undefined;
+const loading = loadOnce<WasmSource>(async (source) => {
+	await init({ module_or_path: source ?? await bundled(BUNDLED) });
+});
 
 /**
- * Load the scene WebAssembly module once. Later calls return the first
- * call's promise. Without a source, Node, Deno, and Bun read the bundled
- * file; runtimes without a file system pass the module they imported.
+ * Load the scene WebAssembly module once. Later calls share the first
+ * call's promise, or try again if it failed. Without a source, Node, Deno,
+ * and Bun read the bundled file; runtimes without a file system pass the
+ * module they imported.
  */
 export function loadScene(source?: WasmSource): Promise<void> {
-	loading ??= (async () => {
-		await init({ module_or_path: source ?? await bundled(BUNDLED) });
-	})();
-	return loading;
+	return loading(source);
 }
 
 /** How to create a scene engine. */

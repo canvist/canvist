@@ -107,9 +107,25 @@ struct Media {
 	close: &'static str,
 }
 
-/// The attributes a video frame carries.
-const VIDEO_ATTRIBUTES: &[(&str, &str)] =
-	&[("src", "src"), ("width", "width"), ("height", "height")];
+/// The attributes a video frame carries. TipTap writes YouTube's `start`
+/// on the frame too; Twitch has none, so it never writes one.
+const VIDEO_ATTRIBUTES: &[(&str, &str)] = &[
+	("src", "src"),
+	("start", "start"),
+	("width", "width"),
+	("height", "height"),
+];
+
+/// `<audio>`'s boolean attributes, and whether each is on when unset.
+const AUDIO_FLAGS: &[(&str, bool)] = &[
+	("controls", true),
+	("autoplay", false),
+	("loop", false),
+	("muted", false),
+];
+
+/// A Twitch frame's boolean attributes, off when unset.
+const TWITCH_FLAGS: &[(&str, bool)] = &[("autoplay", false), ("muted", false)];
 
 /// Media blocks as TipTap and Remirror write them.
 const MEDIA: [(&str, Media); 6] = [
@@ -209,11 +225,18 @@ fn write_media(name: &str, media: &Media, attrs: &Attrs, html: &mut String) {
 			continue;
 		}
 
+		// Playing from the beginning reads back the same without it.
+		if *key == "start" && value == "0" {
+			continue;
+		}
+
 		write_attribute(html, attribute, &value);
 	}
 
-	if name == "audio" {
-		write_audio_flags(attrs, html);
+	match name {
+		"audio" => write_flags(attrs, AUDIO_FLAGS, html),
+		"twitch" => write_flags(attrs, TWITCH_FLAGS, html),
+		_ => {}
 	}
 
 	html.push_str(media.close);
@@ -229,14 +252,11 @@ fn media_value(attrs: &Attrs, key: &str) -> Option<String> {
 	}
 }
 
-/// `<audio>`'s boolean attributes. Controls are on unless turned off; the
-/// rest are off.
-fn write_audio_flags(attrs: &Attrs, html: &mut String) {
-	for flag in ["controls", "autoplay", "loop", "muted"] {
-		let on = attrs
-			.get(flag)
-			.and_then(Value::as_bool)
-			.unwrap_or(flag == "controls");
+/// The boolean attributes in `flags` that are on, each taking its default
+/// when unset.
+fn write_flags(attrs: &Attrs, flags: &[(&str, bool)], html: &mut String) {
+	for &(flag, default) in flags {
+		let on = attrs.get(flag).and_then(Value::as_bool).unwrap_or(default);
 
 		if on {
 			html.push(' ');
