@@ -21,6 +21,7 @@ Every number below has a budget, and a test fails the build when an operation go
 | Keystroke with every extension, 100k blocks            | < 5 µs                                      | 0.80 µs              |
 | Relayout one edited paragraph, 10k or 100k blocks      | < 100 µs                                    | 2.5 µs               |
 | Relayout after a keystroke in a 100 KB paragraph       | < 100 µs                                    | 25 µs                |
+| Relayout after a keystroke in a 2,000-character word   | < 500 µs                                    | 124 µs               |
 | Relayout after a keystroke in a table of 1,000 cells   | < 100 µs                                    | 7 µs                 |
 | Display list, one screen of moving kinetic text        | < 100 µs                                    | 23 µs                |
 | Relayout after dictation revises its draft, 10k blocks | < 100 µs                                    | 29 µs                |
