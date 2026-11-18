@@ -324,10 +324,7 @@ fn html_writes_a_fixed_table_with_layouts_column_widths() {
 #[test]
 fn html_writes_the_spans_the_grid_was_built_with() {
 	// JSON can hold any span; the grid clamps it, and so must the attribute.
-	let doc = doc(json!([table(&[
-		&["a|5000x1", "b|1x100000"],
-		&["c", "d"]
-	])]));
+	let doc = doc(json!([table(&[&["a|5000x1", "b|1x100000"], &["c", "d"]])]));
 	let theme = Arc::new(Theme::starter_kit());
 	let html = to_html(&doc, &theme, &HtmlOptions::new(WIDTH));
 
