@@ -11,7 +11,7 @@ Read this page to see what canvist costs: the time each operation takes, how tha
 
 ## Performance budgets
 
-Every number below has a budget, and a test fails the build when an operation goes over it. "Today" is measured on Apple silicon. Rows marked "Coming soon" belong to editor hosts that haven't shipped yet.
+Every number below has a budget. "Today" is measured on Apple silicon. Rows marked "Coming soon" belong to editor hosts that haven't shipped yet. Measure a row locally with `cargo bench`.
 
 | Metric                                                 | Budget                                      | Today                |
 | ------------------------------------------------------ | ------------------------------------------- | -------------------- |
