@@ -90,7 +90,11 @@ test("typed media commands insert every block", async () => {
 	]);
 	assert.match(
 		doc.export("html"),
-		/<iframe title="YouTube video" src="https:\/\/youtu.be\/x">/,
+		/<iframe title="YouTube video" src="https:\/\/youtu.be\/x" start="30">/,
+	);
+	assert.match(
+		doc.export("html"),
+		/<iframe title="Twitch video" src="https:\/\/twitch.tv\/a" muted>/,
 	);
 	assert.equal(doc.undo(), true);
 	assert.doesNotMatch(doc.export("html"), /data-type="file"/);
