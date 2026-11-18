@@ -240,6 +240,50 @@ fn relayout_keystroke_long_paragraph(bencher: Bencher<'_, '_>, repeats: usize) {
 	});
 }
 
+/// Lengths of the unbreakable word in the long-word bench, in characters:
+/// a short URL, a long one or a pasted token, and a small base64 blob.
+const WORD_LENGTHS: [usize; 3] = [100, 2_000, 10_000];
+
+/// Type or delete one character in the middle of a paragraph that is one
+/// word with no break opportunity, which wraps by being cut between
+/// graphemes on every line.
+#[divan::bench(args = WORD_LENGTHS)]
+fn relayout_keystroke_long_word(bencher: Bencher<'_, '_>, length: usize) {
+	let mut doc = support::large(1, &"x".repeat(length));
+	let block = doc.children(None)[0];
+	let mut measurer = FixedMeasurer::new();
+	let mut layout = DocumentLayout::new(&doc, Arc::new(Theme::starter_kit()), options());
+	let middle = (length / 2) as u32;
+	let mut typed = false;
+
+	layout
+		.ensure(&doc, &mut measurer, 0.0, SCREEN)
+		.expect("measured");
+
+	bencher.bench_local(|| {
+		let mut transaction = doc.transaction();
+
+		if typed {
+			transaction
+				.delete_text(block, middle..middle + 1)
+				.expect("valid range");
+		} else {
+			transaction
+				.insert_text(Point::new(block, middle), "y", MarkSet::empty())
+				.expect("valid point");
+		}
+
+		typed = !typed;
+		let commit = transaction.commit();
+		layout.apply(&doc, &commit);
+		black_box(
+			layout
+				.ensure(&doc, &mut measurer, 0.0, SCREEN)
+				.expect("measured"),
+		);
+	});
+}
+
 /// Alternating formatting runs in the heavily formatted paragraph.
 const FORMATTED_RUNS: usize = 500;
 /// Bytes per formatting run.
