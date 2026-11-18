@@ -9,6 +9,7 @@ on:
     branches:
       - main
     paths: &paths
+      - ".github/actions/playwright-browsers/**"
       - ".github/workflows/canvas-web.yml"
       - "Cargo.lock"
       - "crates/canvist_canvas/**"
