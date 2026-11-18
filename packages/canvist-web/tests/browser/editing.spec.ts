@@ -12,9 +12,8 @@ import { expect, type Page, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { platform } from "node:os";
 import type { Editor, InputLatency, StarterKit } from "../../src/mod.ts";
+import { latencyBudgetMs } from "../latency-budget.ts";
 
-/** The p95 keystroke-to-paint budget, in milliseconds. */
-const KEYSTROKE_P95_BUDGET_MS = 8;
 /** How many characters the latency test types. */
 const LATENCY_KEYS = 200;
 /** The pause between keys in the latency test, in milliseconds: longer than a frame. */
@@ -472,7 +471,9 @@ test.describe("performance", () => {
 
 		expect((await paragraphs(page))[1]).toBe(`Second paragraph${text}`);
 		expect(latency.samples).toBeGreaterThanOrEqual(LATENCY_KEYS);
-		expect(latency.p95).toBeLessThan(KEYSTROKE_P95_BUDGET_MS);
+		expect(latency.p95, {
+			message: `p95 ${latency.p95} ms, budget ${latencyBudgetMs()} ms`,
+		}).toBeLessThan(latencyBudgetMs());
 	});
 
 	test("a burst of 1,000 keys", async ({ page, browserName }) => {
@@ -498,6 +499,8 @@ test.describe("performance", () => {
 		});
 
 		expect((await paragraphs(page))[0]).toBe(`Hello world${text}`);
-		expect(latency.p95).toBeLessThan(KEYSTROKE_P95_BUDGET_MS);
+		expect(latency.p95, {
+			message: `p95 ${latency.p95} ms, budget ${latencyBudgetMs()} ms`,
+		}).toBeLessThan(latencyBudgetMs());
 	});
 });

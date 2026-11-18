@@ -8,9 +8,22 @@ on:
   push:
     branches:
       - main
-  # Every pull request, including stacked ones whose base is another
-  # feature branch.
+    paths: &paths
+      - ".github/workflows/headless-js.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**"
+      - "packages/canvist-collab/**"
+      - "packages/canvist-core/**"
+      - "packages/canvist-headless/**"
+      - "packages/canvist-scene/**"
+      - "packages/canvist-ssr/**"
+      - "rust-toolchain.toml"
+      - "tools/extension-packages.ts"
+  # Every pull request that touches the headless JS surface, including
+  # stacked ones whose base is another feature branch.
   pull_request:
+    paths: *paths
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

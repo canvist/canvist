@@ -20,7 +20,7 @@ void main() {
 
       expect(doc.run(bold.toggleBold()), isTrue);
       expect(doc.export(Format.html), '<p><strong>One package</strong></p>');
-    expect(doc.query(table.tableCell()), isNull);
+      expect(doc.query(table.tableCell()), isNull);
     },
   );
 }
