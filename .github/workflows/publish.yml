@@ -54,9 +54,9 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.tag || github.ref }}
-  # Never cancel a publish midway: a partial registry publish is worse than a
-  # queued run.
-  cancel-in-progress: false
+  # Never cancel a real publish midway: a partial registry publish is worse
+  # than a queued run. Pull-request dry runs can cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   RELEASE_TAG: ${{ inputs.tag || 'pull-request' }}
@@ -169,10 +169,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: publish-crates
+
+      - name: setup release tools
+        uses: ./.github/actions/setup-tools
+        with:
+          monochange: true
+          format: true
 
       - name: simulate the release commit
         if: github.event_name == 'pull_request'
@@ -181,7 +187,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mc run release --commit --no-verify=true --format text
-        shell: devenv shell -- bash -e {0}
 
       # Readiness for crates only. `already_published` is fine on resume.
       - name: check crates.io publish readiness
@@ -204,7 +209,6 @@ jobs:
             echo "::notice::Resuming crates.io publish; already-published crates will be skipped:"
             printf '%s\n' "$already"
           fi
-        shell: devenv shell -- bash -e {0}
 
       - name: package every crate together
         if: needs.plan.outputs.dry_run == 'true'
@@ -223,7 +227,6 @@ jobs:
             crates+=(-p "$name")
           done
           cargo publish --dry-run --locked "${crates[@]}"
-        shell: devenv shell -- bash -e {0}
 
       - name: get a crates.io token through OIDC
         if: needs.plan.outputs.dry_run != 'true'
@@ -242,7 +245,6 @@ jobs:
             export MONOCHANGE_TRUSTED_PUBLISHING_ENVIRONMENT=publisher
           fi
           mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
-        shell: devenv shell -- bash -e {0}
 
       - name: check the crates dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
@@ -291,10 +293,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          targets: wasm32-unknown-unknown
+          cache-key: publish-npm
+
+      - name: setup release tools
+        uses: ./.github/actions/setup-tools
+        with:
+          monochange: true
+          format: true
 
       # npm trusted publishing needs npm 11.5 or newer. No `registry-url`: it
       # writes an `.npmrc` that authenticates with `NODE_AUTH_TOKEN`, which
@@ -311,12 +320,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mc run release --commit --no-verify=true --format text
-        shell: devenv shell -- bash -e {0}
-
-      - name: install the wasm target
-        run: |
-          rustup toolchain install
-          rustup target add wasm32-unknown-unknown
 
       - name: install wasm-pack
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
@@ -349,7 +352,6 @@ jobs:
             echo "::notice::Resuming npm publish; already-published packages will be skipped:"
             printf '%s\n' "$already"
           fi
-        shell: devenv shell -- bash -e {0}
 
       - name: publish npm packages
         env:
@@ -365,7 +367,6 @@ jobs:
             export MONOCHANGE_TRUSTED_PUBLISHING_ENVIRONMENT=publisher
           fi
           mc --log-level=info "${args[@]}" | tee "$RUNNER_TEMP/publish-packages.json"
-        shell: devenv shell -- bash -e {0}
 
       - name: check the npm dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
@@ -504,10 +505,13 @@ jobs:
         with:
           key: publish-android
 
-      - name: install cargo-run-bin
+      # Pinned to workspace.metadata.bin. cargo-binstall's anonymous GitHub
+      # API calls were rate-limited (403) from this job; install-action
+      # downloads the release with the workflow token.
+      - name: install cargo-ndk
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          tool: cargo-run-bin
+          tool: cargo-ndk@4.1.2
 
       - name: build the android library
         run: platforms/android/build.sh

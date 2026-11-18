@@ -35,4 +35,4 @@ Most apps add it through [`canvist`](../canvist), the crate to install, as `canv
 - **Queries:** grapheme- and bidi-aware hit testing, caret and selection rectangles, and a `LayoutNavigator` for moving the caret up and down.
 - **Rendering:** a `DisplayList` with dirty-rectangle diffing, `to_svg`, and `to_html`, whose CSS wraps lines exactly where the canvas does.
 
-Relaying out after a keystroke takes about 2.5 µs at any document size, and about 25 µs in the middle of a 100 KB paragraph. Opening a 10,000-paragraph document takes about 0.6 ms to the first screen. Run `cargo bench -p canvist_layout` to reproduce, or `cargo test --release -p canvist_layout --test perf_budgets -- --ignored` to check the budgets.
+Relaying out after a keystroke takes about 2.5 µs at any document size, and about 25 µs in the middle of a 100 KB paragraph. Opening a 10,000-paragraph document takes about 0.6 ms to the first screen. Run `cargo bench -p canvist_layout` to reproduce.

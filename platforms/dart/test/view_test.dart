@@ -81,6 +81,10 @@ void main() {
     'typing fast never fails and keeps every character',
     _typingFastNeverFailsAndKeepsEveryCharacter,
   );
+  test(
+    'fonts stay in step when the first width starts layout over',
+    _fontsStayInStepWhenTheFirstWidthStartsLayoutOver,
+  );
 }
 
 EditorView viewOf(Doc doc, {TextMeasurer measurer = const FixedMeasurer()}) {
@@ -369,6 +373,36 @@ void _typingFastNeverFailsAndKeepsEveryCharacter() {
   }
 
   expect(doc.export(Format.text), typed.toString());
+}
+
+void _fontsStayInStepWhenTheFirstWidthStartsLayoutOver() {
+  final doc = _engine.parse(
+    Format.markdown,
+    [
+      '# Title',
+      for (var index = 0; index < 100; index++) 'Paragraph $index',
+    ].join('\n\n'),
+  );
+  final view = doc.view(const FixedMeasurer());
+  addTearDown(view.dispose);
+
+  // Flutter can lay an editor out zero pixels wide before its real width,
+  // so the heading font is the first the host learns. The first real width
+  // starts layout over, and a scrolled frame meets the body font first.
+  view
+    ..frame(0, _height)
+    ..setWidth(_width);
+  final runs = [
+    for (final item in view.frame(_height * 3, _height).display!.items)
+      if (item.kind == ViewItemKind.text) item,
+  ];
+
+  expect(runs.first.text, 'Paragraph ');
+  expect(
+    view.fonts[runs.first.font].weight,
+    400,
+    reason: 'body text is measured and painted in the body font',
+  );
 }
 
 final class _BrokenMeasurer implements TextMeasurer {

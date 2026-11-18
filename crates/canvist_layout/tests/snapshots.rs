@@ -320,6 +320,32 @@ fn server_html_carries_text_alignment() {
 }
 
 #[test]
+fn ordered_lists_may_start_at_any_number() {
+	let list = |start: i64| {
+		json!({ "type": "orderedList", "attrs": { "start": start }, "content": [
+			{ "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "a" }] }] },
+			{ "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "b" }] }] }
+		] })
+	};
+	let doc = doc(json!([list(i64::MAX), list(i64::MIN)]));
+	let dump = layout(&doc, 320.0).dump();
+	let html = to_html(
+		&doc,
+		&Arc::new(Theme::starter_kit()),
+		&HtmlOptions::new(320.0),
+	)
+	.html;
+
+	// Numbers stop at the ends of the range instead of overflowing.
+	assert_eq!(dump.matches(&format!("#{}", i64::MAX)).count(), 2, "{dump}");
+	assert!(dump.contains(&format!("#{}", i64::MIN + 1)), "{dump}");
+	assert!(
+		html.contains(&format!("counter-reset:cv-n {};", i64::MIN)),
+		"{html}"
+	);
+}
+
+#[test]
 fn right_to_left_text_aligns_to_the_physical_edge_it_names() {
 	let start = aligned("start", "שלום", 100.0);
 	let left = aligned("left", "שלום", 100.0);

@@ -12,6 +12,7 @@
 //! ignored.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 use axum::extract::State;
@@ -32,6 +33,7 @@ use yrs::updates::encoder::EncoderV1;
 
 use super::protocol;
 use super::room::Fanout;
+use super::room::Room;
 use super::session::Grant;
 use super::session::Reply;
 use super::session::Session;
@@ -98,6 +100,11 @@ const PAUSED: &str = r#"{"type":"canvist.paused","reason":"document_limit","mess
 /// Frames for the socket, from forwarders.
 enum Outbox {
 	Frame(Vec<u8>),
+	/// `room`, open on `address`, closed because its document was deleted.
+	Deleted {
+		address: String,
+		room: Arc<Room>,
+	},
 	Lagged,
 }
 
@@ -204,8 +211,27 @@ impl Connection {
 	async fn outgoing(&mut self, out: Outbox) -> Step {
 		match out {
 			Outbox::Frame(frame) => self.send(frame).await,
+			Outbox::Deleted { address, room } => self.deleted(&address, &room).await,
 			Outbox::Lagged => Err(Some((codes::TRY_AGAIN, "fell behind; reconnect"))),
 		}
+	}
+
+	/// Close `address` if it still relays the deleted `room`, and tell the
+	/// peer. A later auth message then joins a new room for the name rather
+	/// than editing one that is never saved.
+	async fn deleted(&mut self, address: &str, room: &Arc<Room>) -> Step {
+		let current = self
+			.documents
+			.get(address)
+			.is_some_and(|open| Arc::ptr_eq(open.session.room(), room));
+
+		if !current {
+			return Ok(());
+		}
+
+		self.close_document(address);
+		let reply = auth_reply(kind::PERMISSION_DENIED, "document deleted");
+		self.send(frame(address, &reply)).await
 	}
 
 	async fn send(&mut self, frame: Vec<u8>) -> Step {
@@ -472,13 +498,14 @@ impl Connection {
 			return Err(AuthError::Expired.to_string());
 		}
 
-		let session = Session::new(room, membership.peer, grant, socket::limits(&self.app));
 		let forward = tokio::spawn(forward(
 			address.to_owned(),
+			room.clone(),
 			membership.peer,
 			membership.receiver,
 			self.outbox.clone(),
 		));
+		let session = Session::new(room, membership.peer, grant, socket::limits(&self.app));
 		self.documents
 			.insert(address.to_owned(), Open { session, forward });
 
@@ -527,9 +554,10 @@ fn auth_reply(auth_kind: u8, text: &str) -> Vec<u8> {
 	reply
 }
 
-/// Copy a room's broadcasts for this peer into the socket's outbox.
+/// Copy `room`'s broadcasts for this peer into the socket's outbox.
 async fn forward(
 	address: String,
+	room: Arc<Room>,
 	peer: u64,
 	mut receiver: tokio::sync::broadcast::Receiver<Fanout>,
 	outbox: mpsc::Sender<Outbox>,
@@ -540,9 +568,12 @@ async fn forward(
 				Outbox::Frame(frame(&address, &message))
 			}
 			Ok(Fanout::Message { .. }) => continue,
+			// The connection closes the document, which ends this task.
 			Ok(Fanout::Closed) => {
-				let reply = auth_reply(kind::PERMISSION_DENIED, "document deleted");
-				Outbox::Frame(frame(&address, &reply))
+				Outbox::Deleted {
+					address: address.clone(),
+					room: room.clone(),
+				}
 			}
 			Err(RecvError::Lagged(_)) => Outbox::Lagged,
 			Err(RecvError::Closed) => return,
