@@ -154,10 +154,6 @@ The relay keeps no accounts. Your app's server, which already knows who its user
 
 ## Performance
 
-Measured on Apple silicon in release mode (`test:perf`): voice activity detection takes 11 µs per second of audio, and resampling to 24 kHz for OpenAI 46 µs, so the relay's own work per session is a rounding error next to the network.
-
-```sh
-cargo test --release -p canvist_dictation_relay --test perf_budgets -- --ignored --nocapture
-```
+Measured on Apple silicon in release mode: voice activity detection takes 11 µs per second of audio, and resampling to 24 kHz for OpenAI 46 µs, so the relay's own work per session is a rounding error next to the network.
 
 The tests run against fake providers and a fake polish model over real sockets; nothing leaves the machine.
