@@ -16,6 +16,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
+  # This workflow only runs on main. Do not cancel a release that is tagging.
   cancel-in-progress: false
 
 jobs:
@@ -35,10 +36,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: release-pr
+
+      - name: setup release tools
+        uses: ./.github/actions/setup-tools
+        with:
+          monochange: true
+          format: true
 
       - name: detect current release commit
         id: release_record
@@ -57,7 +64,6 @@ jobs:
             exit 1
           fi
           echo "is_release_commit=false" >> "$GITHUB_OUTPUT"
-        shell: devenv shell -- bash -e {0}
 
       - name: detect pending changesets
         id: pending
@@ -82,7 +88,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mc --log-level=info run release --commit --create-pr --no-verify=true
-        shell: devenv shell -- bash -e {0}
 
       # Simulate every publish against the release pull request's own commit:
       # each job builds its artifacts and runs its registry's dry run, but no
@@ -101,7 +106,6 @@ jobs:
               gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$branch" \
                 -f "tag=$tag" -f "checkout_ref=$branch" -f dry_run=true
             done
-        shell: devenv shell -- bash -e {0}
 
   tag:
     if: github.repository_owner == 'canvist'
@@ -120,10 +124,10 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: install monochange
+        uses: ./.github/actions/setup-tools
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          monochange: true
 
       - name: configure release git credentials
         env:
@@ -151,7 +155,6 @@ jobs:
           if [ "$is_release_commit" = "true" ]; then
             mc --log-level=info step tag-release --from HEAD --push=true --format json
           fi
-        shell: devenv shell -- bash -e {0}
 
       # Releases stay drafts until `publish.yml` has published every package
       # or deployed the app for that tag.
@@ -161,7 +164,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mc --log-level=info step publish-release --from-ref=HEAD --draft --format json
-        shell: devenv shell -- bash -e {0}
 
       - name: comment on released issues
         if: steps.tag.outputs.is_release_commit == 'true'
@@ -169,7 +171,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mc --log-level=info step comment-released-issues --from-ref=HEAD --auto-close-issues
-        shell: devenv shell -- bash -e {0}
 
       # Dispatched on the tag itself: pub.dev and the registries' trusted
       # publishing verify the run's ref.
@@ -185,4 +186,3 @@ jobs:
               echo "Publishing $tag"
               gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$tag" -f "tag=$tag"
             done
-        shell: devenv shell -- bash -e {0}
