@@ -504,3 +504,26 @@ test.describe("performance", () => {
 		}).toBeLessThan(latencyBudgetMs());
 	});
 });
+
+test("a replaced document is measured in its own fonts", async ({ page }) => {
+	const replacement = "# Heading\n\nBody text to measure";
+	const end = { path: [1], offset: "Body text to measure".length };
+
+	// The first document meets the body font before the heading font, and the
+	// replacement meets them the other way round.
+	await open(page, "auto", "Body text to measure\n\n# Heading");
+	const replaced = await page.evaluate(([input, position]) => {
+		editor.setContent({ format: "markdown", input });
+
+		return editor.caretRectAt(position)?.toJSON();
+	}, [replacement, end] as const);
+
+	await open(page, "auto", replacement);
+	const fresh = await page.evaluate(
+		(position) => editor.caretRectAt(position)?.toJSON(),
+		end,
+	);
+
+	expect(fresh).toBeDefined();
+	expect(replaced).toEqual(fresh);
+});
