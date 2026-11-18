@@ -22,15 +22,15 @@ cd "$root"
 rustup target add "${targets[@]}" >/dev/null
 
 rm -rf "$module/jniLibs"
-# CI puts the pinned cargo-ndk binary on PATH. It only runs when cargo
-# invoked it, which is the CARGO variable. Without that binary, `cargo ndk`
-# is the cargo-run-bin alias from .cargo/config.toml.
-if command -v cargo-ndk >/dev/null 2>&1; then
+# cargo-ndk canonicalizes argv[0], so a bare `cargo-ndk` on PATH panics.
+# It also requires CARGO, which `cargo ndk` would set. The cargo alias
+# reinstalls through cargo-binstall; CI installs the pinned binary instead.
+if cargo_ndk_bin="$(command -v cargo-ndk)"; then
 	if [ -z "${CARGO:-}" ]; then
 		CARGO="$(command -v cargo)"
 		export CARGO
 	fi
-	cargo_ndk=(cargo-ndk)
+	cargo_ndk=("$cargo_ndk_bin")
 else
 	cargo_ndk=(cargo ndk)
 fi

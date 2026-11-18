@@ -69,4 +69,16 @@ jobs:
         run: deno test --allow-read --allow-write --allow-run=git,bash,monochange tools/release/
 
       - name: placeholder publish dry run
-        run: mc publish placeholder --dry-run --format md
+        # The lookup talks to the npm registry. A dropped connection is not a
+        # policy failure, so retry it.
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if mc publish placeholder --dry-run --format md; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
