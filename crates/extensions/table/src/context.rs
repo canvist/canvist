@@ -84,14 +84,27 @@ impl TableContext {
 	}
 }
 
-/// A cell's `colspan` or `rowspan`, at least one.
+/// The largest `colspan` and `rowspan` a cell counts, the limits browsers
+/// apply and the HTML reader keeps, so a span from JSON or a collaborator
+/// cannot make a grid of billions of slots.
+const MAX_COLSPAN: usize = 1_000;
+const MAX_ROWSPAN: usize = 65_534;
+
+/// A cell's `colspan` or `rowspan`, at least one and at most what a
+/// browser draws.
 pub(crate) fn span(doc: &Document, cell: BlockId, key: &str) -> usize {
+	let most = if key == "colspan" {
+		MAX_COLSPAN
+	} else {
+		MAX_ROWSPAN
+	};
+
 	doc.block(cell)
 		.and_then(|block| block.attrs().get(key))
 		.and_then(Value::as_int)
 		.and_then(|value| usize::try_from(value).ok())
 		.unwrap_or(1)
-		.max(1)
+		.clamp(1, most)
 }
 
 /// Whether block `id` has one of the type names `names`.

@@ -118,6 +118,51 @@ fn media_round_trips_through_html_as_tiptap_writes_it() {
 	}
 }
 
+/// Regression: HTML wrote only a video's source and size, so copying a
+/// YouTube video lost where it starts, and a Twitch video whether it
+/// autoplays and starts muted.
+#[test]
+fn video_settings_round_trip_through_html() {
+	let mut typist = typist("");
+	let youtube = [
+		("src", Value::from("https://www.youtube.com/embed/x")),
+		("start", Value::Int(30)),
+	];
+	let twitch = [
+		("src", Value::from("https://player.twitch.tv/?video=1")),
+		("autoplay", Value::Bool(true)),
+		("muted", Value::Bool(true)),
+	];
+	assert!(run(&mut typist.editor, "setYoutubeVideo", &youtube));
+	assert!(run(&mut typist.editor, "setTwitchVideo", &twitch));
+
+	let schema = typist.editor.schema().clone();
+	let html = html(&typist);
+	assert_eq!(
+		html,
+		"<div data-youtube-video=\"\"><iframe title=\"YouTube video\" \
+		 src=\"https://www.youtube.com/embed/x\" start=\"30\"></iframe></div><div \
+		 data-twitch-video=\"\"><iframe title=\"Twitch video\" \
+		 src=\"https://player.twitch.tv/?video=1\" autoplay muted></iframe></div><p></p>"
+	);
+
+	let pasted = clipboard::from_html(&schema, &html);
+	let attrs = |index: usize| &pasted.blocks()[index].attrs;
+	assert_eq!(attrs(0).get("start"), Some(&Value::Float(30.0)));
+	assert_eq!(attrs(1).get("autoplay"), Some(&Value::Bool(true)));
+	assert_eq!(attrs(1).get("muted"), Some(&Value::Bool(true)));
+
+	assert_eq!(
+		html_round_trip(
+			"<div data-youtube-video><iframe src=\"https://youtu.be/x\" \
+			 start=\"0\"></iframe></div>"
+		),
+		"<div data-youtube-video=\"\"><iframe title=\"YouTube video\" src=\"https://youtu.be/x\" \
+		 width=\"640\" height=\"480\"></iframe></div>",
+		"starting from the beginning needs no attribute"
+	);
+}
+
 #[test]
 fn an_image_inside_a_paragraph_splits_it() {
 	assert_eq!(

@@ -40,7 +40,7 @@
 				{ "op": "run", "command": "insertFile", "args": { "url": "r.pdf", "fileName": "Report", "fileSize": 2048 }, "applied": true }
 			],
 			"expect": {
-				"html": "<div data-youtube-video=\"\"><iframe title=\"YouTube video\" src=\"https://www.youtube.com/embed/x\"></iframe></div><audio src=\"song.mp3\" controls loop></audio><div data-type=\"file\" data-url=\"r.pdf\" data-file-name=\"Report\" data-file-size=\"2048\"></div><p></p>"
+				"html": "<div data-youtube-video=\"\"><iframe title=\"YouTube video\" src=\"https://www.youtube.com/embed/x\" start=\"30\"></iframe></div><audio src=\"song.mp3\" controls loop></audio><div data-type=\"file\" data-url=\"r.pdf\" data-file-name=\"Report\" data-file-size=\"2048\"></div><p></p>"
 			}
 		},
 		{

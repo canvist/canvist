@@ -97,6 +97,36 @@ fn tiptap_json_with_merged_cells_reads_and_answers_the_cell_query() -> Result<()
 	Ok(())
 }
 
+/// Regression: spans read from JSON, which a stored document or a
+/// collaborator supplies, sized the grid as given, so the first edit in a
+/// table with `colspan: 4294967296` built a grid of billions of slots and
+/// padded the other rows to match, and never finished. Spans count up to
+/// the limits browsers apply, as pasted HTML's do.
+#[test]
+fn spans_from_json_count_at_most_what_browsers_allow() -> Result<(), HeadlessError> {
+	let cell = |kind: &str, attrs: Json| json!({ "type": kind, "attrs": attrs, "content": [{ "type": "paragraph" }] });
+	let mut doc = engine(1).from_json(
+		&json!({ "type": "doc", "content": [{ "type": "table", "content": [
+		{ "type": "tableRow", "content": [
+			cell("tableHeader", json!({ "colspan": 4_294_967_296_u64, "rowspan": 1 })),
+		] },
+		{ "type": "tableRow", "content": [cell("tableCell", json!({}))] },
+	] }] }),
+	)?;
+
+	caret(&mut doc, &[0, 1, 0, 0], 0)?;
+	assert!(doc.press("Enter")?);
+	assert_eq!(
+		cells(&doc).iter().map(Vec::len).collect::<Vec<_>>(),
+		[1, 1_000],
+		"the short row is padded to the widest span a browser draws"
+	);
+
+	caret(&mut doc, &[0, 0, 0, 0], 0)?;
+	assert_eq!(doc.query("tableCell", &Json::Null)?["colspan"], 1_000);
+	Ok(())
+}
+
 #[test]
 fn errors_have_stable_codes() -> Result<(), HeadlessError> {
 	let mut doc = engine(1).parse(Format::Markdown, "x")?;

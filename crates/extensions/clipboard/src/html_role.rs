@@ -227,9 +227,18 @@ const IMAGE_ATTRIBUTES: &[(&str, &str)] = &[
 	("height", "height"),
 ];
 
-/// The HTML attributes of a video `<iframe>` that videos keep.
-const VIDEO_ATTRIBUTES: &[(&str, &str)] =
-	&[("src", "src"), ("width", "width"), ("height", "height")];
+/// The HTML attributes of a video `<iframe>` that videos keep. Each video
+/// keeps the ones its block declares: YouTube's `start`, and Twitch's
+/// [`VIDEO_FLAGS`].
+const VIDEO_ATTRIBUTES: &[(&str, &str)] = &[
+	("src", "src"),
+	("start", "start"),
+	("width", "width"),
+	("height", "height"),
+];
+
+/// The boolean attributes of a video `<iframe>`.
+const VIDEO_FLAGS: [&str; 2] = ["autoplay", "muted"];
 
 /// The HTML attributes of a file card, and the file attributes they hold.
 const FILE_ATTRIBUTES: &[(&str, &str)] = &[
@@ -248,7 +257,7 @@ fn media_attrs(attrs: &[(String, String)], mapping: &[(&str, &'static str)]) -> 
 		.iter()
 		.filter_map(|(html, key)| {
 			let value = attr(attrs, html)?;
-			let number = matches!(*key, "width" | "height" | "fileSize")
+			let number = matches!(*key, "start" | "width" | "height" | "fileSize")
 				.then(|| value.parse::<f64>().ok())
 				.flatten();
 			Some((*key, number.map_or_else(|| Value::from(value), Value::from)))
@@ -272,7 +281,13 @@ fn iframe_role(attrs: &[(String, String)]) -> Role {
 		return Role::Inline;
 	};
 
-	Role::Leaf(video, media_attrs(attrs, VIDEO_ATTRIBUTES))
+	let mut video_attrs = media_attrs(attrs, VIDEO_ATTRIBUTES);
+
+	for flag in VIDEO_FLAGS {
+		video_attrs.set(flag, attr(attrs, flag).is_some());
+	}
+
+	Role::Leaf(video, video_attrs)
 }
 
 #[cfg(any(feature = "youtube", feature = "twitch"))]

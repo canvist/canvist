@@ -110,9 +110,9 @@ fn media_exports_in_every_format() -> Result<(), HeadlessError> {
 	assert_eq!(
 		doc.export(Format::Html),
 		"<img src=\"cat.png\" alt=\"A cat\" width=\"320.5\" height=\"240\"><div \
-		 data-youtube-video=\"\"><iframe title=\"YouTube video\" \
-		 src=\"https://youtu.be/x\"></iframe></div><div data-twitch-video=\"\"><iframe \
-		 title=\"Twitch video\" src=\"https://twitch.tv/a\"></iframe></div><audio src=\"a.mp3\" \
+		 data-youtube-video=\"\"><iframe title=\"YouTube video\" src=\"https://youtu.be/x\" \
+		 start=\"30\"></iframe></div><div data-twitch-video=\"\"><iframe title=\"Twitch \
+		 video\" src=\"https://twitch.tv/a\" autoplay muted></iframe></div><audio src=\"a.mp3\" \
 		 loop></audio><div data-type=\"file\" data-url=\"r.pdf\" data-file-name=\"Report\" \
 		 data-file-size=\"2048\"></div><p></p>"
 	);
