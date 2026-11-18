@@ -263,10 +263,20 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 		);
 		this.#measurer.listen((used) => this.#fonts.request(used));
 
-		if (options.content !== undefined) {
-			this.#load(options.content);
-		} else if (this.#server !== null) {
-			this.#wasm.load("html", this.#server.outerHTML);
+		try {
+			if (options.content !== undefined) {
+				this.#load(options.content);
+			} else if (this.#server !== null) {
+				this.#wasm.load("html", this.#server.outerHTML);
+			}
+		} catch (error) {
+			// No editor comes back to destroy: leave nothing in the element,
+			// and no listener on the page's fonts holding this one.
+			this.#fonts.dispose();
+			this.#canvas.remove();
+			this.#spacer.remove();
+			this.#wasm.free();
+			throw error;
 		}
 
 		const commands = registeredNames(this.#extensions, "commands");
@@ -422,6 +432,13 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 		// ResizeObserver. Fonts can finish loading while observers are being
 		// notified, and resizing the canvas then is a ResizeObserver loop.
 		await nextFrame();
+
+		// A destroyed editor has released what it would paint with, and
+		// leaves the HTML to whichever editor replaces it.
+		if (this.#abort.signal.aborted) {
+			return;
+		}
+
 		this.#hydrate();
 		this.#render();
 	}
@@ -624,8 +641,12 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 		return this.#lastFrame;
 	}
 
-	/** Remove the editor's elements and listeners and release its memory. */
+	/** Remove the editor's elements and listeners and release its memory. Later calls do nothing. */
 	destroy(): void {
+		if (this.#abort.signal.aborted) {
+			return;
+		}
+
 		this.#abort.abort();
 		cancelAnimationFrame(this.#frame);
 		clearTimeout(this.#blink);
@@ -687,6 +708,10 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 			signal: this.#abort.signal,
 			fontsLoaded: (families) => this.#fontsLoaded(families),
 			hideFamilies: (families) => {
+				if (this.#abort.signal.aborted) {
+					return;
+				}
+
 				this.#wasm.hideFamilies([...families]);
 				this.#invalidate();
 			},
@@ -711,6 +736,11 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 	 * advances, so each forgets that family's measurements again.
 	 */
 	#fontsLoaded(families: readonly string[]): void {
+		// A plugin's font can finish loading after the editor is destroyed.
+		if (this.#abort.signal.aborted) {
+			return;
+		}
+
 		this.#measurer.forget();
 
 		if (families.length > 0 && this.#wasm.fontsLoaded([...families]) > 0) {
@@ -762,8 +792,7 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 	#hydrate(): void {
 		const server = this.#server;
 
-		// A destroyed editor leaves the HTML to whichever editor replaces it.
-		if (server === null || this.#abort.signal.aborted) {
+		if (server === null) {
 			return;
 		}
 
@@ -831,7 +860,7 @@ export class Editor<E extends Extensions, P extends Plugins = []> {
 	}
 
 	#invalidate(): void {
-		if (this.#frame !== 0) {
+		if (this.#frame !== 0 || this.#abort.signal.aborted) {
 			return;
 		}
 
