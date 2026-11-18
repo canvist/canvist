@@ -13,6 +13,8 @@ direnv allow .     # or: devenv shell
 install:all
 ```
 
+Cursor cloud agents on Linux run `.cursor/install.sh`, which installs single-user Nix (flakes and `nix-command` enabled) and devenv, trusts the devenv binary cache, and warms `devenv shell`. After that, use the same `devenv shell` commands as anywhere else. `.cursor/start.sh` starts Postgres for the cloud integration tests (`CANVIST_TEST_DATABASE_URL=postgres://canvist:canvist@localhost:5432/canvist_test`). iOS, Android, and the macOS-only checks still need those hosts.
+
 ## Make a change
 
 1. Branch from `main` with a conventional prefix: `feat/`, `fix/`, `docs/`, `test/`, `refactor/`.
