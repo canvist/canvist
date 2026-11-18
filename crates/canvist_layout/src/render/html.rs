@@ -495,7 +495,11 @@ impl Writer<'_> {
 			let start = attr(block.attrs(), defaults, "start")
 				.and_then(Value::as_int)
 				.unwrap_or(1);
-			let _ = write!(inline_style, "counter-reset:cv-n {};", start - 1);
+			let _ = write!(
+				inline_style,
+				"counter-reset:cv-n {};",
+				start.saturating_sub(1)
+			);
 		}
 
 		let align = attr(block.attrs(), defaults, "textAlign").and_then(Value::as_str);

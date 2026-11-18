@@ -81,14 +81,18 @@ impl GridRect {
 	}
 }
 
+/// The most columns one cell spans. HTML clamps `colspan` to it, and a
+/// span from imported content must not size the grid beyond it.
+const MAX_COLSPAN: usize = 1_000;
+
 /// The grid a table's rows of cells make.
 ///
 /// Built from each row's cells as `(colspan, rowspan)` pairs, in document
 /// order. Cells fill the first free slot of their row, after any slots that
 /// cells from rows above span down into. Rows shorter than the widest leave
-/// empty slots. A rowspan running past the last row is clamped, as browsers
-/// do, and so is a colspan running into a cell spanning down from above, as
-/// ProseMirror's `fixTables` does.
+/// empty slots. A rowspan running past the last row and a colspan over
+/// 1,000 are clamped, as browsers do, and so is a colspan running into a
+/// cell spanning down from above, as ProseMirror's `fixTables` does.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TableMap {
 	width: usize,
@@ -132,7 +136,7 @@ impl TableMap {
 				let colspan = if column + free < slots[row].len() {
 					colspan.clamp(1, free)
 				} else {
-					colspan.max(1)
+					colspan.clamp(1, MAX_COLSPAN)
 				};
 				let cell = GridCell {
 					row,
@@ -306,6 +310,16 @@ mod tests {
 		let ragged = map(&[&[(1, 1), (1, 1), (1, 1)], &[(1, 1)]]);
 		assert_eq!(ragged.missing(), vec![0, 2]);
 		assert!(!ragged.is_full());
+	}
+
+	#[test]
+	fn colspans_are_clamped_as_browsers_clamp_them() {
+		// A colspan read from imported content can be any number.
+		let table = map(&[&[(1, 1), (usize::MAX, 1)], &[(5_000, 1)]]);
+
+		assert_eq!(table.cells()[1].colspan, MAX_COLSPAN);
+		assert_eq!(table.cells()[2].colspan, MAX_COLSPAN);
+		assert_eq!(table.width(), 1 + MAX_COLSPAN);
 	}
 
 	#[test]
