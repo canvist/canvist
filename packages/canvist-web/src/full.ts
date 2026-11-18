@@ -21,7 +21,7 @@
  *
  * @module
  */
-import type { Extensions, StarterKit } from "@canvist/core";
+import { type Extensions, loadOnce, type StarterKit } from "@canvist/core";
 import init, { WebEditor } from "../wasm-full/canvist_web.js";
 import { Editor, type EditorOptions } from "./editor.ts";
 import type { WasmSource } from "./load.ts";
@@ -30,19 +30,20 @@ import type { Plugins } from "./plugin.ts";
 export * from "@canvist/core/extras";
 export * from "./mod.ts";
 
-let loading: Promise<void> | undefined;
-
-/**
- * Load the full WebAssembly module once. Without a source it is fetched
- * from next to this file, which bundlers such as Vite follow.
- */
-export function load(source?: WasmSource): Promise<void> {
-	loading ??= init({
+const loading = loadOnce<WasmSource>(async (source) => {
+	await init({
 		module_or_path: source ??
 			new URL("../wasm-full/canvist_web_bg.wasm", import.meta.url),
-	}).then(() => undefined);
+	});
+});
 
-	return loading;
+/**
+ * Load the full WebAssembly module once, or again after a load that
+ * failed. Without a source it is fetched from next to this file, which
+ * bundlers such as Vite follow.
+ */
+export function load(source?: WasmSource): Promise<void> {
+	return loading(source);
 }
 
 /**

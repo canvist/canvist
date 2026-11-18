@@ -289,6 +289,12 @@ class FaceLoader {
 	}
 
 	#add(face: FontFace): void {
+		// A face that finished loading after the editor was destroyed would
+		// never be removed: an aborted signal fires no more `abort` events.
+		if (this.#context.signal.aborted) {
+			return;
+		}
+
 		this.#document.fonts.add(face);
 		this.#added.push(face);
 		this.#context.signal.addEventListener(
