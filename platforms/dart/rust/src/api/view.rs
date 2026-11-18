@@ -415,8 +415,10 @@ impl CanvistView {
 		// A new width keeps every block's height as its estimate until the
 		// block is laid out again, and estimates made zero pixels wide put
 		// each character on its own line: start over at the first real width.
+		// The new layout numbers fonts from zero, so the host learns them again.
 		let options = LayoutOptions::new(width).overscan(state.layout.options().overscan);
 		state.layout = DocumentLayout::new(doc.document(), state.theme.clone(), options);
+		state.measurer.resend_fonts();
 	}
 
 	/// Change the theme. Measurements are kept.
