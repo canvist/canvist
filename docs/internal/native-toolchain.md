@@ -118,12 +118,7 @@ cd platforms/dart && cargo bin flutter_rust_bridge_codegen generate
 
 ## Continuous integration
 
-`.github/workflows/native.yml` runs two jobs:
-
-- **ios (simulator)** on `macos-latest`: `platforms/apple/test.sh`, then the Flutter integration tests on iOS.
-- **android (emulator)** on `ubuntu-24.04` with KVM: checks the flutter_rust_bridge output is current, builds with cargo-ndk, then runs the Android instrumented tests and the Flutter integration tests on an API 35 `x86_64` emulator.
-
-A full run takes 10-20 minutes, dominated by emulator boot and Gradle. `canvist_ffi` depends on the core crates, so the workflow runs on a pull request when it touches any crate (`crates/**`), `platforms/`, `Cargo.toml`/`Cargo.lock`, `rust-toolchain.toml` or the workflow. Its jobs are not required checks; the workflow also runs on every push to `main` and nightly, which catches runner image and toolchain drift.
+Pull requests do not boot a simulator or an emulator. Run `platforms/apple/test.sh` and `platforms/android/test.sh` locally when a change touches those bindings. The release workflow still builds the Apple and Android artifacts when it publishes.
 
 ## Performance
 
@@ -131,7 +126,7 @@ Keystroke-to-paint is measured in three places:
 
 | Run                                      | Command                                                                                                          | Budget                   |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Rust: keystroke → frame (no FFI)         | `cargo bench -p canvist_ffi`, budgets in `cargo test --release -p canvist_ffi --test perf_budgets -- --ignored`  | 200 µs at 10k paragraphs |
+| Rust: keystroke → frame (no FFI)         | `cargo bench -p canvist_ffi`                                                                                     | 200 µs at 10k paragraphs |
 | Swift: keystroke → frame through UniFFI  | `cd platforms/apple && xcodebuild test -scheme Canvist -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` | p95 4 ms on a simulator  |
 | Kotlin: keystroke → frame through UniFFI | `cd platforms/android && ./gradlew :canvist:connectedAndroidTest`, then `adb logcat -d -s CanvistPerf:I`         | p95 8 ms on an emulator  |
 
@@ -139,7 +134,7 @@ The Rust benchmarks measure everything between the platform delivering a key and
 
 `crates/canvist_ffi/tests/stress.rs` types thousands of random keyboard, IME, autocorrect, undo, and collaboration inputs and checks that nothing fails and the text model always matches the document.
 
-The Dart binding keeps its own benchmark: `cd platforms/flutter/example && fvm flutter drive --profile --driver test_driver/integration_test.dart --target integration_test/canvist_test.dart`.
+The Dart binding's widget tests are `platforms/flutter/test.sh`.
 
 ### Keeping the binding cheap
 

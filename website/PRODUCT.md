@@ -49,7 +49,7 @@ The only editor whose one Rust core renders the same document, pixel for pixel, 
 
 ## Evidence on Hand
 
-- Benchmarks: the performance budget table in `docs/src/guides/performance.md` (budget and today's measurement per hot path), enforced by `tests/perf_budgets.rs` in each crate.
+- Benchmarks: the performance budget table in `docs/src/guides/performance.md` (budget and today's measurement per hot path). Reproduce a row with `cargo bench` in its crate.
 - Live editor: `@canvist/web` (`packages/canvist-web`, wasm, under 350 KB gzipped with the StarterKit).
 - No customers, testimonials, logos, star counts or press exist. Do not fabricate any.
 - A Remotion demo video is being produced separately; the hero keeps a slot for it.
