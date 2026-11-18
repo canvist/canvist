@@ -680,7 +680,6 @@ const doc = (await createEngine([bold, italic, heading, markdownReveal])).parse(
 );
 console.log(doc.export("text"));
 // Notes
-// 
 // Some bold words
 ```
 
