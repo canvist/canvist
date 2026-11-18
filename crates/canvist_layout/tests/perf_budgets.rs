@@ -103,6 +103,13 @@ const SEGMENT_MEMORY_BUDGET: usize = 160;
 
 /// Repeats of [`PARAGRAPH`] that make one paragraph of about 100 KB.
 const LONG_PARAGRAPH_REPEATS: usize = 600;
+/// A word as long as a pasted token or a URL with a long query. It has no
+/// break opportunity, so it wraps across about 30 lines at [`WIDTH`] by
+/// being cut between graphemes.
+const LONG_WORD: usize = 2_000;
+/// Relaying out the paragraph holding [`LONG_WORD`] after a keystroke in
+/// it, which breaks every one of its lines again.
+const LONG_WORD_BUDGET: Duration = Duration::from_micros(500);
 
 /// Calls per sample, so every sample runs long enough to time.
 const KEYSTROKE_BATCH: u32 = 200;
@@ -534,6 +541,47 @@ fn keystroke_relayout_in_a_100kb_paragraph() {
 		"keystroke relayout in a 100 KB paragraph",
 		measured,
 		KEYSTROKE_BUDGET,
+	);
+}
+
+#[test]
+#[ignore = "release-mode performance budget; run with `test:perf`"]
+fn keystroke_relayout_in_a_long_word() {
+	let mut doc = support::large(1, &"x".repeat(LONG_WORD));
+	let block = doc.children(None)[0];
+	let mut measurer = FixedMeasurer::new();
+	let mut layout = DocumentLayout::new(&doc, Arc::new(Theme::starter_kit()), options());
+	let middle = (LONG_WORD / 2) as u32;
+	let mut typed = false;
+
+	layout
+		.ensure(&doc, &mut measurer, 0.0, SCREEN)
+		.expect("measured");
+
+	let measured = median_per_call(KEYSTROKE_BATCH, || {
+		let mut transaction = doc.transaction();
+
+		if typed {
+			transaction
+				.delete_text(block, middle..middle + 1)
+				.expect("valid range");
+		} else {
+			transaction
+				.insert_text(Point::new(block, middle), "y", MarkSet::empty())
+				.expect("valid point");
+		}
+
+		typed = !typed;
+		let commit = transaction.commit();
+		layout.apply(&doc, &commit);
+		let update = layout.ensure(&doc, &mut measurer, 0.0, SCREEN);
+		std::hint::black_box(update.expect("measured"));
+	});
+
+	assert_within(
+		"keystroke relayout in a 2,000-character word",
+		measured,
+		LONG_WORD_BUDGET,
 	);
 }
 
