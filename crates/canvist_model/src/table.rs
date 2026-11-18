@@ -83,7 +83,10 @@ impl GridRect {
 
 /// The most columns one cell spans. HTML clamps `colspan` to it, and a
 /// span from imported content must not size the grid beyond it.
-const MAX_COLSPAN: usize = 1_000;
+pub const MAX_COLSPAN: usize = 1_000;
+
+/// The most rows one cell spans, the limit HTML puts on `rowspan`.
+pub const MAX_ROWSPAN: usize = 65_534;
 
 /// The grid a table's rows of cells make.
 ///
