@@ -182,7 +182,7 @@ fn conditional_text_round_trips_through_html_and_is_plain_in_markdown() {
 	assert_eq!(clipboard::to_html(schema, &slice), html);
 	assert_eq!(
 		clipboard::to_markdown(schema, &slice),
-		"Thanks @ada.bsky.social@ada\\_ig!"
+		"Thanks @ada.bsky.social@ada_ig!"
 	);
 }
 
