@@ -672,7 +672,13 @@ The syntax works like text you can edit:
 It has no commands. It shows its syntax through adornments, text an extension shows without it being part of the document: `Editor::adornments` lists them after every update, and the browser editor lays them out. The headless engine has no canvas, so there it only changes how the keys behave.
 
 ```ts
-import { bold, createEngine, heading, italic, markdownReveal } from "@canvist/headless/full";
+import {
+	bold,
+	createEngine,
+	heading,
+	italic,
+	markdownReveal,
+} from "@canvist/headless/full";
 
 const doc = (await createEngine([bold, italic, heading, markdownReveal])).parse(
 	"markdown",
