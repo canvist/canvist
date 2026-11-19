@@ -48,6 +48,15 @@ impl From<Caret> for canvist_core::Caret {
 	}
 }
 
+impl From<canvist_core::Adornment> for crate::Adornment {
+	fn from(adornment: canvist_core::Adornment) -> Self {
+		Self {
+			at: adornment.at,
+			text: adornment.text,
+		}
+	}
+}
+
 impl From<canvist_core::VerticalDirection> for VerticalDirection {
 	fn from(direction: canvist_core::VerticalDirection) -> Self {
 		match direction {

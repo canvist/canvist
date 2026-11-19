@@ -349,6 +349,24 @@ impl Editor {
 		&self.state
 	}
 
+	/// The text extensions show in the document without it being part of
+	/// it, for the current state, grouped by block and ordered by offset
+	/// within each. Empty unless an
+	/// extension adorns, such as Markdown reveal; hosts pass it to layout
+	/// after every update.
+	#[must_use]
+	pub fn adornments(&self) -> Vec<crate::Adornment> {
+		let mut adornments: Vec<crate::Adornment> = self
+			.registry
+			.extensions
+			.iter()
+			.filter(|extension| extension.adorns())
+			.flat_map(|extension| extension.adornments(&self.state))
+			.collect();
+		adornments.sort_by_key(|adornment| (adornment.at.block, adornment.at.offset));
+		adornments
+	}
+
 	/// Take the editor apart, returning its state. Hosts that lend a
 	/// document to an editor (a canvas text frame) take it back this way.
 	#[must_use]
@@ -479,6 +497,21 @@ impl Editor {
 	pub fn select(&mut self, selection: Selection, env: &mut Env<'_>) -> CommandResult {
 		self.history.close_group();
 		let update = commands::set_selection(&mut self.state, selection)?;
+		self.finish(update, env.now)
+	}
+
+	/// Set the selection as [`Editor::select`] does, with the caret on the
+	/// `affinity` side of its point, as a click reports it: the end of one
+	/// line or the start of the next at a soft wrap, and before or after an
+	/// [`Adornment`](crate::Adornment).
+	pub fn select_with_affinity(
+		&mut self,
+		selection: Selection,
+		affinity: crate::Affinity,
+		env: &mut Env<'_>,
+	) -> CommandResult {
+		self.history.close_group();
+		let update = commands::set_selection_with_affinity(&mut self.state, selection, affinity)?;
 		self.finish(update, env.now)
 	}
 

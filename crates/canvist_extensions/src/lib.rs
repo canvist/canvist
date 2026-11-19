@@ -75,8 +75,8 @@
 //! | [`Ink`]             | `ink`               | `ink`, freehand strokes the canvas draws |
 //! | [`Kinetic`]         | `kinetic`           | `kinetic`, text that moves               |
 //! | [`Conditional`]     | `conditional`       | `conditional`, text some versions keep   |
-//! | [`ClearFormatting`] | `clear-formatting`  | marks off, blocks to paragraphs, `Mod-\` |
-//!
+//! | [`MarkdownReveal`]  | `markdown-reveal`   | the Markdown at the caret, editable      |
+//! | [`ClearFormatting`] | `clear-formatting`  | marks off, blocks to paragraphs, `Mod-\` |//!
 //! `docs/src/extensions/parity.md` compares the whole set with Remirror and
 //! TipTap.
 //!
@@ -243,6 +243,8 @@ pub use canvist_extension_list::OrderedListHandle;
 pub use canvist_extension_list::TaskList;
 #[cfg(feature = "task-list")]
 pub use canvist_extension_list::TaskListHandle;
+#[cfg(feature = "markdown-reveal")]
+pub use canvist_extension_markdown_reveal::MarkdownReveal;
 #[cfg(feature = "mathematics")]
 pub use canvist_extension_mathematics::Mathematics;
 #[cfg(feature = "mathematics")]

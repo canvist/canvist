@@ -15,6 +15,11 @@ use super::TextRun;
 use crate::text::Item;
 use crate::text::TextLayout;
 
+/// How opaque adornments, such as revealed Markdown syntax, are as a
+/// fraction of their colour's alpha: faint enough to read as not being
+/// text, steady because they come and go with the caret.
+pub(crate) const ADORNMENT_ALPHA: f32 = 0.42;
+
 /// How opaque provisional text is, as a fraction of its colour's alpha.
 const PROVISIONAL_ALPHA: f32 = 0.45;
 
@@ -48,12 +53,19 @@ pub(crate) fn fades(
 	let mut fades = Vec::new();
 	let mut animated = false;
 
-	if let Some(range) = &text.provisional {
-		animated |= time.is_some();
-		fades.push(Fade {
-			range: range.clone(),
-			strength: provisional_strength(time),
-		});
+	for inserted in &text.inserted {
+		if inserted.adornment {
+			fades.push(Fade {
+				range: inserted.range.clone(),
+				strength: ADORNMENT_ALPHA,
+			});
+		} else if cfg!(feature = "provisional") {
+			animated |= time.is_some();
+			fades.push(Fade {
+				range: inserted.range.clone(),
+				strength: provisional_strength(time),
+			});
+		}
 	}
 
 	if time.is_some() {
