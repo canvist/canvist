@@ -1,5 +1,5 @@
 ---
-"canvist_layout": fix
+"rust:canvist_layout": fix
 ---
 
 # Number ordered lists that start near the ends of the integer range

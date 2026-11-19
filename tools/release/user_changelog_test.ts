@@ -85,7 +85,7 @@ async function writeChangesets(workspace: string): Promise<void> {
 	);
 	await Deno.writeTextFile(
 		join(changesets, "sdk-split-block.md"),
-		`---\ncanvist_model: feat\n---\n\n# ${SDK_DEVELOPER_NOTE}\n`,
+		`---\n"rust:canvist_model": feat\n---\n\n# ${SDK_DEVELOPER_NOTE}\n`,
 	);
 }
 

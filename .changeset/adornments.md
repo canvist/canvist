@@ -1,7 +1,7 @@
 ---
-"canvist_core": feat
-"canvist_layout": feat
-"canvist_web": feat
+"rust:canvist_core": feat
+"rust:canvist_layout": feat
+"rust:canvist_web": feat
 ---
 
 # Adornments: text an extension shows without it being part of the document

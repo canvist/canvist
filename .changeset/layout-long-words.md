@@ -1,5 +1,5 @@
 ---
-"canvist_layout": perf
+"rust:canvist_layout": perf
 ---
 
 # Lay out long words without rescanning them for every grapheme

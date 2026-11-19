@@ -1,5 +1,5 @@
 ---
-"canvist_scene": fix
+"rust:canvist_scene": fix
 ---
 
 # Pass scene JSON paths by reference while flattening

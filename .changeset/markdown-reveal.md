@@ -1,9 +1,9 @@
 ---
-"canvist_extension_markdown_reveal-rust": feat
-"canvist_extensions-rust": feat
-"canvist_extensions-dart": feat
-"canvist_headless": feat
-"canvist-dart": feat
+"rust:canvist_extension_markdown_reveal": feat
+"rust:canvist_extensions": feat
+"dart:canvist_extensions": feat
+"rust:canvist_headless": feat
+"dart:canvist": feat
 "@canvist/core": feat
 "@canvist/headless": feat
 "@canvist/web": feat

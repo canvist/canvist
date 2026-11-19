@@ -1,5 +1,5 @@
 ---
-"canvist_extension_clipboard-rust": fix
+"rust:canvist_extension_clipboard": fix
 ---
 
 # Escape only what would read as Markdown syntax
