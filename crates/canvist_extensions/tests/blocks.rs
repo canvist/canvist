@@ -332,7 +332,7 @@ fn markdown_of(typist: &Typist) -> String {
 fn run_later(editor: &mut Editor, name: &str, args: &[(&'static str, Value)]) -> bool {
 	let args: Attrs = args.iter().cloned().collect();
 	editor
-		.run_named(name, &args, &mut Env::headless(Duration::from_secs(3600)))
+		.run_named(name, &args, &mut Env::headless(Duration::from_hours(1)))
 		.expect("commands run")
 		.is_some()
 }

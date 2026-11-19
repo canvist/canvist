@@ -22,7 +22,7 @@
  *
  * @module
  */
-import type { Extensions, StarterKit } from "@canvist/core";
+import { type Extensions, loadOnce, type StarterKit } from "@canvist/core";
 import init, { WebEditor } from "../wasm-collab/canvist_web.js";
 import { Editor, type EditorOptions } from "./editor.ts";
 import type { WasmSource } from "./load.ts";
@@ -36,19 +36,20 @@ const FIRST_BACKOFF_MS = 250;
 /** The collaborative build of each editor `createEditor` here made. */
 const builds = new WeakMap<object, WebEditor>();
 
-let loading: Promise<void> | undefined;
-
-/**
- * Load the collaborative WebAssembly module once. Without a source it is
- * fetched from next to this file, which bundlers such as Vite follow.
- */
-export function loadCollab(source?: WasmSource): Promise<void> {
-	loading ??= init({
+const loading = loadOnce<WasmSource>(async (source) => {
+	await init({
 		module_or_path: source ??
 			new URL("../wasm-collab/canvist_web_bg.wasm", import.meta.url),
-	}).then(() => undefined);
+	});
+});
 
-	return loading;
+/**
+ * Load the collaborative WebAssembly module once, or again after a load
+ * that failed. Without a source it is fetched from next to this file, which
+ * bundlers such as Vite follow.
+ */
+export function loadCollab(source?: WasmSource): Promise<void> {
+	return loading(source);
 }
 
 /**

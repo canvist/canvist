@@ -800,6 +800,17 @@ enabled = false
 [ecosystems.dart]
 enabled = true
 
+# Dart and Flutter packages (`type = "flutter"` is a Dart alias) publish
+# outside monochange, in the order `publish.yml` already runs: `canvist`,
+# then `canvist_extensions`, then `canvist_flutter`. Their published names
+# collide with the Rust crates `canvist` and `canvist_extensions`. monochange
+# 0.21.0 links a dependency to every package of that name, so the Dart edge
+# back to the Rust crate closes a cycle and `publish-readiness` fails.
+# Dropping Dart dependency fields keeps Cargo's publish order and removes
+# that back edge. `[ecosystems.flutter]` is not a real ecosystem table.
+[ecosystems.dart.publish_order]
+dependency_fields = []
+
 [ecosystems.dart.publish]
 enabled = true
 mode = "external"

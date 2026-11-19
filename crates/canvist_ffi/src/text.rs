@@ -167,10 +167,16 @@ impl TextIndex {
 		})
 	}
 
-	/// The editor's text in `range`, clamped to the text.
+	/// The editor's text in `range`, clamped to the text. A range that ends
+	/// before it starts is empty.
 	pub(crate) fn text(&self, doc: &Document, range: OffsetRange) -> String {
 		let end = range.end.min(self.len());
 		let mut out = String::new();
+
+		if end < range.start {
+			return out;
+		}
+
 		let Some(first) = self.entry_index_at(range.start) else {
 			return out;
 		};

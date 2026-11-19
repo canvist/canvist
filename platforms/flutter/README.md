@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/canvist_flutter"><img src="https://img.shields.io/pub/v/canvist_flutter?color=3B2CF5" alt="pub.dev version" /></a>
-  <a href="https://github.com/canvist/canvist/actions/workflows/dart.yml"><img src="https://github.com/canvist/canvist/actions/workflows/dart.yml/badge.svg?branch=main" alt="dart status" /></a>
+  <a href="https://github.com/canvist/canvist/actions/workflows/ci.yml"><img src="https://github.com/canvist/canvist/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
   <a href="https://unlicense.org"><img src="https://img.shields.io/badge/license-Unlicense-3B2CF5" alt="Unlicense" /></a>
 </p>
 
@@ -78,10 +78,7 @@ Commands come from the engine's typed handles, so a toolbar can only call extens
 ```sh
 flutter pub get
 flutter test   # widget tests, and golden tests of the editor's pixels against server rendering
-dart pub global activate patrol_cli 4.8.0
-./test.sh      # integration and Patrol tests on an iOS Simulator and an Android emulator
+./test.sh      # the same widget tests
 ```
-
-The Patrol suites in `example/patrol_test/` drive the example app through the device itself: the platform keyboard, native taps and swipes, long presses, the toolbar, two collaborating peers, and system dark mode. They also compare the editor's pixels, drawn by the device's GPU, with server rendering. Typing through the platform keyboard and system dark mode run on Android only: on iOS, Patrol types only into single-line text fields, and its dark-mode switch doesn't change the iOS 26 simulator's appearance.
 
 </details>

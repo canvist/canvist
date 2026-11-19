@@ -287,3 +287,20 @@ Deno.test("a canvas starts from the scene it is given, the same in every tab", a
 		assert(stateBytes > 0, "the shared state encodes");
 	});
 });
+
+Deno.test("a mount after a failed module load loads the module again", async () => {
+	await withBrowser(async (context, server) => {
+		let requests = 0;
+		// The first download of the module fails, as a dropped connection would.
+		await context.route("**/*.wasm", (route) => {
+			requests += 1;
+			return requests === 1 ? route.abort() : route.continue();
+		});
+
+		// The demo mounts once more after a failure.
+		const page = await open(context, `${server.url}?cpu`);
+
+		assertEquals(requests, 2, "the module is fetched again");
+		assert((await state(page)).nodes > 0, "the second mount starts the canvas");
+	});
+});

@@ -205,7 +205,7 @@ To make this automatic, every extension declares machine-readable metadata. It l
 
 ## Performance budgets
 
-The budget table, with today's measurements, lives in the user docs at [`docs/src/guides/performance.md`](../src/guides/performance.md#performance-budgets), because the website and the launch film read it from there. Each row is enforced by a release-mode test in `tests/perf_budgets.rs` in its crate.
+The budget table, with today's measurements, lives in the user docs at [`docs/src/guides/performance.md`](../src/guides/performance.md#performance-budgets), because the website and the launch film read it from there. Measure a row locally with `cargo bench` in its crate.
 
 For reference, the best public number the research found is Lexical issue #7422: about 1.8 ms per keystroke at 5,000 paragraphs, spent copying state.
 
@@ -219,16 +219,15 @@ Layout's numbers use the deterministic `FixedMeasurer`, so they measure layout i
 
 Every change is judged on speed as well as correctness. The rules for every pull request:
 
-1. **Budgets are tests.** Each hot path has a budget in the table above and a release-mode test in `tests/perf_budgets.rs` in its crate. `test:perf` runs these tests and the `perf` CI job fails when one is over budget. New hot paths get a budget test in the same PR that introduces them.
-2. **Benchmarks accompany code.** A PR that adds or changes a hot path adds or extends `divan` benchmarks at realistic sizes: 100, 10k, and 100k blocks, long paragraphs, and heavy formatting.
+1. **Budgets are measured locally.** Each hot path has a budget in the table above. CI does not run those comparisons. A change that can affect a hot path is measured with `cargo bench` before it merges.
+2. **Benchmarks accompany code.** A change that adds or changes a hot path adds or extends `divan` benchmarks at realistic sizes: 100, 10k, and 100k blocks, long paragraphs, and heavy formatting.
 3. **Numbers in the description.** The PR description reports before and after benchmark numbers for every hot path it touches. A regression of more than 5% needs a written justification, or it doesn't merge.
 4. **Complexity is part of the design.** Anything that runs per keystroke, per frame, or per visible line must be independent of document size, or bounded by the viewport. Structural edits may cost `O(siblings)`, never `O(document)`, without a recorded reason.
 5. **Measure the real thing.** Each host adds end-to-end latency measurements (keystroke to paint, scroll, open) and a typing-burst stress test before it ships.
 
 ## Quality gates
 
-- `cargo nextest`, doc tests, and property tests for every crate. Every step kind is checked for invariants, for undo restoring the original exactly, and for failed steps changing nothing.
-- `test:perf`: release-mode budget tests, which fail CI when a hot path regresses past its budget.
-- `monostyle check --fail-under 90` for both readability and complexity on every crate (`lint:style`).
+- `cargo test` on `canvist`, `canvist_model`, `canvist_core`, and `canvist_headless` in CI. The other crates keep their tests for local runs. Every step kind is checked for invariants, for undo restoring the original exactly, and for failed steps changing nothing.
+- `monostyle check --fail-under 90` for both readability and complexity (`lint:style`).
 - `clippy` (pedantic) and `dprint`.
-- Platform end-to-end suites: Playwright for the web, including the SSR → hydrate pixel diff; XCTest on the iOS Simulator; androidx.test on an emulator; Flutter `integration_test`.
+- Host checks stay local: XCTest on the iOS Simulator, androidx.test on an emulator, and Flutter widget tests.

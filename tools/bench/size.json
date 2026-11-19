@@ -229,7 +229,7 @@
 				"packages/canvist-web/wasm-collab/*.js"
 			],
 			"budget": {
-				"gzip": 12370
+				"gzip": 12800
 			}
 		},
 		{

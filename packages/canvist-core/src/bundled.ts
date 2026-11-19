@@ -37,3 +37,25 @@ export async function bundled(url: URL): Promise<WasmSource> {
 	// see the global `URL` and Node's `URL` as different types.
 	return readFile(fileURLToPath(url.href));
 }
+
+/**
+ * Load a module at most once: calls while `load` runs, and every call after
+ * it succeeds, share its promise. A failed load (a dropped connection, a
+ * source that is not a module) is forgotten, so the next call tries again
+ * with its own source instead of repeating the first failure forever.
+ *
+ * @internal
+ */
+export function loadOnce<Source>(
+	load: (source: Source | undefined) => Promise<void>,
+): (source?: Source) => Promise<void> {
+	let loading: Promise<void> | undefined;
+
+	return (source) => {
+		loading ??= load(source).catch((error: unknown) => {
+			loading = undefined;
+			throw error;
+		});
+		return loading;
+	};
+}

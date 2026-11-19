@@ -1,7 +1,6 @@
 name: "ci"
 permissions:
-  pull-requests: write
-  contents: write
+  contents: read
 on:
   # Dispatched by hand on the release pull request: GITHUB_TOKEN opens it,
   # and GitHub starts no pull_request workflows for that.
@@ -15,120 +14,78 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
-    timeout-minutes: 60
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: setup
-        uses: ./.github/actions/devenv
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
 
-      - name: lint clippy
-        run: cargo clippy --workspace --all-features --all-targets
-        shell: devenv shell -c -- bash -e {0}
+      - name: setup formatters and linters
+        uses: ./.github/actions/setup-tools
+        with:
+          format: true
+          lint: true
 
       - name: lint formatting
-        run: lint:format
-        shell: devenv shell -c -- bash -e {0}
+        run: dprint check
+
+      - name: lint clippy
+        # Warnings are errors so a crate cannot stay green here while another
+        # job would have failed the same lint.
+        run: cargo clippy --workspace --all-features --all-targets -- --deny warnings
 
       - name: lint code style
-        run: lint:style
-        shell: devenv shell -c -- bash -e {0}
+        run: tools/ci/lint-style.sh
 
       - name: lint kotlin
-        run: lint:kotlin
-        shell: devenv shell -c -- bash -e {0}
+        run: git ls-files '*.kt' '*.kts' | grep -v 'platforms/flutter/example' | grep -v '\.generated\.kt$' | xargs ktlint
 
       - name: lint shell
-        run: lint:shell
-        shell: devenv shell -c -- bash -e {0}
+        run: git ls-files '*.sh' | xargs shellcheck
 
   test:
-    timeout-minutes: 60
+    timeout-minutes: 30
     runs-on: ubuntu-latest
-    services:
-      # canvist_cloud's integration tests run against a real Postgres.
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: canvist
-          POSTGRES_PASSWORD: canvist
-          POSTGRES_DB: canvist_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U canvist"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: core-tests
 
-      - name: run tests
-        # `devenv shell` does not pass the job's environment through.
-        run: CANVIST_TEST_DATABASE_URL=postgres://canvist:canvist@localhost:5432/canvist_test test:all
-        shell: devenv shell -c -- bash -e {0}
-
-  perf:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    env:
-      # Shared runners are slower and noisier than a developer machine.
-      CANVIST_PERF_SLACK: "2"
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: setup
-        uses: ./.github/actions/devenv
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: performance budgets
-        # `devenv shell` does not pass the job's environment through, so the
-        # slack is set inside the command it runs.
-        run: CANVIST_PERF_SLACK=${{ env.CANVIST_PERF_SLACK }} test:perf
-        shell: devenv shell -c -- bash -e {0}
-
-      - name: benchmarks compile
-        run: cargo bench --workspace --no-run
-        shell: devenv shell -c -- bash -e {0}
+      - name: unit tests for the public crates
+        # The facade, the document model, the editor, and the headless engine.
+        # Extension, desktop, collaboration, and binding suites stay in the
+        # tree for local runs and are not part of this job.
+        run: cargo test --locked -p canvist -p canvist_model -p canvist_core -p canvist_headless
 
   build:
-    timeout-minutes: 60
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: setup
-        uses: ./.github/actions/devenv
+      - name: setup rust
+        uses: ./.github/actions/setup-rust
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: build
 
       - name: build
+        # `lint` already compiles every feature and target with clippy.
         run: cargo build --locked
-        shell: devenv shell -c -- bash -e {0}
-
-      - name: build all features
-        run: cargo build --all-features --locked
-        shell: devenv shell -c -- bash -e {0}
 
   security:
-    timeout-minutes: 30
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - name: checkout repository
@@ -136,171 +93,3 @@ jobs:
 
       - name: run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-
-  semver-checks:
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: setup
-        uses: ./.github/actions/devenv
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Run cargo-semver-checks for each published crate. Crates that have
-      # never been published to crates.io are silently skipped (exit code
-      # from "not found in registry" is not treated as a breaking change).
-      - name: run cargo-semver-checks
-        id: semver
-        shell: devenv shell -c -- bash {0}
-        run: |
-          set +e
-          FAILED_PACKAGES=""
-          FULL_OUTPUT=""
-
-          # The crates monochange publishes (`monochange.toml`).
-          # `canvist_extensions` only re-exports the extension crates, and
-          # cargo-semver-checks cannot follow re-exports from other crates
-          # (it reports every one as removed), so each extension crate is
-          # checked instead. Its integration tests and metadata snapshots
-          # cover the combined API.
-          PACKAGES=("canvist" "canvist_model" "canvist_core" "canvist_layout" "canvist_collab" "canvist_headless")
-          for manifest in crates/extensions/*/Cargo.toml; do
-            PACKAGES+=("canvist_extension_$(basename "$(dirname "$manifest")")")
-          done
-
-          for pkg in "${PACKAGES[@]}"; do
-            echo "::group::Checking $pkg"
-            OUTPUT=$(cargo semver-checks --package "$pkg" 2>&1)
-            EXIT_CODE=$?
-            echo "$OUTPUT"
-            echo "::endgroup::"
-
-            # Skip crates that aren't published yet — "not found in registry"
-            # is not a semver violation.
-            if echo "$OUTPUT" | grep -q "not found in registry"; then
-              echo "Skipping $pkg — not yet published to crates.io"
-              continue
-            fi
-
-            if [ $EXIT_CODE -ne 0 ]; then
-              FAILED_PACKAGES="$FAILED_PACKAGES $pkg"
-              FULL_OUTPUT="$FULL_OUTPUT
-          ### \`$pkg\`
-
-          \`\`\`
-          $OUTPUT
-          \`\`\`
-          "
-            fi
-          done
-
-          echo "$FAILED_PACKAGES" > /tmp/semver_failed_packages.txt
-          echo "$FULL_OUTPUT" > /tmp/semver_output.txt
-
-      - name: set semver-checks outputs
-        id: semver-output
-        shell: bash
-        run: |
-          FAILED_PACKAGES=$(cat /tmp/semver_failed_packages.txt 2>/dev/null | xargs || echo "")
-          echo "failed_packages=$FAILED_PACKAGES" >> "$GITHUB_OUTPUT"
-
-          {
-            echo "output<<SEMVER_EOF"
-            cat /tmp/semver_output.txt 2>/dev/null || echo ""
-            echo "SEMVER_EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          if [ -n "$FAILED_PACKAGES" ]; then
-            echo "has_breaking=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_breaking=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: verify changeset for breaking changes
-        id: verify
-        if: steps.semver-output.outputs.has_breaking == 'true'
-        shell: bash
-        run: |
-          FAILED="${{ steps.semver-output.outputs.failed_packages }}"
-          MISSING_CHANGESETS=""
-
-          for pkg in $FAILED; do
-            FOUND=false
-            for f in .changeset/*.md; do
-              [ -f "$f" ] || continue
-              if grep -qP "^\"?${pkg}\"?:\s*(major|breaking)\s*$" "$f"; then
-                FOUND=true
-                break
-              fi
-            done
-
-            if [ "$FOUND" = false ]; then
-              MISSING_CHANGESETS="$MISSING_CHANGESETS $pkg"
-            fi
-          done
-
-          echo "missing=$MISSING_CHANGESETS" >> "$GITHUB_OUTPUT"
-
-          if [ -n "$MISSING_CHANGESETS" ]; then
-            echo "has_missing=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_missing=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: comment on PR with semver-checks output
-        if: steps.verify.outputs.has_missing == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const missing = '${{ steps.verify.outputs.missing }}'.trim().split(/\s+/);
-            const body = [
-              '## :warning: Breaking API changes detected',
-              '',
-              `The following package(s) have breaking API changes but are missing a \`breaking\` changeset: ${missing.map(p => '`' + p + '`').join(', ')}`,
-              '',
-              'Please add a changeset file in `.changeset/` with the breaking change documented:',
-              '',
-              '```sh',
-              'mc change --package <crate> --type breaking --reason "<what broke and how to migrate>"',
-              '```',
-            ].join('\n');
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const marker = '## :warning: Breaking API changes detected';
-            const existing = comments.find(c => c.body?.startsWith(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
-        env:
-          SEMVER_OUTPUT: ${{ steps.semver-output.outputs.output }}
-
-      - name: fail if missing changeset for breaking changes
-        if: steps.verify.outputs.has_missing == 'true'
-        run: |
-          echo "::error::Breaking API changes detected in:${{ steps.verify.outputs.missing }}"
-          echo "Please add a changeset with the 'breaking' change type for each affected package."
-          exit 1

@@ -133,6 +133,46 @@ impl Item {
 		advances_within(slice(text, &self.range), &measured.advances, local)
 	}
 
+	/// The grapheme clusters of the item from byte `from` on, each as its end
+	/// offset and its [`Self::span`]. Each is measured as the walk reaches
+	/// it, so taking the first few costs that much, not a scan of the item
+	/// per grapheme. An atomic item is one step.
+	pub(crate) fn grapheme_spans<'a>(
+		&'a self,
+		text: &'a str,
+		from: u32,
+	) -> impl Iterator<Item = (u32, f32)> + 'a {
+		let start = from.max(self.range.start);
+		let item = slice(text, &self.range);
+		let local = (start - self.range.start) as usize;
+		let (rest, advances, atomic): (&str, &[f32], _) =
+			if let ItemKind::Text { measured, .. } = &self.kind {
+				(
+					item.get(local..).unwrap_or_default(),
+					&measured.advances,
+					None,
+				)
+			} else {
+				let step = (self.range.end, self.span(text, start, self.range.end));
+				("", &[], Some(step))
+			};
+		let mut index = char_starts(&item.as_bytes()[..local.min(item.len())]);
+
+		let graphemes = rest.grapheme_indices(true).map(move |(offset, grapheme)| {
+			let range = start + offset as u32..start + (offset + grapheme.len()) as u32;
+			let chars = grapheme.chars().count();
+			let width = if range == self.range {
+				self.width
+			} else {
+				sum(advances.iter().skip(index).take(chars))
+			};
+			index += chars;
+			(range.end, width)
+		});
+
+		graphemes.chain(atomic)
+	}
+
 	/// The width of trailing spaces from byte `from` to the item end.
 	pub(crate) fn trailing_space(&self, text: &str, from: u32) -> f32 {
 		match &self.kind {
@@ -151,24 +191,28 @@ impl Item {
 }
 
 /// The summed advances of the chars of `text` that start inside the byte
-/// range `range`.
+/// range `range`. Chars before it are counted, not decoded, so a span deep
+/// inside a long word costs little more than the span itself.
 fn advances_within(text: &str, advances: &[f32], range: Range<u32>) -> f32 {
-	let mut offset = 0;
-	let mut width = 0.0;
+	let bytes = text.as_bytes();
+	let end = (range.end as usize).min(bytes.len());
+	let start = (range.start as usize).min(end);
+	let first = char_starts(&bytes[..start]);
+	let count = char_starts(&bytes[start..end]);
 
-	for (character, advance) in text.chars().zip(advances) {
-		if offset >= range.end {
-			break;
-		}
+	sum(advances.iter().skip(first).take(count))
+}
 
-		if offset >= range.start {
-			width += advance;
-		}
+/// The number of chars that start in `bytes`: every byte that does not
+/// continue a multi-byte character.
+fn char_starts(bytes: &[u8]) -> usize {
+	bytes.iter().filter(|&&byte| byte & 0xC0 != 0x80).count()
+}
 
-		offset += character.len_utf8() as u32;
-	}
-
-	width
+/// The sum of `advances` added in order from zero, so every way of
+/// measuring a span rounds the same.
+fn sum<'a>(advances: impl Iterator<Item = &'a f32>) -> f32 {
+	advances.fold(0.0, |width, advance| width + advance)
 }
 
 /// The byte range `range` of `text`, or `""` if it is not on char

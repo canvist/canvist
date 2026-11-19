@@ -5,8 +5,25 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { FontWatcher } from "../src/font-watcher.ts";
 import { fontFaceCss, stack } from "../src/fonts.ts";
 import { splitFamilies, splitLigatures } from "../src/measure.ts";
+import { latencyBudgetMs } from "./latency-budget.ts";
+
+describe("latencyBudgetMs", () => {
+	it("keeps the 8 ms Apple silicon budget unless slack is a positive number", () => {
+		assert.equal(latencyBudgetMs(undefined), 8);
+		assert.equal(latencyBudgetMs(""), 8);
+		assert.equal(latencyBudgetMs("1"), 8);
+		assert.equal(latencyBudgetMs("0"), 8);
+		assert.equal(latencyBudgetMs("-2"), 8);
+		assert.equal(latencyBudgetMs("nope"), 8);
+	});
+
+	it("multiplies the budget by CANVIST_PERF_SLACK", () => {
+		assert.equal(latencyBudgetMs("4"), 32);
+	});
+});
 
 describe("splitFamilies", () => {
 	it("splits on commas outside quotes", () => {
@@ -79,5 +96,59 @@ describe("fontFaceCss", () => {
 			fontFaceCss([{ family: "Bytes", source: new ArrayBuffer(8) }]),
 			"",
 		);
+	});
+});
+
+/** A `FontFaceSet` whose loads finish when the test says so. */
+class SlowFonts extends EventTarget {
+	readonly #loads: (() => void)[] = [];
+
+	check(): boolean {
+		return false;
+	}
+
+	load(font: string): Promise<FontFace[]> {
+		const family = font.replace(/^\S+ \S+ \S+px /, "");
+
+		return new Promise((resolve) => {
+			this.#loads.push(() => resolve([{ family } as FontFace]));
+		});
+	}
+
+	finish(): void {
+		for (const load of this.#loads.splice(0)) {
+			load();
+		}
+	}
+}
+
+describe("FontWatcher", () => {
+	it("reports a family once its faces load", async () => {
+		const fonts = new SlowFonts();
+		const loaded: string[][] = [];
+		const watcher = new FontWatcher(
+			fonts as unknown as FontFaceSet,
+			(families) => loaded.push([...families]),
+		);
+		watcher.request(new Map([["normal 400 16px Inter", "Hi"]]));
+		fonts.finish();
+		await watcher.settled();
+
+		assert.deepEqual(loaded, [["Inter"]]);
+	});
+
+	it("reports nothing that finishes loading after it is disposed", async () => {
+		const fonts = new SlowFonts();
+		const loaded: string[][] = [];
+		const watcher = new FontWatcher(
+			fonts as unknown as FontFaceSet,
+			(families) => loaded.push([...families]),
+		);
+		watcher.request(new Map([["normal 400 16px Inter", "Hi"]]));
+		watcher.dispose();
+		fonts.finish();
+		await watcher.settled();
+
+		assert.deepEqual(loaded, []);
 	});
 });

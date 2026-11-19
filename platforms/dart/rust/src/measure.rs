@@ -94,7 +94,7 @@ impl HostMeasurer {
 	}
 
 	/// Forget which fonts the host knows, for a host that cleared its own
-	/// caches.
+	/// caches or a new layout that numbers fonts from zero.
 	pub(crate) fn resend_fonts(&mut self) {
 		self.fonts_sent = 0;
 	}

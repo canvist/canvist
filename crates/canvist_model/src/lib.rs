@@ -118,6 +118,8 @@ pub use step::StepError;
 pub use step::StepMap;
 pub use table::GridCell;
 pub use table::GridRect;
+pub use table::MAX_COLSPAN;
+pub use table::MAX_ROWSPAN;
 pub use table::TableMap;
 pub use transaction::Commit;
 pub use transaction::Transaction;

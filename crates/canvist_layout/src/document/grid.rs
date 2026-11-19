@@ -17,6 +17,8 @@ use std::ops::Range;
 
 use canvist_model::Block;
 use canvist_model::Document;
+use canvist_model::MAX_COLSPAN;
+use canvist_model::MAX_ROWSPAN;
 #[cfg(feature = "tables")]
 use canvist_model::TableMap;
 use canvist_model::Value;
@@ -202,15 +204,21 @@ pub(crate) fn table_map(
 	(map, hints)
 }
 
-/// A cell's `colspan` or `rowspan`, at least one.
+/// A cell's `colspan` or `rowspan`, at least one and at most what a browser
+/// draws, so server-rendered HTML carries the span the grid was built with.
 pub(crate) fn span_attr(doc: &Document, cell: &Block, key: &str) -> usize {
 	let defaults = &doc.schema().block(cell.kind()).attrs;
+	let most = if key == "colspan" {
+		MAX_COLSPAN
+	} else {
+		MAX_ROWSPAN
+	};
 
 	attr(cell.attrs(), defaults, key)
 		.and_then(Value::as_int)
 		.and_then(|value| usize::try_from(value).ok())
 		.unwrap_or(1)
-		.max(1)
+		.clamp(1, most)
 }
 
 #[cfg(feature = "tables")]
