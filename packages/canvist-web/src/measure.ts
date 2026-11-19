@@ -191,6 +191,8 @@ export class CanvasMeasurer implements HostMeasurer {
 	}
 
 	addFont(id: number, css: string): void {
+		// A replaced document numbers its fonts again, so an id can change font.
+		if (this.#fonts[id] !== css) this.#resolved.delete(id);
 		this.#fonts[id] = css;
 	}
 

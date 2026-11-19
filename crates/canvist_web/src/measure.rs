@@ -110,6 +110,12 @@ impl BrowserMeasurer {
 		self.host.paint_font(id.index() as u32)
 	}
 
+	/// Forget which fonts the host knows, for a new layout that numbers fonts
+	/// from zero.
+	pub(crate) fn resend_fonts(&mut self) {
+		self.fonts_sent = 0;
+	}
+
 	/// Segments measured over the measurer's life.
 	pub(crate) fn segments(&self) -> u64 {
 		self.segments
