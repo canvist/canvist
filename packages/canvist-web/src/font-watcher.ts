@@ -24,6 +24,7 @@ export class FontWatcher {
 	readonly #seen = new Map<string, Set<string>>();
 	readonly #pending = new Set<Promise<void>>();
 	readonly #onLoadingDone: (event: FontFaceSetLoadEvent) => void;
+	#disposed = false;
 
 	constructor(
 		fonts: FontFaceSet,
@@ -89,7 +90,9 @@ export class FontWatcher {
 	#load(font: string, characters: string): void {
 		const pending: Promise<void> = this.#fonts.load(font, characters).then(
 			(faces) => {
-				if (faces.length > 0) {
+				// Loads requested before `dispose` can finish after it, when the
+				// editor that asked is gone.
+				if (faces.length > 0 && !this.#disposed) {
 					this.#loaded(faces.map(familyName));
 				}
 			},
@@ -99,8 +102,9 @@ export class FontWatcher {
 		this.#pending.add(pending);
 	}
 
-	/** Stop listening. */
+	/** Stop listening, and stop reporting faces that are still loading. */
 	dispose(): void {
+		this.#disposed = true;
 		this.#fonts.removeEventListener("loadingdone", this.#onLoadingDone);
 	}
 }

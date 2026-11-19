@@ -1,4 +1,5 @@
-//! Token lifetimes and refreshes are enforced on real WebSocket connections.
+//! Token lifetimes, refreshes, and re-authentication are enforced on real
+//! WebSocket connections.
 
 mod support;
 
@@ -69,7 +70,11 @@ async fn authenticate(socket: &mut Socket, address: &str, token: &str) -> (u8, S
 	encoder.write_var(0_u8);
 	encoder.write_string(token);
 	send(socket, frame(address, &encoder.to_vec())).await;
+	auth_reply(socket, address).await
+}
 
+/// The next auth message for `address`: its kind and reason.
+async fn auth_reply(socket: &mut Socket, address: &str) -> (u8, String) {
 	loop {
 		let bytes = binary(socket).await;
 		let mut cursor = Cursor::new(&bytes);
@@ -350,4 +355,61 @@ fn paragraph() -> Vec<u8> {
 	let block = blocks.push_back(&mut txn, MapPrelim::default());
 	block.insert(&mut txn, "type", "paragraph");
 	txn.encode_update_v1()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hocuspocus_reopens_a_deleted_document_in_a_new_room() {
+	let fixture = Fixture::start().await;
+	let mut socket = connect(&fixture.hocuspocus_url()).await;
+	let token = fixture.token("doc", Scope::Write);
+	assert_eq!(authenticate(&mut socket, "doc", &token).await.0, 2);
+
+	fixture
+		.api()
+		.delete("/v1/documents/doc")
+		.send()
+		.await
+		.expect("deletes");
+	assert_eq!(
+		auth_reply(&mut socket, "doc").await,
+		(1, "document deleted".to_owned())
+	);
+
+	// A provider created again for the same name authenticates on the same
+	// socket; its edits must reach a room that is saved and shared.
+	assert_eq!(authenticate(&mut socket, "doc", &token).await.0, 2);
+	send(&mut socket, frame("doc", &protocol::update(paragraph()))).await;
+	let api = fixture.api();
+	let mut blocks = 0;
+
+	for _ in 0..50 {
+		let response = api.get("/v1/documents/doc").send().await.expect("exports");
+
+		if response.status() == 200 {
+			blocks = block_count(&response.bytes().await.expect("a body"));
+		}
+
+		if blocks == 1 {
+			break;
+		}
+
+		tokio::time::sleep(Duration::from_millis(20)).await;
+	}
+
+	assert_eq!(blocks, 1, "the edit reached the document's live room");
+}
+
+/// The number of blocks in a v1 document state.
+fn block_count(state: &[u8]) -> u32 {
+	use yrs::Array;
+	use yrs::Transact;
+	use yrs::Update;
+	use yrs::updates::decoder::Decode;
+
+	let doc = yrs::Doc::new();
+	let blocks = doc.get_or_insert_array("blocks");
+	doc.transact_mut()
+		.apply_update(Update::decode_v1(state).expect("decodes"))
+		.expect("applies");
+	blocks.len(&doc.transact())
 }

@@ -555,8 +555,14 @@ fn hanging_width(text: &str, items: &[Item], line: &Line) -> f32 {
 		}
 
 		let trailing = item.trailing_space(text, piece.range.start);
-		let beyond = item.span(text, piece.range.end, item.range.end);
-		hang += (trailing - beyond).max(0.0);
+
+		// Without trailing spaces nothing hangs, and measuring the rest of a
+		// word on every line it wraps across would cost quadratic time.
+		if trailing > 0.0 {
+			let beyond = item.span(text, piece.range.end, item.range.end);
+			hang += (trailing - beyond).max(0.0);
+		}
+
 		break;
 	}
 

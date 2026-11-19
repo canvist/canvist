@@ -10,9 +10,16 @@ use std::fmt;
 /// produce bit-identical positions whatever order heights are updated in.
 pub(crate) const UNITS_PER_PX: f64 = 64.0;
 
-/// Convert pixels to fixed-point units, rounding to the nearest unit.
+/// The furthest from zero, in pixels, a position or height converts to.
+/// Sizes from document attributes can be any finite number; clamping them
+/// keeps sums of heights inside `i64`, as browsers saturate `LayoutUnit`,
+/// while leaving room for documents far longer than any real one.
+const MAX_PX: f64 = 2_147_483_648.0;
+
+/// Convert pixels to fixed-point units, rounding to the nearest unit and
+/// clamping to [`MAX_PX`].
 pub(crate) fn to_units(px: f32) -> i64 {
-	(f64::from(px) * UNITS_PER_PX).round() as i64
+	(f64::from(px).clamp(-MAX_PX, MAX_PX) * UNITS_PER_PX).round() as i64
 }
 
 /// Convert fixed-point units back to pixels.
@@ -242,6 +249,15 @@ mod tests {
 		assert_eq!(to_units(1.0), 64);
 		assert_eq!(to_px(96), 1.5);
 		assert_eq!(snap(25.6), 1638.0 / 64.0);
+	}
+
+	#[test]
+	fn units_clamp_so_heights_can_be_summed() {
+		let most = to_units(f32::MAX);
+
+		assert_eq!(most, to_units(MAX_PX as f32));
+		assert_eq!(to_units(-f32::MAX), -most);
+		assert!(most.checked_mul(1 << 20).is_some(), "a million summed");
 	}
 
 	#[test]

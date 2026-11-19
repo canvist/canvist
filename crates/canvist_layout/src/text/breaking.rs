@@ -14,8 +14,6 @@ use std::ops::Range;
 use super::items::BreakAfter;
 use super::items::Item;
 use super::items::ItemKind;
-use super::items::grapheme_boundaries;
-use super::items::slice;
 
 /// Widths within this tolerance of the available width still fit, so float
 /// rounding in summed advances never wraps a line that fits exactly.
@@ -266,22 +264,23 @@ impl Breaker<'_> {
 
 	/// The furthest grapheme boundary after `cursor` that keeps the line
 	/// within the available width, taking at least one grapheme. `None` when
-	/// the unit is a single grapheme.
+	/// the unit is a single grapheme. Every grapheme boundary of text may
+	/// take the cut, but only the end of an atomic item.
 	fn emergency_cut(&self, cursor: Cursor, last: usize) -> Option<u32> {
 		let unit_end = self.items[last].range.end;
 		let mut width = 0.0;
 		let mut cut = None;
 		let steps = self.items[cursor.item..=last]
 			.iter()
-			.flat_map(|item| self.cut_steps(item, cursor.offset));
+			.flat_map(|item| item.grapheme_spans(self.text, cursor.offset));
 
-		for (item, step) in steps {
-			width += item.span(self.text, step.start, step.end);
+		for (end, step) in steps {
+			width += step;
 
 			let fits = width <= self.available + EPSILON;
 
-			if (fits || cut.is_none()) && step.end < unit_end {
-				cut = Some(step.end);
+			if (fits || cut.is_none()) && end < unit_end {
+				cut = Some(end);
 			}
 
 			if !fits {
@@ -290,36 +289,6 @@ impl Breaker<'_> {
 		}
 
 		cut
-	}
-
-	/// The ranges between the places an emergency cut may fall in `item`
-	/// from `offset` on: every grapheme boundary of text, but only the end
-	/// of an atomic item.
-	fn cut_steps<'item>(
-		&self,
-		item: &'item Item,
-		offset: u32,
-	) -> impl Iterator<Item = (&'item Item, Range<u32>)> {
-		let start = item.range.start.max(offset);
-
-		let boundaries = if matches!(item.kind, ItemKind::Text { .. }) {
-			let local = slice(self.text, &(start..item.range.end));
-			grapheme_boundaries(local)
-				.into_iter()
-				.skip(1)
-				.map(|boundary| start + boundary)
-				.collect()
-		} else {
-			vec![item.range.end]
-		};
-
-		boundaries
-			.into_iter()
-			.scan(start, move |previous, boundary| {
-				let step = *previous..boundary;
-				*previous = boundary;
-				Some((item, step))
-			})
 	}
 }
 
@@ -396,6 +365,15 @@ mod tests {
 	fn splits_words_wider_than_the_line() {
 		assert_eq!(lines("abcdefgh ij", 30.0), ["abc", "def", "gh ", "ij"]);
 		assert_eq!(lines("x", 1.0), ["x"]);
+	}
+
+	#[test]
+	fn splits_long_words_between_multibyte_graphemes() {
+		let family = "👩\u{200D}👩\u{200D}👧";
+		let word = format!("éé{family}e\u{301}x");
+
+		// The family is five chars, 50 px, so it overflows a line on its own.
+		assert_eq!(lines(&word, 30.0), ["éé", family, "e\u{301}x"]);
 	}
 
 	#[test]

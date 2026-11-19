@@ -18,7 +18,7 @@
 <p align="center">
   <a href="https://crates.io/crates/canvist_desktop"><img src="https://img.shields.io/crates/v/canvist_desktop?color=3B2CF5" alt="crates.io version" /></a>
   <a href="https://docs.rs/canvist_desktop"><img src="https://img.shields.io/docsrs/canvist_desktop" alt="docs.rs status" /></a>
-  <a href="https://github.com/canvist/canvist/actions/workflows/desktop.yml"><img src="https://github.com/canvist/canvist/actions/workflows/desktop.yml/badge.svg?branch=main" alt="desktop status" /></a>
+  <a href="https://github.com/canvist/canvist/actions/workflows/ci.yml"><img src="https://github.com/canvist/canvist/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
   <a href="https://unlicense.org"><img src="https://img.shields.io/badge/license-Unlicense-3B2CF5" alt="Unlicense" /></a>
 </p>
 

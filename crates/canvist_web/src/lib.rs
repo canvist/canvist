@@ -591,6 +591,8 @@ impl WebEditor {
 		let mut options = layout_options(&self.options, width);
 		options.border_scale = border_scale;
 		self.layout = DocumentLayout::new(self.doc.document(), self.options.theme.clone(), options);
+		// The new layout numbers fonts from zero, so the host learns them again.
+		self.measurer.resend_fonts();
 		self.painted = None;
 		self.full_repaint = true;
 	}

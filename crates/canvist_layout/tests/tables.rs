@@ -117,6 +117,22 @@ fn merged_cells_span_columns_and_rows() {
 }
 
 #[test]
+fn a_colspan_past_what_browsers_allow_is_clamped() {
+	// JSON can hold any span; HTML clamps a colspan to 1,000 columns.
+	let doc = doc(json!([table(&[
+		&["a", "b|9223372036854775807x1"],
+		&["c", "d"]
+	])]));
+	let layout = layout(&doc, WIDTH);
+	let a = rect(&layout, cell_text(&doc, 0, 0));
+	let b = rect(&layout, cell_text(&doc, 0, 1));
+	let c = rect(&layout, cell_text(&doc, 1, 0));
+
+	assert_eq!(a.x, c.x, "both rows start in the first column");
+	assert!(b.x > a.x && b.x + b.width <= WIDTH, "{b:?} fits the table");
+}
+
+#[test]
 fn colwidth_fixes_a_column_and_the_rest_share_what_is_left() {
 	let mut content = table(&[&["Fixed", "Free", "Free"]]);
 	content["content"][0]["content"][0]["attrs"]["colwidth"] = json!([100]);
@@ -303,6 +319,19 @@ fn html_writes_a_fixed_table_with_layouts_column_widths() {
 		"{}",
 		html.css
 	);
+}
+
+#[test]
+fn html_writes_the_spans_the_grid_was_built_with() {
+	// JSON can hold any span; the grid clamps it, and so must the attribute.
+	let doc = doc(json!([table(&[&["a|5000x1", "b|1x100000"], &["c", "d"]])]));
+	let theme = Arc::new(Theme::starter_kit());
+	let html = to_html(&doc, &theme, &HtmlOptions::new(WIDTH));
+
+	assert!(html.html.contains("colspan=\"1000\""), "{}", html.html);
+	assert!(html.html.contains("rowspan=\"65534\""), "{}", html.html);
+	assert!(!html.html.contains("5000"), "{}", html.html);
+	assert!(!html.html.contains("100000"), "{}", html.html);
 }
 
 #[test]
