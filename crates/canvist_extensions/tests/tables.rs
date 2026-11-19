@@ -1168,11 +1168,12 @@ fn markdown_pipe_tables_keep_alignment_escapes_and_marks() {
 		markdown_round_trip("| a | b |\n| --- | --- |\n| c | d | e |\n| f |"),
 		"| a | b |\n| --- | --- |\n| c | d |\n| f |  |"
 	);
-	// A pipe inside a code span still splits the cell, as in GitHub.
-	assert_eq!(
-		markdown_round_trip("| a | b |\n| --- | --- |\n| `x|y` |"),
-		"| a | b |\n| --- | --- |\n| \\`x | y\\` |"
-	);
+	// A pipe inside a code span still splits the cell, as in GitHub. Each
+	// cell then holds a lone backtick, which opens nothing, so it needs no
+	// escape, and the table reads back the same.
+	let split = markdown_round_trip("| a | b |\n| --- | --- |\n| `x|y` |");
+	assert_eq!(split, "| a | b |\n| --- | --- |\n| `x | y` |");
+	assert_eq!(markdown_round_trip(&split), split);
 }
 
 #[test]

@@ -388,3 +388,84 @@ fn missing_schema_types_do_not_bypass_the_budget() {
 		Some(clipboard::NestingLimitExceeded)
 	);
 }
+
+/// Plain text through Markdown: written, read back, and its text again.
+fn markdown_text(text: &str) -> (String, String) {
+	let typist = Typist::new();
+	let schema = typist.editor.schema();
+	let markdown = clipboard::to_markdown(schema, &clipboard::from_plain_text(schema, text));
+	let read = clipboard::to_plain_text(schema, &clipboard::from_markdown(schema, &markdown));
+	(markdown, read)
+}
+
+#[test]
+fn markdown_escapes_only_what_would_read_as_syntax() {
+	for (text, markdown) in [
+		("snake_case_word and a * b", "snake_case_word and a * b"),
+		("Not fit to print [a note]", "Not fit to print [a note]"),
+		(
+			"see https://canvist.dev/_a_b_?q=1~2 now",
+			"see https://canvist.dev/_a_b_?q=1~2 now",
+		),
+		("C:\\Users\\me and 50% off!", "C:\\Users\\me and 50% off!"),
+		("a lone ` backtick", "a lone ` backtick"),
+		("*stars* and _under_", "\\*stars\\* and \\_under\\_"),
+		("[label](href) is text", "\\[label\\](href) is text"),
+		("`one` and `two`", "\\`one\\` and \\`two\\`"),
+		("a trailing backslash \\", "a trailing backslash \\\\"),
+		("~~struck~~", "\\~\\~struck\\~\\~"),
+	] {
+		let (written, read) = markdown_text(text);
+		assert_eq!(written, markdown, "{text}");
+		assert_eq!(read, text, "{text} reads back");
+	}
+}
+
+#[test]
+fn markdown_bare_urls_are_text() {
+	let typist = Typist::new();
+	let schema = typist.editor.schema();
+
+	for markdown in [
+		"see https://canvist.dev/_a_ now",
+		"see https://canvist.dev/\\_a\\_ now",
+	] {
+		let slice = clipboard::from_markdown(schema, markdown);
+		assert_eq!(
+			clipboard::to_plain_text(schema, &slice),
+			"see https://canvist.dev/_a_ now",
+			"{markdown}"
+		);
+		assert!(
+			!clipboard::to_html(schema, &slice).contains("<em>"),
+			"{markdown} isn't italic"
+		);
+	}
+
+	// Outside a URL the same text is emphasis.
+	let html = clipboard::to_html(schema, &clipboard::from_markdown(schema, "see /_a_ now"));
+	assert!(html.contains("<em>a</em>"), "{html}");
+}
+
+#[test]
+fn markdown_two_trailing_spaces_make_a_hard_break() {
+	let typist = Typist::new();
+	let schema = typist.editor.schema();
+	let read = |markdown: &str| {
+		clipboard::to_markdown(schema, &clipboard::from_markdown(schema, markdown))
+	};
+
+	assert_eq!(read("one  \ntwo"), "one\\\ntwo");
+	assert_eq!(read("one \ntwo"), "one two");
+	assert_eq!(read("one\ntwo  "), "one two");
+}
+
+proptest::proptest! {
+	/// Any text, however much of it looks like Markdown, reads back as the
+	/// same text after a trip through Markdown.
+	#[test]
+	fn markdown_keeps_punctuation_heavy_text(text in "[a-z \\\\*_`~\\[\\]()!#:<>=$|.-]{1,24}") {
+		let (written, read) = markdown_text(&text);
+		proptest::prop_assert_eq!(read, text.trim().to_owned(), "{}", written);
+	}
+}
