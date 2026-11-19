@@ -1,6 +1,6 @@
 ---
-"canvist_model": fix
-"canvist_layout": fix
+"rust:canvist_model": fix
+"rust:canvist_layout": fix
 ---
 
 # Clamp table colspans to 1,000 columns

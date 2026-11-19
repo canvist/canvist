@@ -118,164 +118,164 @@ Deployment, infrastructure, and implementation notes for the website and canvist
 # =============================================================================
 
 # Published crates. The `canvist` crate is the one people install: it
-# re-exports the others under modules and features. Its id names the
-# ecosystem because the Dart package is called `canvist` too.
-[package.canvist]
+# re-exports the others under modules and features. Every crate's id is
+# `rust:` followed by its crate name (see AGENTS.md).
+[package."rust:canvist"]
 path = "crates/canvist"
 
-[package.canvist_model]
+[package."rust:canvist_model"]
 path = "crates/canvist_model"
 
-[package.canvist_core]
+[package."rust:canvist_core"]
 path = "crates/canvist_core"
 
-[package.canvist_extensions]
+[package."rust:canvist_extensions"]
 path = "crates/canvist_extensions"
 
 # One crate per extension (`crates/extensions/*`). `canvist_extensions`
 # combines them behind its features.
-[package.canvist_extension_audio-rust]
+[package."rust:canvist_extension_audio"]
 path = "crates/extensions/audio"
 
-[package.canvist_extension_blockquote-rust]
+[package."rust:canvist_extension_blockquote"]
 path = "crates/extensions/blockquote"
 
-[package.canvist_extension_bold-rust]
+[package."rust:canvist_extension_bold"]
 path = "crates/extensions/bold"
 
-[package.canvist_extension_callout-rust]
+[package."rust:canvist_extension_callout"]
 path = "crates/extensions/callout"
 
-[package.canvist_extension_character_count-rust]
+[package."rust:canvist_extension_character_count"]
 path = "crates/extensions/character_count"
 
-[package.canvist_extension_clear_formatting-rust]
+[package."rust:canvist_extension_clear_formatting"]
 path = "crates/extensions/clear_formatting"
 
-[package.canvist_extension_clipboard-rust]
+[package."rust:canvist_extension_clipboard"]
 path = "crates/extensions/clipboard"
 
-[package.canvist_extension_code-rust]
+[package."rust:canvist_extension_code"]
 path = "crates/extensions/code"
 
-[package.canvist_extension_code_block-rust]
+[package."rust:canvist_extension_code_block"]
 path = "crates/extensions/code_block"
 
-[package.canvist_extension_comments-rust]
+[package."rust:canvist_extension_comments"]
 path = "crates/extensions/comments"
 
-[package.canvist_extension_conditional-rust]
+[package."rust:canvist_extension_conditional"]
 path = "crates/extensions/conditional"
 
-[package.canvist_extension_details-rust]
+[package."rust:canvist_extension_details"]
 path = "crates/extensions/details"
 
-[package.canvist_extension_document-rust]
+[package."rust:canvist_extension_document"]
 path = "crates/extensions/document"
 
-[package.canvist_extension_drag_handle-rust]
+[package."rust:canvist_extension_drag_handle"]
 path = "crates/extensions/drag_handle"
 
-[package.canvist_extension_emoji-rust]
+[package."rust:canvist_extension_emoji"]
 path = "crates/extensions/emoji"
 
-[package.canvist_extension_file-rust]
+[package."rust:canvist_extension_file"]
 path = "crates/extensions/file"
 
-[package.canvist_extension_find_and_replace-rust]
+[package."rust:canvist_extension_find_and_replace"]
 path = "crates/extensions/find_and_replace"
 
-[package.canvist_extension_hard_break-rust]
+[package."rust:canvist_extension_hard_break"]
 path = "crates/extensions/hard_break"
 
-[package.canvist_extension_hashtag-rust]
+[package."rust:canvist_extension_hashtag"]
 path = "crates/extensions/hashtag"
 
-[package.canvist_extension_heading-rust]
+[package."rust:canvist_extension_heading"]
 path = "crates/extensions/heading"
 
-[package.canvist_extension_highlight-rust]
+[package."rust:canvist_extension_highlight"]
 path = "crates/extensions/highlight"
 
-[package.canvist_extension_history-rust]
+[package."rust:canvist_extension_history"]
 path = "crates/extensions/history"
 
-[package.canvist_extension_horizontal_rule-rust]
+[package."rust:canvist_extension_horizontal_rule"]
 path = "crates/extensions/horizontal_rule"
 
-[package.canvist_extension_image-rust]
+[package."rust:canvist_extension_image"]
 path = "crates/extensions/image"
 
-[package.canvist_extension_ink-rust]
+[package."rust:canvist_extension_ink"]
 path = "crates/extensions/ink"
 
-[package.canvist_extension_italic-rust]
+[package."rust:canvist_extension_italic"]
 path = "crates/extensions/italic"
 
-[package.canvist_extension_kinetic-rust]
+[package."rust:canvist_extension_kinetic"]
 path = "crates/extensions/kinetic"
 
-[package.canvist_extension_link-rust]
+[package."rust:canvist_extension_link"]
 path = "crates/extensions/link"
 
-[package.canvist_extension_list-rust]
+[package."rust:canvist_extension_list"]
 path = "crates/extensions/list"
 
-[package.canvist_extension_mathematics-rust]
+[package."rust:canvist_extension_mathematics"]
 path = "crates/extensions/mathematics"
 
-[package.canvist_extension_media-rust]
+[package."rust:canvist_extension_media"]
 path = "crates/extensions/media"
 
-[package.canvist_extension_mention-rust]
+[package."rust:canvist_extension_mention"]
 path = "crates/extensions/mention"
 
-[package.canvist_extension_paragraph-rust]
+[package."rust:canvist_extension_paragraph"]
 path = "crates/extensions/paragraph"
 
-[package.canvist_extension_placeholder-rust]
+[package."rust:canvist_extension_placeholder"]
 path = "crates/extensions/placeholder"
 
-[package.canvist_extension_strike-rust]
+[package."rust:canvist_extension_strike"]
 path = "crates/extensions/strike"
 
-[package.canvist_extension_subscript-rust]
+[package."rust:canvist_extension_subscript"]
 path = "crates/extensions/subscript"
 
-[package.canvist_extension_suggestion-rust]
+[package."rust:canvist_extension_suggestion"]
 path = "crates/extensions/suggestion"
 
-[package.canvist_extension_superscript-rust]
+[package."rust:canvist_extension_superscript"]
 path = "crates/extensions/superscript"
 
-[package.canvist_extension_table-rust]
+[package."rust:canvist_extension_table"]
 path = "crates/extensions/table"
 
-[package.canvist_extension_table_of_contents-rust]
+[package."rust:canvist_extension_table_of_contents"]
 path = "crates/extensions/table_of_contents"
 
-[package.canvist_extension_text_align-rust]
+[package."rust:canvist_extension_text_align"]
 path = "crates/extensions/text_align"
 
-[package.canvist_extension_text_style-rust]
+[package."rust:canvist_extension_text_style"]
 path = "crates/extensions/text_style"
 
-[package.canvist_extension_trailing_node-rust]
+[package."rust:canvist_extension_trailing_node"]
 path = "crates/extensions/trailing_node"
 
-[package.canvist_extension_twitch-rust]
+[package."rust:canvist_extension_twitch"]
 path = "crates/extensions/twitch"
 
-[package.canvist_extension_typography-rust]
+[package."rust:canvist_extension_typography"]
 path = "crates/extensions/typography"
 
-[package.canvist_extension_underline-rust]
+[package."rust:canvist_extension_underline"]
 path = "crates/extensions/underline"
 
-[package.canvist_extension_youtube-rust]
+[package."rust:canvist_extension_youtube"]
 path = "crates/extensions/youtube"
 
-[package.canvist_layout]
+[package."rust:canvist_layout"]
 path = "crates/canvist_layout"
 # The `canvist` Dart package's Rust crate builds from crates.io outside this
 # workspace, so it pins the release it was generated against.
@@ -283,10 +283,10 @@ versioned_files = [
 	{ path = "platforms/dart/rust/Cargo.toml", type = "cargo", fields = ["dependencies"], prefix = "=" },
 ]
 
-[package.canvist_collab]
+[package."rust:canvist_collab"]
 path = "crates/canvist_collab"
 
-[package.canvist_headless]
+[package."rust:canvist_headless"]
 path = "crates/canvist_headless"
 # The `canvist` Dart package's Rust crate builds from crates.io outside this
 # workspace, so it pins the release it was generated against.
@@ -296,35 +296,35 @@ versioned_files = [
 
 # The canvas: canvist's design-tool sibling of the text editor
 # (`docs/internal/canvas.md`).
-[package.canvist_scene]
+[package."rust:canvist_scene"]
 path = "crates/canvist_scene"
 
-[package.canvist_canvas]
+[package."rust:canvist_canvas"]
 path = "crates/canvist_canvas"
 
-[package.canvist_paint]
+[package."rust:canvist_paint"]
 path = "crates/canvist_paint"
 
 # The editor for macOS, Windows, and Linux: winit, vello, and AccessKit.
-[package.canvist_desktop]
+[package."rust:canvist_desktop"]
 path = "crates/canvist_desktop"
 publish = { enabled = true }
 
 # Dictation (`docs/internal/dictation.md`): the wire protocol clients and
 # the relay share, and the relay itself, a self-hosted server versioned with
 # the protocol it speaks.
-[package.canvist_dictation]
+[package."rust:canvist_dictation"]
 path = "crates/canvist_dictation"
 publish = { enabled = true }
 
-[package.canvist_dictation_relay]
+[package."rust:canvist_dictation_relay"]
 path = "services/dictation"
 publish = { enabled = true }
 changelog = false
 
 # The canvas in the browser. It ships inside `@canvist/canvas` and is never
 # published on its own.
-[package.canvist_canvas_wasm]
+[package."rust:canvist_canvas_wasm"]
 path = "crates/canvist_canvas_wasm"
 publish = { enabled = false }
 changelog = false
@@ -333,18 +333,18 @@ changelog = false
 # report the right version, but they are never published on their own:
 # `canvist_ffi` ships inside the Swift and Android artifacts and
 # `canvist_headless_wasm` inside `@canvist/headless`.
-[package.canvist_ffi]
+[package."rust:canvist_ffi"]
 path = "crates/canvist_ffi"
 publish = { enabled = false }
 changelog = false
 
-[package.canvist_headless_wasm]
+[package."rust:canvist_headless_wasm"]
 path = "crates/canvist_headless_wasm"
 publish = { enabled = false }
 changelog = false
 
 # `canvist_web` ships inside `@canvist/web`.
-[package.canvist_web]
+[package."rust:canvist_web"]
 path = "crates/canvist_web"
 publish = { enabled = false }
 changelog = false
@@ -656,71 +656,71 @@ packages = [
 	"@canvist/web",
 	"dart:canvist",
 	"dart:canvist_extensions",
-	"canvist",
-	"canvist_canvas",
-	"canvist_canvas_wasm",
-	"canvist_collab",
-	"canvist_core",
-	"canvist_desktop",
-	"canvist_dictation",
-	"canvist_dictation_relay",
-	"canvist_extensions",
-	"canvist_extension_audio-rust",
-	"canvist_extension_blockquote-rust",
-	"canvist_extension_bold-rust",
-	"canvist_extension_callout-rust",
-	"canvist_extension_character_count-rust",
-	"canvist_extension_clear_formatting-rust",
-	"canvist_extension_clipboard-rust",
-	"canvist_extension_code-rust",
-	"canvist_extension_code_block-rust",
-	"canvist_extension_comments-rust",
-	"canvist_extension_conditional-rust",
-	"canvist_extension_details-rust",
-	"canvist_extension_document-rust",
-	"canvist_extension_drag_handle-rust",
-	"canvist_extension_emoji-rust",
-	"canvist_extension_file-rust",
-	"canvist_extension_find_and_replace-rust",
-	"canvist_extension_hard_break-rust",
-	"canvist_extension_hashtag-rust",
-	"canvist_extension_heading-rust",
-	"canvist_extension_highlight-rust",
-	"canvist_extension_history-rust",
-	"canvist_extension_horizontal_rule-rust",
-	"canvist_extension_image-rust",
-	"canvist_extension_ink-rust",
-	"canvist_extension_italic-rust",
-	"canvist_extension_kinetic-rust",
-	"canvist_extension_link-rust",
-	"canvist_extension_list-rust",
-	"canvist_extension_mathematics-rust",
-	"canvist_extension_media-rust",
-	"canvist_extension_mention-rust",
-	"canvist_extension_paragraph-rust",
-	"canvist_extension_placeholder-rust",
-	"canvist_extension_strike-rust",
-	"canvist_extension_subscript-rust",
-	"canvist_extension_suggestion-rust",
-	"canvist_extension_superscript-rust",
-	"canvist_extension_table-rust",
-	"canvist_extension_table_of_contents-rust",
-	"canvist_extension_text_align-rust",
-	"canvist_extension_text_style-rust",
-	"canvist_extension_trailing_node-rust",
-	"canvist_extension_twitch-rust",
-	"canvist_extension_typography-rust",
-	"canvist_extension_underline-rust",
-	"canvist_extension_youtube-rust",
-	"canvist_ffi",
+	"rust:canvist",
+	"rust:canvist_canvas",
+	"rust:canvist_canvas_wasm",
+	"rust:canvist_collab",
+	"rust:canvist_core",
+	"rust:canvist_desktop",
+	"rust:canvist_dictation",
+	"rust:canvist_dictation_relay",
+	"rust:canvist_extensions",
+	"rust:canvist_extension_audio",
+	"rust:canvist_extension_blockquote",
+	"rust:canvist_extension_bold",
+	"rust:canvist_extension_callout",
+	"rust:canvist_extension_character_count",
+	"rust:canvist_extension_clear_formatting",
+	"rust:canvist_extension_clipboard",
+	"rust:canvist_extension_code",
+	"rust:canvist_extension_code_block",
+	"rust:canvist_extension_comments",
+	"rust:canvist_extension_conditional",
+	"rust:canvist_extension_details",
+	"rust:canvist_extension_document",
+	"rust:canvist_extension_drag_handle",
+	"rust:canvist_extension_emoji",
+	"rust:canvist_extension_file",
+	"rust:canvist_extension_find_and_replace",
+	"rust:canvist_extension_hard_break",
+	"rust:canvist_extension_hashtag",
+	"rust:canvist_extension_heading",
+	"rust:canvist_extension_highlight",
+	"rust:canvist_extension_history",
+	"rust:canvist_extension_horizontal_rule",
+	"rust:canvist_extension_image",
+	"rust:canvist_extension_ink",
+	"rust:canvist_extension_italic",
+	"rust:canvist_extension_kinetic",
+	"rust:canvist_extension_link",
+	"rust:canvist_extension_list",
+	"rust:canvist_extension_mathematics",
+	"rust:canvist_extension_media",
+	"rust:canvist_extension_mention",
+	"rust:canvist_extension_paragraph",
+	"rust:canvist_extension_placeholder",
+	"rust:canvist_extension_strike",
+	"rust:canvist_extension_subscript",
+	"rust:canvist_extension_suggestion",
+	"rust:canvist_extension_superscript",
+	"rust:canvist_extension_table",
+	"rust:canvist_extension_table_of_contents",
+	"rust:canvist_extension_text_align",
+	"rust:canvist_extension_text_style",
+	"rust:canvist_extension_trailing_node",
+	"rust:canvist_extension_twitch",
+	"rust:canvist_extension_typography",
+	"rust:canvist_extension_underline",
+	"rust:canvist_extension_youtube",
+	"rust:canvist_ffi",
 	"canvist_flutter",
-	"canvist_headless",
-	"canvist_headless_wasm",
-	"canvist_layout",
-	"canvist_model",
-	"canvist_paint",
-	"canvist_scene",
-	"canvist_web",
+	"rust:canvist_headless",
+	"rust:canvist_headless_wasm",
+	"rust:canvist_layout",
+	"rust:canvist_model",
+	"rust:canvist_paint",
+	"rust:canvist_scene",
+	"rust:canvist_web",
 ]
 tag = true
 release = true
@@ -746,13 +746,13 @@ changelog = false
 
 # canvist Cloud: one image that runs as the `sync` and `convert` Railway
 # services. It is versioned with the app, not the SDK.
-[package.canvist_cloud]
+[package."rust:canvist_cloud"]
 path = "services/cloud"
 publish = { enabled = false }
 changelog = false
 
 [group.app]
-packages = ["canvist_cloud", "website"]
+packages = ["rust:canvist_cloud", "website"]
 tag = true
 release = true
 version_format = "namespaced"

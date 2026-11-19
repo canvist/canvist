@@ -1,5 +1,5 @@
 ---
-"canvist_layout": fix
+"rust:canvist_layout": fix
 ---
 
 # Lay out blocks with absurdly large heights

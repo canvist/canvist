@@ -1,5 +1,5 @@
 ---
-canvist_cloud: fix
+"rust:canvist_cloud": fix
 ---
 
 # Hocuspocus sockets let go of deleted documents

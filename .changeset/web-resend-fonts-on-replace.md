@@ -1,6 +1,6 @@
 ---
 "@canvist/web": fix
-"canvist_web": fix
+"rust:canvist_web": fix
 ---
 
 # Measure a replaced document in its own fonts

@@ -1,6 +1,6 @@
 ---
-"canvist_extension_table-rust": fix
-"canvist_headless": fix
+"rust:canvist_extension_table": fix
+"rust:canvist_headless": fix
 "@canvist/headless": fix
 ---
 

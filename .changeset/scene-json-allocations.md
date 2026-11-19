@@ -1,5 +1,5 @@
 ---
-"canvist_scene": fix
+"rust:canvist_scene": fix
 ---
 
 # Avoid redundant allocations when importing scene JSON

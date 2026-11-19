@@ -1,5 +1,5 @@
 ---
-canvist_ffi: fix
+"rust:canvist_ffi": fix
 ---
 
 # Reading text over a reversed range no longer crashes the app

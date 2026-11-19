@@ -1,6 +1,6 @@
 ---
-"canvist_extensions": fix
-"canvist_headless": fix
+"rust:canvist_extensions": fix
+"rust:canvist_headless": fix
 "@canvist/headless": fix
 "@canvist/web": fix
 "dart:canvist": fix
