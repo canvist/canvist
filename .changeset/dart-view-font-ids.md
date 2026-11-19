@@ -1,5 +1,5 @@
 ---
-"canvist-dart": fix
+"dart:canvist": fix
 ---
 
 # Keep a view's fonts in step when its first width starts layout over
