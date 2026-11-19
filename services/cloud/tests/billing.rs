@@ -269,6 +269,7 @@ async fn checkout_starts_a_subscription_anchored_to_the_month() {
 	let project = fixture.project.as_str();
 	let anchor = Month::current().next().start_unix_seconds().to_string();
 	assert_eq!(session.field("mode"), Some("subscription"));
+	assert_eq!(session.field("allow_promotion_codes"), Some("true"));
 	assert_eq!(
 		session.field("line_items[0][price]"),
 		Some("price_canvist_builder_monthly")

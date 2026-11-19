@@ -18,6 +18,7 @@ use hmac::Hmac;
 use hmac::Mac;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use sha2::Digest;
 use sha2::Sha256;
 
@@ -62,12 +63,13 @@ pub struct Claims {
 	pub exp: u64,
 }
 
-impl Claims {
-	/// The Unix second at which access ends, including clock skew tolerance.
+impl Expiring for Claims {
 	fn expires_at(&self) -> u64 {
-		self.exp.saturating_add(LEEWAY_SECONDS)
+		self.exp
 	}
+}
 
+impl Claims {
 	/// Whether these claims cover the document `name`.
 	pub fn covers(&self, name: &DocumentName) -> bool {
 		match self.doc.strip_suffix('*') {
@@ -103,7 +105,7 @@ impl Principal {
 	pub fn expires_at(&self) -> Option<u64> {
 		match &self.access {
 			Access::Key => None,
-			Access::Token(claims) => Some(claims.expires_at()),
+			Access::Token(claims) => Some(claims.deadline()),
 		}
 	}
 
@@ -175,7 +177,19 @@ pub fn is_api_key(credential: &str) -> bool {
 	credential.starts_with("ck_")
 }
 
-/// Signs and verifies client tokens.
+/// Claims that stop being valid at a moment, in Unix seconds.
+pub trait Expiring {
+	/// When the claims expire.
+	fn expires_at(&self) -> u64;
+
+	/// The Unix second at which access ends, including clock skew tolerance.
+	fn deadline(&self) -> u64 {
+		self.expires_at().saturating_add(LEEWAY_SECONDS)
+	}
+}
+
+/// Signs and verifies HS256 tokens: client tokens, and the admin's sign-in
+/// links and sessions under a [derived](Self::derived) key.
 #[derive(Clone)]
 pub struct TokenSigner {
 	key: Vec<u8>,
@@ -197,8 +211,19 @@ impl TokenSigner {
 		}
 	}
 
+	/// A signer keyed for one `purpose` by `secret`: its tokens never verify
+	/// under [`Self::new`] with the same secret, nor under another purpose.
+	pub fn derived(secret: &str, purpose: &str) -> Self {
+		let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+			.expect("HMAC accepts keys of any length");
+		mac.update(purpose.as_bytes());
+		Self {
+			key: mac.finalize().into_bytes().to_vec(),
+		}
+	}
+
 	/// Sign `claims` as a compact JWT.
-	pub fn sign(&self, claims: &Claims) -> String {
+	pub fn sign(&self, claims: &impl Serialize) -> String {
 		let header = URL_SAFE_NO_PAD.encode(HEADER);
 		let payload =
 			URL_SAFE_NO_PAD.encode(serde_json::to_vec(claims).expect("claims always serialize"));
@@ -207,8 +232,17 @@ impl TokenSigner {
 		format!("{signing_input}.{signature}")
 	}
 
-	/// Verify `token` at `now` (Unix seconds) and return its claims.
+	/// Verify a client `token` at `now` (Unix seconds) and return its claims.
 	pub fn verify(&self, token: &str, now: u64) -> Result<Claims, AuthError> {
+		self.verify_as(token, now)
+	}
+
+	/// Verify `token` at `now` (Unix seconds) as claims of type `T`.
+	pub fn verify_as<T: DeserializeOwned + Expiring>(
+		&self,
+		token: &str,
+		now: u64,
+	) -> Result<T, AuthError> {
 		let (signing_input, signature) = token.rsplit_once('.').ok_or(AuthError::Invalid)?;
 		let (header, payload) = signing_input.split_once('.').ok_or(AuthError::Invalid)?;
 		let signature = URL_SAFE_NO_PAD
@@ -226,9 +260,9 @@ impl TokenSigner {
 		let payload = URL_SAFE_NO_PAD
 			.decode(payload)
 			.map_err(|_| AuthError::Invalid)?;
-		let claims: Claims = serde_json::from_slice(&payload).map_err(|_| AuthError::Invalid)?;
+		let claims: T = serde_json::from_slice(&payload).map_err(|_| AuthError::Invalid)?;
 
-		if claims.expires_at() <= now {
+		if claims.deadline() <= now {
 			return Err(AuthError::Expired);
 		}
 
@@ -361,6 +395,24 @@ mod tests {
 		let tampered = format!("{header}.{forged_payload}.{signature}");
 		assert_eq!(signer.verify(&tampered, 150), Err(AuthError::Invalid));
 		assert_eq!(signer.verify("not a token", 150), Err(AuthError::Invalid));
+	}
+
+	#[test]
+	fn derived_signers_do_not_accept_each_others_tokens() {
+		let secret = "0123456789abcdef0123456789abcdef";
+		let token = TokenSigner::derived(secret, "admin").sign(&claims("notes", 200));
+		assert_eq!(
+			TokenSigner::new(secret).verify(&token, 150),
+			Err(AuthError::Invalid)
+		);
+		assert_eq!(
+			TokenSigner::derived(secret, "other").verify(&token, 150),
+			Err(AuthError::Invalid)
+		);
+		assert_eq!(
+			TokenSigner::derived(secret, "admin").verify(&token, 150),
+			Ok(claims("notes", 200))
+		);
 	}
 
 	#[test]

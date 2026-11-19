@@ -49,6 +49,11 @@ export default defineConfig({
 			// The site reads the docs and the brand assets from the rest of the
 			// repository, and links the canvist packages from `packages/`.
 			fs: { allow: [repoRoot] },
+			// The admin dashboard and analytics talk to canvist Cloud on this
+			// origin, as the Caddyfile proxies them in production.
+			proxy: {
+				"/v1": process.env["CANVIST_CLOUD_URL"] ?? "http://localhost:8080",
+			},
 		},
 		// The canvist packages find their WebAssembly next to their own
 		// modules, and pre-bundling in development would move the modules
