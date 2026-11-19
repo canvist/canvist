@@ -145,9 +145,13 @@ export async function mountCanvas(
 	canvas: HTMLCanvasElement,
 	options: MountOptions = {},
 ): Promise<CanvasHandle> {
+	// A failed load is forgotten, so the next mount fetches the module again.
 	initialized ??= init(
 		options.wasmUrl ? { module_or_path: options.wasmUrl } : undefined,
-	);
+	).catch((error: unknown) => {
+		initialized = undefined;
+		throw error;
+	});
 	await initialized;
 
 	const client = randomClient();

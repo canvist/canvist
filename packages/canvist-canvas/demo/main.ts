@@ -59,14 +59,17 @@ function showTool(handle: CanvasHandle): void {
 }
 
 const scene = params.get("scene");
-const handle = await mountCanvas(canvas, {
-	...(scene === null ? { demo: true } : { scene: JSON.parse(scene) }),
-	transport: new BroadcastTransport(params.get("room") ?? "demo"),
-	preferGpu: !params.has("cpu"),
-	wasmUrl: new URL("../wasm/canvist_canvas_wasm_bg.wasm", import.meta.url),
-	stress: Number(params.get("stress") ?? 0),
-	onChange: showTool,
-});
+const mount = (): Promise<CanvasHandle> =>
+	mountCanvas(canvas, {
+		...(scene === null ? { demo: true } : { scene: JSON.parse(scene) }),
+		transport: new BroadcastTransport(params.get("room") ?? "demo"),
+		preferGpu: !params.has("cpu"),
+		wasmUrl: new URL("../wasm/canvist_canvas_wasm_bg.wasm", import.meta.url),
+		stress: Number(params.get("stress") ?? 0),
+		onChange: showTool,
+	});
+// A dropped connection while the module downloads is worth one more try.
+const handle = await mount().catch(mount);
 
 for (const [name, label, key, path] of TOOLBAR) {
 	if (!handle.tools.includes(name)) continue;

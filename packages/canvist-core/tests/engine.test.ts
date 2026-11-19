@@ -15,6 +15,7 @@ import {
 	Engine,
 	type Extensions,
 	isCanvistError,
+	loadOnce,
 	type WasmDoc,
 	type WasmEngine,
 } from "../src/mod.ts";
@@ -269,4 +270,27 @@ test("a bundled module is read from disk, or fetched from elsewhere", async () =
 
 	const remote = new URL("https://example.com/canvist.wasm");
 	assert.equal(await bundled(remote), remote);
+});
+
+test("a module loads once, and again only after a load fails", async () => {
+	const loads: (string | undefined)[] = [];
+	let fail = true;
+	const load = loadOnce<string>(async (source) => {
+		loads.push(source);
+
+		if (fail) {
+			throw new Error(`no module at ${source}`);
+		}
+	});
+
+	// Calls while it loads share the load, and its failure.
+	const first = load("offline.wasm");
+	assert.equal(load("other.wasm"), first);
+	await assert.rejects(first, /no module at offline\.wasm/);
+
+	// The failure is not kept: the next call loads again, from its source.
+	fail = false;
+	await load("online.wasm");
+	await load();
+	assert.deepEqual(loads, ["offline.wasm", "online.wasm"]);
 });

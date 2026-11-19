@@ -51,7 +51,7 @@ internal class CanvistInputConnection(
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val start = maxOf(info.initialSelStart - SURROUNDING, 0)
-            info.setInitialSurroundingSubText(text(start, info.initialSelEnd + SURROUNDING), start)
+            info.setInitialSurroundingSubText(text(start.toLong(), info.initialSelEnd.toLong() + SURROUNDING), start)
         }
     }
 
@@ -62,11 +62,12 @@ internal class CanvistInputConnection(
         return OffsetRange(minOf(selection.anchor, selection.head), maxOf(selection.anchor, selection.head))
     }
 
+    /** The text from [start] to [end], clamped to the editor's text. Offsets are longs so `end + n` cannot wrap. */
     private fun text(
-        start: Int,
-        end: Int,
+        start: Long,
+        end: Long,
     ): String {
-        val length = editor.textLength().toInt()
+        val length = editor.textLength().toLong()
 
         return editor.textIn(OffsetRange(start.coerceIn(0, length).toUInt(), end.coerceIn(0, length).toUInt()))
     }
@@ -75,7 +76,7 @@ internal class CanvistInputConnection(
         n: Int,
         flags: Int,
     ): CharSequence {
-        val start = selectionRange().start.toInt()
+        val start = selectionRange().start.toLong()
 
         return text(start - n, start)
     }
@@ -84,7 +85,7 @@ internal class CanvistInputConnection(
         n: Int,
         flags: Int,
     ): CharSequence {
-        val end = selectionRange().end.toInt()
+        val end = selectionRange().end.toLong()
 
         return text(end, end + n)
     }
@@ -109,7 +110,7 @@ internal class CanvistInputConnection(
 
         val range = selectionRange()
         val start = maxOf(range.start.toInt() - before, 0)
-        val text = text(start, range.end.toInt() + after)
+        val text = text(start.toLong(), range.end.toLong() + after)
 
         return SurroundingText(text, range.start.toInt() - start, range.end.toInt() - start, start)
     }
