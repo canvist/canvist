@@ -17,6 +17,7 @@ use tower::ServiceExt;
 use super::*;
 use crate::Config;
 use crate::Server;
+use crate::names::Environment;
 
 /// A running server and an API key, using only the in-memory store.
 async fn fixture() -> (Server, String) {
