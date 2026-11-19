@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
@@ -11,10 +12,13 @@ use super::AppendedRows;
 use super::DocumentSummary;
 use super::PendingConversions;
 use super::PendingDocument;
+use super::ProjectSummary;
 use super::StoreError;
 use super::StoredDocument;
 use super::UsageRow;
 use super::Webhook;
+use crate::analytics::Event;
+use crate::analytics::report::Period;
 use crate::auth::KeyHash;
 use crate::auth::NewApiKey;
 use crate::metering::Month;
@@ -33,6 +37,8 @@ pub struct MemoryStore {
 #[derive(Debug, Default)]
 struct Inner {
 	projects: HashMap<ProjectId, String>,
+	/// Projects in the order they were created.
+	created: Vec<ProjectId>,
 	keys: HashMap<KeyHash, (ProjectId, Environment)>,
 	webhooks: HashMap<(ProjectId, Environment), Webhook>,
 	documents: BTreeMap<DocumentKey, MemoryDocument>,
@@ -40,6 +46,8 @@ struct Inner {
 	terms: HashMap<ProjectId, Terms>,
 	active: BTreeMap<(DocumentKey, Month), Activation>,
 	usage: BTreeMap<(ProjectId, Month, Environment), Counters>,
+	events: Vec<Event>,
+	event_ids: HashSet<String>,
 }
 
 /// A document's first activity in a month.
@@ -88,6 +96,7 @@ impl MemoryStore {
 	pub(super) fn create_project(&self, id: &ProjectId, name: &str) {
 		let mut inner = self.lock();
 		inner.projects.insert(id.clone(), name.to_owned());
+		inner.created.push(id.clone());
 		inner.terms.insert(id.clone(), Terms::of(Plan::Hobby));
 	}
 
@@ -390,5 +399,53 @@ impl MemoryStore {
 
 	pub(super) fn delete(&self, key: &DocumentKey) -> bool {
 		self.lock().documents.remove(key).is_some()
+	}
+}
+
+impl MemoryStore {
+	pub(super) fn list_projects(&self, month: Month, limit: usize) -> Vec<ProjectSummary> {
+		let inner = self.lock();
+
+		inner
+			.created
+			.iter()
+			.rev()
+			.take(limit)
+			.filter_map(|id| {
+				Some(ProjectSummary {
+					id: id.clone(),
+					name: inner.projects.get(id)?.clone(),
+					terms: inner.terms.get(id)?.clone(),
+					active_documents: inner.active_in(id, month),
+				})
+			})
+			.collect()
+	}
+
+	pub(super) fn insert_events(&self, events: &[Event]) -> usize {
+		let mut inner = self.lock();
+		let mut inserted = 0;
+
+		for event in events {
+			if inner.event_ids.insert(event.uuid.clone()) {
+				inner.events.push(event.clone());
+				inserted += 1;
+			}
+		}
+
+		inserted
+	}
+
+	pub(super) fn events_in(&self, period: Period, limit: usize) -> Vec<Event> {
+		let mut events: Vec<Event> = self
+			.lock()
+			.events
+			.iter()
+			.filter(|event| (period.from..period.to).contains(&event.at))
+			.cloned()
+			.collect();
+		events.sort_by_key(|event| event.at);
+		events.truncate(limit);
+		events
 	}
 }
