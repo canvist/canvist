@@ -12,6 +12,8 @@ use canvist_model::BlockTypeId;
 use canvist_model::Document;
 use canvist_model::GridRect;
 use canvist_model::InlineText;
+use canvist_model::MAX_COLSPAN;
+use canvist_model::MAX_ROWSPAN;
 use canvist_model::Selection;
 use canvist_model::TableMap;
 use canvist_model::Value;
@@ -84,14 +86,9 @@ impl TableContext {
 	}
 }
 
-/// The largest `colspan` and `rowspan` a cell counts, the limits browsers
-/// apply and the HTML reader keeps, so a span from JSON or a collaborator
-/// cannot make a grid of billions of slots.
-const MAX_COLSPAN: usize = 1_000;
-const MAX_ROWSPAN: usize = 65_534;
-
 /// A cell's `colspan` or `rowspan`, at least one and at most what a
-/// browser draws.
+/// browser draws, so a span from JSON or a collaborator cannot make a grid
+/// of billions of slots.
 pub(crate) fn span(doc: &Document, cell: BlockId, key: &str) -> usize {
 	let most = if key == "colspan" {
 		MAX_COLSPAN

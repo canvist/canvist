@@ -2,6 +2,8 @@
 //! it stands for, and the attributes it carries.
 
 use canvist_model::Attrs;
+use canvist_model::MAX_COLSPAN;
+use canvist_model::MAX_ROWSPAN;
 use canvist_model::Value;
 
 use super::features::AUDIO;
@@ -360,7 +362,10 @@ fn json_value(json: &serde_json::Value) -> Value {
 /// The largest spans a cell keeps, the limits browsers apply to
 /// `colspan` and `rowspan`, so a pasted span cannot make a table grid of
 /// billions of slots.
-const MAX_SPANS: [(&str, i64); 2] = [("colspan", 1_000), ("rowspan", 65_534)];
+const MAX_SPANS: [(&str, i64); 2] = [
+	("colspan", MAX_COLSPAN as i64),
+	("rowspan", MAX_ROWSPAN as i64),
+];
 
 /// A table cell's spans and TipTap's `colwidth`, a comma-separated list of
 /// pixel widths.
