@@ -796,43 +796,76 @@ fn needs_escape(
 	}
 
 	let rest = &out[index..];
-	let before = out[..index].chars().next_back();
-	let after = rest[character.len_utf8()..].chars().next();
-	// The edges of a line count as whitespace, as in CommonMark's flanking rules.
-	let space = |near: Option<char>| near.is_none_or(char::is_whitespace);
-	let word = |near: Option<char>| near.is_some_and(char::is_alphanumeric);
-	let highlight = cfg!(feature = "highlight") && rest.starts_with("==");
-	let tag = cfg!(any(feature = "subscript", feature = "superscript"))
-		&& INLINE_TAGS.iter().any(|tag| rest.starts_with(tag));
 
-	if highlight || tag || (math && character == '$') {
+	if opens_extension_syntax(rest, character, math) {
 		return true;
 	}
+
+	let before = out[..index].chars().next_back();
+	let after = rest[character.len_utf8()..].chars().next();
 
 	match character {
 		// A backslash only escapes punctuation, and before a line end makes
 		// a hard break; anywhere else it is a backslash.
 		'\\' => after.is_none_or(|next| next.is_ascii_punctuation() || next == '\n'),
-		// A delimiter with whitespace on both sides can neither open nor
-		// close; `_` inside a word can't either, nor `_` and `~` in a URL.
-		'*' => !(space(before) && space(after)),
-		'_' => {
-			!(in_url(facts.urls, index)
-				|| space(before) && space(after)
-				|| word(before) && word(after))
+		'*' | '_' | '~' => {
+			emphasis_needs_escape(character, before, after, in_url(facts.urls, index))
 		}
-		'~' => !(in_url(facts.urls, index) || space(before) && space(after)),
 		// A backtick opens a code span only if another closes it.
 		'`' => facts.backticks > 1,
-		// Brackets only matter as a link, `[label](href)`, or at the start of
-		// a line as a reference definition, `[label]: href`.
-		'[' => {
-			facts.link_markers.partition_point(|at| *at <= index) < facts.link_markers.len()
-				|| (index == 0 && !facts.reference_markers.is_empty())
-		}
-		']' => matches!(after, Some('(' | '[' | ':')),
+		'[' | ']' => bracket_needs_escape(character, after, index, facts),
 		_ => false,
 	}
+}
+
+/// Whether `rest` starts with syntax only canvist's extensions read:
+/// `==` highlights, `<sub>` and `<sup>` tags, and `$` in math text.
+fn opens_extension_syntax(rest: &str, character: char, math: bool) -> bool {
+	let highlight = cfg!(feature = "highlight") && rest.starts_with("==");
+	let tag = cfg!(any(feature = "subscript", feature = "superscript"))
+		&& INLINE_TAGS.iter().any(|tag| rest.starts_with(tag));
+
+	highlight || tag || (math && character == '$')
+}
+
+/// Whether an emphasis or strikethrough delimiter must be escaped. One with
+/// whitespace on both sides can neither open nor close; `_` inside a word
+/// can't either, nor `_` and `~` in a URL. The edges of a line count as
+/// whitespace, as in CommonMark's flanking rules.
+fn emphasis_needs_escape(
+	character: char,
+	before: Option<char>,
+	after: Option<char>,
+	in_url: bool,
+) -> bool {
+	let space = |near: Option<char>| near.is_none_or(char::is_whitespace);
+	let word = |near: Option<char>| near.is_some_and(char::is_alphanumeric);
+	let spaced = space(before) && space(after);
+
+	match character {
+		'_' => !(in_url || spaced || word(before) && word(after)),
+		'~' => !(in_url || spaced),
+		_ => !spaced,
+	}
+}
+
+/// Whether a bracket must be escaped. Brackets only matter as a link,
+/// `[label](href)`, or at the start of a line as a reference definition,
+/// `[label]: href`.
+fn bracket_needs_escape(
+	character: char,
+	after: Option<char>,
+	index: usize,
+	facts: &EscapeFacts<'_>,
+) -> bool {
+	if character == ']' {
+		return matches!(after, Some('(' | '[' | ':'));
+	}
+
+	let link_follows =
+		facts.link_markers.partition_point(|at| *at <= index) < facts.link_markers.len();
+
+	link_follows || (index == 0 && !facts.reference_markers.is_empty())
 }
 
 /// Byte offsets where `needle` occurs. The caller looks up the next one
