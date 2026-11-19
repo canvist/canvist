@@ -1,6 +1,7 @@
 //! Geometry queries within one text block: caret positions, hit testing,
 //! and selection spans. Coordinates are relative to the block's content box.
 
+use super::Inserted;
 use super::Line;
 use super::Piece;
 use super::TextLayout;
@@ -15,39 +16,88 @@ const TOUCHING_SPAN_GAP: f32 = 0.01;
 
 impl TextLayout {
 	/// The length of the document's text in this block, without provisional
-	/// text.
+	/// text or adornments.
 	pub(crate) fn document_len(&self) -> u32 {
-		let provisional = self
-			.provisional()
-			.map_or(0, |range| range.end - range.start);
-		self.text.len() as u32 - provisional
+		let inserted: u32 = self
+			.inserted()
+			.map(|inserted| inserted.range.end - inserted.range.start)
+			.sum();
+		self.text.len() as u32 - inserted
 	}
 
-	/// The bytes of provisional text, when this build lays it out at all.
-	fn provisional(&self) -> Option<&std::ops::Range<u32>> {
-		self.provisional
-			.as_ref()
-			.filter(|_| cfg!(feature = "provisional"))
+	/// The text laid out with the block that is not part of the document,
+	/// in order: adornments, and provisional text when this build lays it
+	/// out at all.
+	fn inserted(&self) -> impl Iterator<Item = &Inserted> {
+		self.inserted
+			.iter()
+			.filter(|inserted| inserted.adornment || cfg!(feature = "provisional"))
 	}
 
-	/// Where document offset `offset` is in the laid-out text. A caret where
+	/// Where document offset `offset` is in the laid-out text, for a
+	/// downstream caret: after any adornment there. A caret where
 	/// provisional text was inserted shows after it, as it will once the text
 	/// is final.
 	pub(crate) fn laid_out(&self, offset: u32) -> u32 {
-		match self.provisional() {
-			Some(range) if offset >= range.start => offset.saturating_add(range.end - range.start),
-			_ => offset,
-		}
+		self.laid_out_caret(offset, Affinity::Downstream)
+	}
+
+	/// Where a caret at document offset `offset` is in the laid-out text. An
+	/// adornment at the offset sits between the two carets there: upstream
+	/// shows before it, downstream after.
+	pub(crate) fn laid_out_caret(&self, offset: u32, affinity: Affinity) -> u32 {
+		let shift: u32 = self
+			.inserted()
+			.take_while(|inserted| inserted.at <= offset)
+			.filter(|inserted| {
+				inserted.at < offset || !inserted.adornment || affinity == Affinity::Downstream
+			})
+			.map(|inserted| inserted.range.end - inserted.range.start)
+			.sum();
+
+		offset.saturating_add(shift)
 	}
 
 	/// The document offset of laid-out offset `offset`. Every offset inside
-	/// provisional text is where the text was inserted.
+	/// inserted text is where the text was inserted.
 	pub(crate) fn in_document(&self, offset: u32) -> u32 {
-		match self.provisional() {
-			Some(range) if offset >= range.end => offset - (range.end - range.start),
-			Some(range) if offset > range.start => range.start,
-			_ => offset,
+		self.in_document_caret(offset, Affinity::Downstream).0
+	}
+
+	/// The document caret at laid-out offset `offset`. The edges of an
+	/// adornment are the two carets at its offset: its start is upstream, its
+	/// end downstream, and an offset inside it goes to the nearer edge.
+	pub(crate) fn in_document_caret(&self, offset: u32, affinity: Affinity) -> (u32, Affinity) {
+		let mut before = 0;
+
+		for inserted in self.inserted() {
+			let range = &inserted.range;
+
+			if offset < range.start || (offset == range.start && !inserted.adornment) {
+				break;
+			}
+
+			if offset >= range.end && !(inserted.adornment && offset == range.end) {
+				before += range.end - range.start;
+				continue;
+			}
+
+			if !inserted.adornment {
+				return (inserted.at, affinity);
+			}
+
+			let upstream = offset - range.start < range.end - offset;
+			return (
+				inserted.at,
+				if upstream {
+					Affinity::Upstream
+				} else {
+					Affinity::Downstream
+				},
+			);
 		}
+
+		(offset - before, affinity)
 	}
 
 	/// The line holding the caret at `offset`. At a soft wrap the offset ends

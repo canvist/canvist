@@ -1296,6 +1296,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "canvist_extension_markdown_reveal"
+version = "0.2.1"
+dependencies = [
+ "canvist_core",
+ "canvist_extension_document",
+ "canvist_extension_paragraph",
+ "canvist_model",
+]
+
+[[package]]
 name = "canvist_extension_mathematics"
 version = "0.2.1"
 dependencies = [
@@ -1511,6 +1521,7 @@ dependencies = [
  "canvist_extension_kinetic",
  "canvist_extension_link",
  "canvist_extension_list",
+ "canvist_extension_markdown_reveal",
  "canvist_extension_mathematics",
  "canvist_extension_media",
  "canvist_extension_mention",

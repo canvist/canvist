@@ -387,12 +387,18 @@ impl EditorState {
 		};
 
 		// A collaborator's edit that leaves the caret where it was keeps it on
-		// its visual line and column; any other change starts afresh.
+		// its visual line and column; any other change starts afresh, except
+		// that one changing neither the document nor the selection, such as
+		// storing marks for the next character, keeps the caret's affinity.
 		let keeps_line = effects.origin == Origin::Remote && self.selection == selection_before;
 
 		if !keeps_line {
 			self.goal = effects.goal;
-			self.affinity = effects.affinity.unwrap_or_default();
+			self.affinity = effects.affinity.unwrap_or(if unchanged {
+				self.affinity
+			} else {
+				Affinity::default()
+			});
 		}
 
 		Ok(Update {

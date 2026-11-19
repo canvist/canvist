@@ -135,6 +135,7 @@ canvist_extension_italic = { path = "./crates/extensions/italic", version = "0.2
 canvist_extension_kinetic = { path = "./crates/extensions/kinetic", version = "0.2.1" }
 canvist_extension_link = { path = "./crates/extensions/link", version = "0.2.1" }
 canvist_extension_list = { path = "./crates/extensions/list", version = "0.2.1" }
+canvist_extension_markdown_reveal = { path = "./crates/extensions/markdown_reveal", version = "0.2.1" }
 canvist_extension_mathematics = { path = "./crates/extensions/mathematics", version = "0.2.1" }
 canvist_extension_media = { path = "./crates/extensions/media", version = "0.2.1" }
 canvist_extension_mention = { path = "./crates/extensions/mention", version = "0.2.1" }

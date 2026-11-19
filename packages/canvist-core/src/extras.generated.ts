@@ -3,6 +3,14 @@
 import { starterKit } from "./extensions.generated.ts";
 import type { ExtensionDescriptor } from "./types.ts";
 
+/** The `markdownReveal` extension. */
+export const markdownReveal = {
+	"commands": [],
+	"name": "markdownReveal",
+	"nodes": [],
+	"queries": []
+} as const satisfies ExtensionDescriptor;
+
 /** The `textStyle` extension. */
 export const textStyle = {
 	"commands": [
@@ -2725,7 +2733,7 @@ export const table = {
 } as const satisfies ExtensionDescriptor;
 
 /** Every extension beyond the StarterKit, which `@canvist/headless/full` compiles in. */
-export const extras = [textStyle, mention, details, subscript, superscript, highlight, color, backgroundColor, fontFamily, fontSize, lineHeight, textAlign, characterCount, placeholder, hashtag, emoji, image, youtube, twitch, audio, file, callout, mathematics, findAndReplace, tableOfContents, comments, dragHandle, clearFormatting, ink, kinetic, conditional, typography, table] as const;
+export const extras = [markdownReveal, textStyle, mention, details, subscript, superscript, highlight, color, backgroundColor, fontFamily, fontSize, lineHeight, textAlign, characterCount, placeholder, hashtag, emoji, image, youtube, twitch, audio, file, callout, mathematics, findAndReplace, tableOfContents, comments, dragHandle, clearFormatting, ink, kinetic, conditional, typography, table] as const;
 
 /** Every optional extension canvist ships, the StarterKit's included. */
 export const allExtensions = [...starterKit, ...extras] as const;

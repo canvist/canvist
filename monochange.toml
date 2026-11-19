@@ -221,6 +221,9 @@ path = "crates/extensions/link"
 [package.canvist_extension_list-rust]
 path = "crates/extensions/list"
 
+[package.canvist_extension_markdown_reveal-rust]
+path = "crates/extensions/markdown_reveal"
+
 [package.canvist_extension_mathematics-rust]
 path = "crates/extensions/mathematics"
 
@@ -694,6 +697,7 @@ packages = [
 	"canvist_extension_kinetic-rust",
 	"canvist_extension_link-rust",
 	"canvist_extension_list-rust",
+	"canvist_extension_markdown_reveal-rust",
 	"canvist_extension_mathematics-rust",
 	"canvist_extension_media-rust",
 	"canvist_extension_mention-rust",

@@ -45,9 +45,10 @@ impl DocumentLayout {
 		let origin = self.origin(index);
 		let line = layout.line_at(y - origin.y);
 		let (offset, affinity) = layout.hit(line, x - origin.x);
+		let (offset, affinity) = layout.in_document_caret(offset, affinity);
 
 		Some(Caret::with_affinity(
-			Point::new(row.block, layout.in_document(offset)),
+			Point::new(row.block, offset),
 			affinity,
 		))
 	}
@@ -73,7 +74,10 @@ impl DocumentLayout {
 			return Some(Rect::new(origin.x - width / 2.0, origin.y, width, height));
 		};
 
-		let offset = layout.laid_out(caret.point.offset.min(layout.document_len()));
+		let offset = layout.laid_out_caret(
+			caret.point.offset.min(layout.document_len()),
+			caret.affinity,
+		);
 		let line_index = layout.line_index(offset, caret.affinity);
 		let line = &layout.lines[line_index];
 		let x = layout.caret_x(line_index, offset, caret.affinity);
@@ -93,7 +97,10 @@ impl DocumentLayout {
 		let Some(layout) = &self.rows()[index].layout else {
 			return Some(origin.x);
 		};
-		let offset = layout.laid_out(caret.point.offset.min(layout.document_len()));
+		let offset = layout.laid_out_caret(
+			caret.point.offset.min(layout.document_len()),
+			caret.affinity,
+		);
 		let line = layout.line_index(offset, caret.affinity);
 
 		Some(origin.x + layout.caret_x(line, offset, caret.affinity))

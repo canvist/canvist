@@ -93,6 +93,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod adornment;
 mod base_keymap;
 pub mod commands;
 mod context;
@@ -118,6 +119,7 @@ pub mod text;
 mod transaction;
 mod typed;
 
+pub use adornment::Adornment;
 pub use base_keymap::BaseKeymap;
 pub use base_keymap::UndoInputRule;
 pub use commands::CommandResult;
