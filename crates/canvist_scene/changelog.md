@@ -1,5 +1,12 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-20)
+
+### 🐛 Fixed
+
+- **Avoid redundant allocations when importing scene JSON.** Scene imports reserve their flattened node list up front and share diagnostic prefixes and format node paths only when an error occurs. Large flat parent chains and cycles keep the same validation and deterministic cycle errors while allocating fewer strings and growing fewer vectors. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #257](https://github.com/canvist/canvist/pull/257)
+- **Pass scene JSON paths by reference while flattening.** `flatten` takes `&Arc<str>` for the path prefix instead of cloning the `Arc` into the parameter, so clippy's `needless_pass_by_value` lint no longer fails the browser and desktop builds. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #260](https://github.com/canvist/canvist/pull/260)
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### Changed

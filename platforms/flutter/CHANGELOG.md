@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-20)
+
+<details>
+<summary><strong>🧪 Testing</strong></summary>
+
+- **Drop device journeys from the Flutter example.** The package script runs widget tests. The example no longer includes device integration tests or Patrol journeys. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #266](https://github.com/canvist/canvist/pull/266)
+
+</details>
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### Changed

@@ -2,6 +2,14 @@
 
 Deployment, infrastructure, and implementation notes for the website and canvist Cloud. The user-facing changelog lives at `/changelog` on the website.
 
+## 0.1.3 (2026-11-20)
+
+Grouped release for `app`.
+
+### 🐛 Fixed
+
+- **Hocuspocus sockets let go of deleted documents.** Deleting a document left it open on Hocuspocus sockets, held by a room nothing saved. Authenticating the same name again on that socket, as a provider created again for it does, kept editing the deleted room: edits were acknowledged but never stored or shared. The socket now closes the document when it is deleted, so the next authentication joins a new room. _Packages:_ 🟢 _rust:canvist_cloud_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #261](https://github.com/canvist/canvist/pull/261)
+
 ## 0.1.2 (2026-11-07)
 
 Grouped release for `app`.
