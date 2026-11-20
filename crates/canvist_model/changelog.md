@@ -1,5 +1,45 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-20)
+
+### 🚀 Feature
+
+#### One crate per extension, combined by canvist_extensions
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #252](https://github.com/canvist/canvist/pull/252)
+
+Each Rust extension is now its own crate under `crates/extensions`, named `canvist_extension_<name>`: `canvist_extension_bold`, `canvist_extension_heading`, `canvist_extension_table`, and so on. An app can depend on exactly the extensions it registers.
+
+`canvist_extensions` keeps every feature and every public path: each feature now enables the matching crate and re-exports its types, so `canvist_extensions::Heading` and `canvist_extension_heading::Heading` are the same type. Nothing changes for code that uses `canvist_extensions` or `canvist::extensions`.
+
+The crates follow TipTap's packages: one per mark and per media type, `canvist_extension_list` for every list type (as `@tiptap/extension-list`), and `canvist_extension_text_style` for the `textStyle` mark and its attributes (as `@tiptap/extension-text-style`).
+
+The helpers the extensions shared are now public, for anyone writing their own:
+
+- `canvist_core::query`: `around`, `attr_around`, `mark_active`, and `shared_mark_attr` read the selection's surroundings by type name.
+- `canvist_core::SimpleMark` and `MarkHandle` describe a mark that only switches on and off, such as bold.
+- `canvist_model::video_kind` is the policy for which URLs a video block may embed.
+- `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
+- `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
+
+Each extension also has an npm package, `@canvist/extension-<name>`, that re-exports its descriptor from `@canvist/core`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. These packages load no WebAssembly.
+
+Dart keeps every extension in one package, `canvist_extensions`, which re-exports the typed descriptors and handles from `canvist`. The engine and existing `Extensions.bold` API remain in `canvist`; no per-extension pub.dev rollout is needed.
+
+### 📝 Changed
+
+#### Write the table spans the grid was built with to HTML
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #267](https://github.com/canvist/canvist/pull/267)
+
+Server-rendered HTML wrote a cell's `colspan` and `rowspan` as the document held them, while the table's grid clamped them. A cell whose JSON claimed a `colspan` of `4294967295` was laid out across 1,000 columns but exported with the full number. The HTML now carries the clamped spans: at most 1,000 columns and 65,534 rows, the limits browsers apply.
+
+`canvist_model` exports those limits as `MAX_COLSPAN` and `MAX_ROWSPAN`, and the table extension and the HTML reader use them in place of their own copies.
+
+### 🐛 Fixed
+
+- **Clamp table colspans to 1,000 columns.** `TableMap` sized a table's grid by every cell's `colspan`, however large. A document whose cell claimed a colspan of `9223372036854775807`, as any JSON can, made layout panic with a capacity overflow, and one of a billion columns tried to allocate gigabytes. A colspan over 1,000 is now clamped to 1,000, as browsers clamp the HTML attribute, so table layout and the table commands see the same grid a browser would. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### Changed
