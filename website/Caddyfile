@@ -4,7 +4,11 @@
 }
 
 :{$PORT:8080} {
-	root * /srv
+	# SITE_ROOT lets `deno task perf:serve` serve a local build the same way.
+	root * {$SITE_ROOT:/srv}
+	# The build writes Brotli and gzip copies beside every compressible file
+	# (scripts/precompress.ts), which `file_server precompressed` serves as
+	# they are. `encode` only covers a response without a copy.
 	encode zstd gzip
 
 	header {
@@ -26,10 +30,14 @@
 
 	# Pages are built as `name.html`; serve them at `/name`.
 	try_files {path} {path}.html {path}/index.html
-	file_server
+	file_server {
+		precompressed br gzip
+	}
 
 	handle_errors 404 {
 		rewrite * /404.html
-		file_server
+		file_server {
+			precompressed br gzip
+		}
 	}
 }

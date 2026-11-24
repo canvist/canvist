@@ -9,9 +9,9 @@
 	},
 	"tasks": {
 		"dev": "deno run -A npm:astro dev",
-		"build": "deno run -A npm:astro build && deno run -A npm:pagefind --site dist",
+		"build": "deno run -A npm:astro build && deno run -A npm:pagefind --site dist && deno run --allow-read --allow-write scripts/precompress.ts",
 		"preview": "deno run --allow-net --allow-read tests/serve.ts 4321",
-		"check": "node node_modules/astro/bin/astro.mjs check && deno check tests/serve.ts rive/generate.ts scripts/subset-fonts.ts scripts/check-links.ts scripts/lighthouse-summary.ts scripts/scroll-perf.ts && deno test --no-run tests/unit",
+		"check": "node node_modules/astro/bin/astro.mjs check && deno check tests/serve.ts rive/generate.ts scripts/subset-fonts.ts scripts/precompress.ts scripts/page-weight.ts scripts/check-links.ts scripts/lighthouse-summary.ts scripts/scroll-perf.ts && deno test --no-run tests/unit",
 		"test:unit": "deno test --allow-read tests/unit",
 		"test:e2e": "node node_modules/@playwright/test/cli.js test",
 		"rive": "deno run --allow-read --allow-write rive/generate.ts && rive rive --once",
@@ -21,6 +21,8 @@
 		"lighthouse:mobile": "rm -rf .lighthouseci lighthouse-reports/mobile && npx --yes @lhci/cli@0.15.1 collect --config=lighthouserc.mobile.json && mkdir -p lighthouse-reports/mobile && cp .lighthouseci/lhr-*.json lighthouse-reports/mobile/ && npx --yes @lhci/cli@0.15.1 assert --config=lighthouserc.mobile.json",
 		"lighthouse:summary": "deno run --allow-read --allow-env --allow-write scripts/lighthouse-summary.ts",
 		"lighthouse": "deno task lighthouse:desktop ; deno task lighthouse:mobile ; deno task lighthouse:summary",
-		"perf:scroll": "deno run -A scripts/scroll-perf.ts"
+		"perf:scroll": "deno run -A scripts/scroll-perf.ts",
+		"perf:serve": "SITE_ROOT=dist PORT=4810 caddy run --config Caddyfile --adapter caddyfile",
+		"perf:pages": "deno run -A scripts/page-weight.ts"
 	}
 }
