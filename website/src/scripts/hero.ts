@@ -3,6 +3,7 @@ import {
 	prefersReducedMotion,
 	trackVisibility,
 } from "./motion.ts";
+import { type NetworkHints, riveWorthLoading } from "./network.ts";
 
 /**
  * The hero's Wet Caret. The static lockup is in the HTML; under
@@ -12,6 +13,10 @@ import {
  *   caret paints the wordmark, lets the drip fall, then blinks.
  * - Otherwise the CSS stroke in Hero.astro paints it (it also starts on its
  *   own after a delay, so the page never depends on this script).
+ * - On a slow or metered connection, or a low-memory device, Rive's 300 KB
+ *   (its runtime, WebAssembly and scene) is never fetched: the CSS stroke
+ *   paints at once. `riveWorthLoading` decides; browsers that report nothing
+ *   about the connection (Safari, Firefox) still get Rive.
  * - Under reduced motion nothing animates: the lockup is simply there.
  */
 
@@ -40,6 +45,11 @@ export function mountHero(stage: HTMLElement): void {
 
 	if (prefersReducedMotion()) {
 		setState("static");
+		return;
+	}
+
+	if (!riveWorthLoading(navigator as NetworkHints)) {
+		setState("css");
 		return;
 	}
 

@@ -44,3 +44,7 @@ The small pages are mostly fonts: 67 KiB of the 80 on `/services/sync` is Bricol
 ### Font weight ranges (November 2026)
 
 `scripts/subset-fonts.ts` now narrows each variable font's weight axis to the range the site uses: Bricolage Grotesque 400 to 800 (it was 200 to 800), Geist Mono 400 to 700 (100 to 900). Bricolage goes from 52.0 to 49.6 KiB and Geist Mono from 14.3 to 10.0 KiB, 6.6 KiB off every page. Screenshots of every weight the CSS sets differ only in antialiasing.
+
+### Rive only on fast connections (November 2026)
+
+The hero loads Rive only when Chromium reports a 4G connection, no Save-Data, and at least 4 GB of memory (`website/src/scripts/network.ts`); otherwise the CSS stroke paints at once. With Save-Data or a 3G link the homepage goes from 386.5 to 91.6 KiB and makes no Rive requests. Browsers without the Network Information API keep Rive.
