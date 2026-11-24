@@ -40,3 +40,7 @@ Caddy compressed every response on the fly with zstd at its default, fast level.
 | `/playground`                 |  696.6 | 565.7 (−19%) |                      320 → 336 |
 
 The small pages are mostly fonts: 67 KiB of the 80 on `/services/sync` is Bricolage Grotesque and Geist Mono, which are WOFF2 and gain nothing from Brotli.
+
+### Font weight ranges (November 2026)
+
+`scripts/subset-fonts.ts` now narrows each variable font's weight axis to the range the site uses: Bricolage Grotesque 400 to 800 (it was 200 to 800), Geist Mono 400 to 700 (100 to 900). Bricolage goes from 52.0 to 49.6 KiB and Geist Mono from 14.3 to 10.0 KiB, 6.6 KiB off every page. Screenshots of every weight the CSS sets differ only in antialiasing.
