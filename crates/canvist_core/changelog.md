@@ -1,5 +1,39 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-25)
+
+### 🚀 Feature
+
+#### Adornments: text an extension shows without it being part of the document
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #250](https://github.com/canvist/canvist/pull/250)
+
+`Extension::adornments` returns text to show at points in the document, and `Editor::adornments` collects it after every update. `DocumentLayout::set_adornments` lays it out: each adornment sits between the two carets at its point (upstream before it, downstream after it), is drawn faint in its block's style, and never changes document offsets, so hit testing, line edges, and vertical motion stay in document terms. The browser editor passes them to layout after every change.
+
+`Editor::select_with_affinity` sets the selection with the caret on one side of its point, and the browser editor uses it for clicks, so a click keeps the end of a wrapped line, or the side of an adornment, it landed on. A change that alters neither the document nor the selection, such as storing marks for the next character, now keeps the caret's affinity instead of resetting it.
+
+#### One crate per extension, combined by canvist_extensions
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #252](https://github.com/canvist/canvist/pull/252)
+
+Each Rust extension is now its own crate under `crates/extensions`, named `canvist_extension_<name>`: `canvist_extension_bold`, `canvist_extension_heading`, `canvist_extension_table`, and so on. An app can depend on exactly the extensions it registers.
+
+`canvist_extensions` keeps every feature and every public path: each feature now enables the matching crate and re-exports its types, so `canvist_extensions::Heading` and `canvist_extension_heading::Heading` are the same type. Nothing changes for code that uses `canvist_extensions` or `canvist::extensions`.
+
+The crates follow TipTap's packages: one per mark and per media type, `canvist_extension_list` for every list type (as `@tiptap/extension-list`), and `canvist_extension_text_style` for the `textStyle` mark and its attributes (as `@tiptap/extension-text-style`).
+
+The helpers the extensions shared are now public, for anyone writing their own:
+
+- `canvist_core::query`: `around`, `attr_around`, `mark_active`, and `shared_mark_attr` read the selection's surroundings by type name.
+- `canvist_core::SimpleMark` and `MarkHandle` describe a mark that only switches on and off, such as bold.
+- `canvist_model::video_kind` is the policy for which URLs a video block may embed.
+- `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
+- `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
+
+Each extension also has an npm package, `@canvist/extension-<name>`, that re-exports its descriptor from `@canvist/core`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. These packages load no WebAssembly.
+
+Dart keeps every extension in one package, `canvist_extensions`, which re-exports the typed descriptors and handles from `canvist`. The engine and existing `Extensions.bold` API remain in `canvist`; no per-extension pub.dev rollout is needed.
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### 🚀 Feature

@@ -1,5 +1,162 @@
 # Changelog
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-25)
+
+Grouped release for `sdk`.
+
+### 🚀 Feature
+
+#### `@canvist/headless` splits into packages you pick from
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #253](https://github.com/canvist/canvist/pull/253)
+
+`@canvist/headless` carried every feature: the StarterKit and full modules with Yjs compiled in, server-side rendering, and canvas scenes, about 10 MB of WebAssembly in one install. Each now has its own package, and the typed half moves to one with no WebAssembly at all:
+
+| Package             | What it has                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `@canvist/core`     | `Engine`, `Doc`, errors, types, and every extension's descriptor. No WebAssembly. |
+| `@canvist/headless` | The StarterKit module, and `/full` with every extension. No Yjs.                  |
+| `@canvist/collab`   | The same API with Yjs: `fromYjs`, `share`, `applyUpdate`, y-sync, and `/full`.    |
+| `@canvist/ssr`      | Server-side rendering, formerly `@canvist/headless/ssr`, now without Yjs.         |
+| `@canvist/scene`    | Canvas scenes, formerly `@canvist/headless/scene`.                                |
+
+Without Yjs, the StarterKit module is 634 KB instead of 1,119 KB (267 KB gzipped instead of 457 KB), the full module 964 KB instead of 1,429 KB, and the renderer 1,826 KB instead of 2,306 KB. The collaborating modules are the size the old ones were.
+
+Every `@canvist/extension-*` package, `@canvist/web`, `@canvist/canvas`, `@canvist/react-native`, and `@canvist/lynx` now depend on `@canvist/core` instead of `@canvist/headless`, so picking an extension or an editor installs no engine module.
+
+##### Migrating
+
+- Documents that collaborate: import `createEngine` from `@canvist/collab` (or `@canvist/collab/full`) instead of `@canvist/headless`. Its engines are `CollabEngine`s and their documents `CollabDoc`s, with the same methods the old ones had. `SyncReply` and `Validation` come from there too.
+- `@canvist/headless/ssr` is `@canvist/ssr`, and `@canvist/headless/scene` is `@canvist/scene`, with the same exports. Scene JSON types are also in `@canvist/core/scene`.
+- `@canvist/headless/extensions`, `/extras`, and `/native` still work; new code can import them from `@canvist/core`.
+
+#### One crate per extension, combined by canvist_extensions
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #252](https://github.com/canvist/canvist/pull/252)
+
+Each Rust extension is now its own crate under `crates/extensions`, named `canvist_extension_<name>`: `canvist_extension_bold`, `canvist_extension_heading`, `canvist_extension_table`, and so on. An app can depend on exactly the extensions it registers.
+
+`canvist_extensions` keeps every feature and every public path: each feature now enables the matching crate and re-exports its types, so `canvist_extensions::Heading` and `canvist_extension_heading::Heading` are the same type. Nothing changes for code that uses `canvist_extensions` or `canvist::extensions`.
+
+The crates follow TipTap's packages: one per mark and per media type, `canvist_extension_list` for every list type (as `@tiptap/extension-list`), and `canvist_extension_text_style` for the `textStyle` mark and its attributes (as `@tiptap/extension-text-style`).
+
+The helpers the extensions shared are now public, for anyone writing their own:
+
+- `canvist_core::query`: `around`, `attr_around`, `mark_active`, and `shared_mark_attr` read the selection's surroundings by type name.
+- `canvist_core::SimpleMark` and `MarkHandle` describe a mark that only switches on and off, such as bold.
+- `canvist_model::video_kind` is the policy for which URLs a video block may embed.
+- `canvist_extension_media::MediaBlock` describes an atomic block a command inserts, such as an image.
+- `canvist_extension_suggestion` finds trigger-character suggestions such as `@ad`, as TipTap's `@tiptap/suggestion` does.
+
+Each extension also has an npm package, `@canvist/extension-<name>`, that re-exports its descriptor from `@canvist/core`, so you can import an extension on its own: `import { table } from "@canvist/extension-table"`. These packages load no WebAssembly.
+
+Dart keeps every extension in one package, `canvist_extensions`, which re-exports the typed descriptors and handles from `canvist`. The engine and existing `Extensions.bold` API remain in `canvist`; no per-extension pub.dev rollout is needed.
+
+- **Markdown reveal: edit the Markdown of the formatting at the caret.** The new `markdownReveal` extension (in the full module) shows the Markdown of the formatting at the caret, as Typora and Obsidian do: `**` around bold text, a heading's `##`, a link's `[` and `](address)`, drawn faint and gone when the caret leaves. The arrow keys stop on both sides of the syntax, typing follows the side the caret is on, and Backspace or Delete over it deletes one of its characters: `**` becomes `*` (bold turns italic), and a heading's `##` becomes `#`. _Packages:_ 🟠 _@canvist/core_, 🟠 _@canvist/headless_, 🟠 _@canvist/web_, 🟠 _dart:canvist_, 🟠 _dart:canvist_extensions_, 🟠 _rust:canvist_extensions_, 🟠 _rust:canvist_extension_markdown_reveal_, 🟠 _rust:canvist_headless_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #250](https://github.com/canvist/canvist/pull/250)
+
+#### Adornments: text an extension shows without it being part of the document
+
+_Packages:_ 🟠 _rust:canvist_core_, 🟠 _rust:canvist_layout_, 🟠 _rust:canvist_web_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #250](https://github.com/canvist/canvist/pull/250)
+
+`Extension::adornments` returns text to show at points in the document, and `Editor::adornments` collects it after every update. `DocumentLayout::set_adornments` lays it out: each adornment sits between the two carets at its point (upstream before it, downstream after it), is drawn faint in its block's style, and never changes document offsets, so hit testing, line edges, and vertical motion stay in document terms. The browser editor passes them to layout after every change.
+
+`Editor::select_with_affinity` sets the selection with the caret on one side of its point, and the browser editor uses it for clicks, so a click keeps the end of a wrapped line, or the side of an adornment, it landed on. A change that alters neither the document nor the selection, such as storing marks for the next character, now keeps the caret's affinity instead of resetting it.
+
+### 📝 Changed
+
+#### Write the table spans the grid was built with to HTML
+
+_Packages:_ 🟢 _@canvist/ssr_, 🟢 _rust:canvist_layout_, 🟢 _rust:canvist_extension_clipboard_, 🟢 _rust:canvist_extension_table_, 🟠 _rust:canvist_model_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #267](https://github.com/canvist/canvist/pull/267)
+
+Server-rendered HTML wrote a cell's `colspan` and `rowspan` as the document held them, while the table's grid clamped them. A cell whose JSON claimed a `colspan` of `4294967295` was laid out across 1,000 columns but exported with the full number. The HTML now carries the clamped spans: at most 1,000 columns and 65,534 rows, the limits browsers apply.
+
+`canvist_model` exports those limits as `MAX_COLSPAN` and `MAX_ROWSPAN`, and the table extension and the HTML reader use them in place of their own copies.
+
+### 🐛 Fixed
+
+- **Load the WebAssembly module again after a failed load.** `mountCanvas` kept the promise of its first module load even when that load failed, so one dropped download made every later `mountCanvas` reject until the page reloaded. A failed load is now forgotten, and the next mount fetches the module again. _Packages:_ 🟢 _@canvist/canvas_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #269](https://github.com/canvist/canvist/pull/269)
+- **A WebAssembly module that failed to load can load again.** Each package loaded its module once and kept the first promise, failure included. After a dropped connection, or a first call without the module a Worker has to pass, every later `createEngine`, `createEditor`, `createRenderer`, and `createSceneEngine` failed the same way until the page or process restarted. A failed load is now forgotten, so the next call tries again with its own source. `@canvist/core` has the shared `loadOnce` the packages use. _Packages:_ 🟢 _@canvist/collab_, 🟢 _@canvist/core_, 🟢 _@canvist/headless_, 🟢 _@canvist/scene_, 🟢 _@canvist/ssr_, 🟢 _@canvist/web_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #263](https://github.com/canvist/canvist/pull/263)
+
+#### Fix bugs found reviewing every extension
+
+_Packages:_ 🟢 _@canvist/headless_, 🟢 _@canvist/web_, 🟢 _dart:canvist_, 🟢 _rust:canvist_extensions_, 🟢 _rust:canvist_headless_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #252](https://github.com/canvist/canvist/pull/252)
+
+- `linkHref` returned the first link of a selection spanning two different links; it is now null, like the other style queries. Typed URLs after `(`, `[`, `<`, or a quote now autolink, as pasted ones already did.
+- Enter with text selected in a code block replaced the selection with a line break instead of splitting the block.
+- Character and word counts no longer split a word or character where its marks change.
+- `replace` treats a match selected backwards as the current match.
+- `InkHandle::insert` clamps the height to 1 to 4000, as `insertInk` does.
+- Comment thread text no longer includes a placeholder character for mentions.
+- A suggestion no longer opens for one keystroke when its trigger sits 64 bytes back without white space before it.
+- Enter in a details summary whose content starts with an image selects the image.
+- Backspace after a mention keeps the mention's marks on the trigger character it leaves.
+- `insertHashtag` with an empty tag does nothing.
+- `TableHandle::insert` with zero rows or columns does nothing, as `insertTable` does.
+- Pasted HTML: column and row spans are capped at 1000 and 65534, `>` inside a quoted attribute no longer ends the tag, and an uppercase `</SCRIPT>` no longer drops the rest of the paste.
+- Markdown: link destinations escape `(`, `)`, `<`, `>` and `\`, and read back whole; image alt text no longer gains a backslash on each round trip; code fences are longer than any fence inside the code; links with unsafe schemes are written as plain text, as in HTML; and an ordered list starting at the largest number no longer overflows.
+
+- **Bound table spans read from JSON.** A cell's `colspan` and `rowspan` from JSON, which a stored document or a collaborator supplies, sized the table's grid as given. The first structural edit in a table with `"colspan": 4294967296`, such as pressing Enter in a cell, built a grid of billions of slots and padded every other row to that width, and never finished. The table commands, the `tableCell` query, and the table repair after each edit now count spans up to the limits browsers apply, 1,000 columns and 65,534 rows, as pasted HTML already did. _Packages:_ 🟢 _@canvist/headless_, 🟢 _rust:canvist_extension_table_, 🟢 _rust:canvist_headless_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #264](https://github.com/canvist/canvist/pull/264)
+- **Keep video settings through HTML.** HTML wrote only a video's source and size, so exporting and reading back a document, or copying and pasting a video, lost a YouTube video's `start` and a Twitch video's `autoplay` and `muted`. The frame now carries `start="30"` as TipTap writes it, and `autoplay` and `muted` as boolean attributes, as `<audio>` does, and the reader takes them back. A video that starts from the beginning writes no `start`. _Packages:_ 🟢 _@canvist/headless_, 🟢 _rust:canvist_extension_clipboard_, 🟢 _rust:canvist_headless_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #264](https://github.com/canvist/canvist/pull/264)
+
+#### Destroying an editor stops the work it started
+
+_Packages:_ 🟢 _@canvist/web_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #263](https://github.com/canvist/canvist/pull/263)
+
+- An editor destroyed while fonts were loading, a plugin was setting up, or server-rendered HTML was waiting to hydrate no longer calls into its released WebAssembly afterwards: `ready()` resolves instead of throwing `null pointer passed to rust`, and fonts that finish loading later raise no unhandled rejections. A component that unmounts, or a page that navigates away, in the editor's first moments destroys it in this state.
+- Faces the `fonts()` plugin finishes loading after `destroy()` no longer stay in `document.fonts`.
+- A second `destroy()` does nothing instead of throwing.
+- `createEditor` with content that fails to load, such as JSON with a block no registered extension defines, rejects without leaving its canvas in the element or a listener on `document.fonts`.
+
+- **Measure a replaced document in its own fonts.** Replacing the document, with `setContent` or when a shared document arrives, starts a new layout that numbers its fonts from zero, but the browser kept the previous document's list. When the new document met its fonts in a different order, text was measured and painted in another block's font, such as body text in the heading's bold. The editor now sends the fonts again after replacing the document. _Packages:_ 🟢 _@canvist/web_, 🟢 _rust:canvist_web_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #268](https://github.com/canvist/canvist/pull/268)
+- **Keep a view's fonts in step when its first width starts layout over.** A view laid out before it had a width starts layout over at its first real width, and the new layout numbers its fonts from zero. The host now learns them again, so text no longer measures and paints in another block's font, such as body text in the heading's bold, after a frame at zero width. _Packages:_ 🟢 _dart:canvist_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #261](https://github.com/canvist/canvist/pull/261)
+
+#### Escape only what would read as Markdown syntax
+
+_Packages:_ 🟢 _rust:canvist_extension_clipboard_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #249](https://github.com/canvist/canvist/pull/249)
+
+Markdown export no longer backslashes every `_`, `*`, `~`, `` ` ``, `[`, `]` and `\` in text. Each is escaped only where it would otherwise read as syntax, judged with the whole line in view: `snake_case`, `a * b`, `[a note]`, `C:\Users` and the `_` and `~` in a bare URL stay as written, while `*stars*`, `[label](href)` and paired backticks are still escaped. Escaped underscores inside bare URLs used to break those links in GitHub-flavoured renderers.
+
+The Markdown reader now treats bare URLs as text, as GitHub does, so a `_` inside one never starts emphasis, and keeps the hard break that two trailing spaces make at the end of a paragraph line.
+
+- **Reading text over a reversed range no longer crashes the app.** `Editor.textIn` returns an empty string for a range that ends before it starts, instead of panicking, which Swift turned into a crash and Kotlin into an `InternalException`. Android's input connection also reads text around the caret in 64-bit offsets, so an input method asking for `Int.MAX_VALUE` characters after the caret gets the rest of the text rather than a wrapped, reversed range. _Packages:_ 🟢 _rust:canvist_ffi_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #261](https://github.com/canvist/canvist/pull/261)
+- **Lay out blocks with absurdly large heights.** Layout sums block heights in 1/64 px integers. A height from a document attribute, such as an image's `height`, can be any finite number, and one of `1e30` converted to `i64::MAX` units, so adding the next block's offset overflowed: a panic in debug builds and negative positions in release. Positions and heights now convert to at most 2^31 px, which keeps every sum in range, as browsers saturate their layout units. _Packages:_ 🟢 _rust:canvist_layout_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+- **Number ordered lists that start near the ends of the integer range.** An ordered list's `start` attribute can hold any 64-bit integer. Layout added each item's index to it and the HTML renderer subtracted one from it, so a list starting at `9223372036854775807` panicked in debug builds, and in release numbered its second item `-9223372036854775808.`. Both now stop at the ends of the range. _Packages:_ 🟢 _rust:canvist_layout_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+- **Clamp table colspans to 1,000 columns.** `TableMap` sized a table's grid by every cell's `colspan`, however large. A document whose cell claimed a colspan of `9223372036854775807`, as any JSON can, made layout panic with a capacity overflow, and one of a billion columns tried to allocate gigabytes. A colspan over 1,000 is now clamped to 1,000, as browsers clamp the HTML attribute, so table layout and the table commands see the same grid a browser would. _Packages:_ 🟢 _rust:canvist_layout_, 🟢 _rust:canvist_model_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+- **Avoid redundant allocations when importing scene JSON.** Scene imports reserve their flattened node list up front and share diagnostic prefixes and format node paths only when an error occurs. Large flat parent chains and cycles keep the same validation and deterministic cycle errors while allocating fewer strings and growing fewer vectors. _Packages:_ 🟢 _rust:canvist_scene_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #257](https://github.com/canvist/canvist/pull/257)
+- **Pass scene JSON paths by reference while flattening.** `flatten` takes `&Arc<str>` for the path prefix instead of cloning the `Arc` into the parameter, so clippy's `needless_pass_by_value` lint no longer fails the browser and desktop builds. _Packages:_ 🟢 _rust:canvist_scene_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #260](https://github.com/canvist/canvist/pull/260)
+
+<details>
+<summary><strong>⚡ Performance</strong></summary>
+
+#### Lay out long words without rescanning them for every grapheme
+
+_Packages:_ ⚪ _rust:canvist_layout_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+
+A word with no break opportunity, such as a long URL or a pasted token, wraps by being cut between graphemes. Each cut found every grapheme boundary from the cut to the end of the word and measured every grapheme by summing advances from the start of the word, so a 40,000-character word took most of a second to lay out. Cuts now measure only the graphemes they take, and a span inside a word counts the characters before it instead of decoding them.
+
+Relaying out a paragraph that is one 2,000-character word after a keystroke takes 0.12 ms instead of 3.1 ms, one 10,000-character word 1.1 ms instead of 57 ms, and one 40,000-character word 14 ms instead of 0.93 s. Lines break exactly where they did.
+
+</details>
+
+<details>
+<summary><strong>🧪 Testing</strong></summary>
+
+- **Drop device journeys from the Flutter example.** The package script runs widget tests. The example no longer includes device integration tests or Patrol journeys. _Packages:_ ⚪ _canvist_flutter_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #266](https://github.com/canvist/canvist/pull/266)
+
+</details>
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 Grouped release for `sdk`.
