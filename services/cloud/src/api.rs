@@ -25,6 +25,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use serde_json::json;
+use tower_http::CompressionLevel;
+use tower_http::compression::CompressionLayer;
 
 use crate::app::App;
 use crate::app::SharedApp;
@@ -83,8 +85,11 @@ pub fn router(app: SharedApp) -> Router {
 	}
 
 	if app.config.role.serves_convert() {
-		router =
-			router.merge(convert_routes().layer(body_limit(app.config.convert.max_input_bytes)));
+		router = router.merge(
+			convert_routes()
+				.layer(body_limit(app.config.convert.max_input_bytes))
+				.layer(compression()),
+		);
 	}
 
 	router
@@ -97,6 +102,17 @@ pub fn router(app: SharedApp) -> Router {
 /// innermost limit, so Convert's larger one wins for its routes.
 fn body_limit(bytes: usize) -> DefaultBodyLimit {
 	DefaultBodyLimit::max(bytes)
+}
+
+/// Compress responses for clients that accept Brotli or gzip.
+///
+/// Converted and exported documents are HTML, Markdown, and JSON, which
+/// shrink five to ten times. Level 4 keeps a large document's compression
+/// to a millisecond or two; Brotli's default, 11, would cost far more CPU
+/// than the bytes it saves over 4. Responses under 32 bytes, the empty
+/// bodies of WebSocket upgrades among them, are left as they are.
+fn compression() -> CompressionLayer {
+	CompressionLayer::new().quality(CompressionLevel::Precise(4))
 }
 
 /// Conversions.
@@ -144,6 +160,13 @@ fn sync_routes() -> Router<SharedApp> {
 		.route("/v1/hocuspocus", get(hocuspocus::connect))
 		.route("/v1/hocuspocus/{*path}", get(hocuspocus::connect))
 		.route("/v1/tokens", post(mint_token))
+		.route("/v1/webhook", put(set_webhook).delete(clear_webhook))
+		.merge(document_routes())
+}
+
+/// Listing and exporting documents: the responses worth compressing.
+fn document_routes() -> Router<SharedApp> {
+	Router::new()
 		.route("/v1/documents", get(list_documents))
 		.route(
 			"/v1/documents/{*name}",
@@ -151,7 +174,7 @@ fn sync_routes() -> Router<SharedApp> {
 				.post(apply_update)
 				.delete(delete_document),
 		)
-		.route("/v1/webhook", put(set_webhook).delete(clear_webhook))
+		.layer(compression())
 }
 
 async fn index() -> Json<JsonValue> {

@@ -180,3 +180,41 @@ async fn exports_admit_before_loading_and_raw_yjs_bypasses_conversion_capacity()
 	drop(conversion);
 	server.shutdown().await;
 }
+
+#[tokio::test]
+async fn conversions_are_compressed_for_clients_that_accept_it() {
+	let (server, key) = fixture().await;
+	let router = router(server.app().clone());
+	let input = "canvist paints every pixel. ".repeat(30);
+	let payload = format!(r#"{{"from":"text","to":"html","input":"{input}"}}"#);
+	let convert = |encoding: Option<&str>| {
+		let mut request = request(&key, Body::from(payload.clone()));
+		if let Some(encoding) = encoding {
+			request
+				.headers_mut()
+				.insert("accept-encoding", encoding.parse().expect("header"));
+		}
+		router.clone().oneshot(request)
+	};
+
+	let plain = convert(None).await.expect("response");
+	assert_eq!(plain.status(), StatusCode::OK);
+	assert!(plain.headers().get("content-encoding").is_none());
+	let plain = to_bytes(plain.into_body(), 1 << 20).await.expect("body");
+
+	for encoding in ["br", "gzip"] {
+		let compressed = convert(Some(encoding)).await.expect("response");
+		assert_eq!(compressed.status(), StatusCode::OK);
+		assert_eq!(compressed.headers()["content-encoding"], encoding);
+		let compressed = to_bytes(compressed.into_body(), 1 << 20)
+			.await
+			.expect("body");
+		assert!(
+			compressed.len() * 4 < plain.len(),
+			"{encoding}: {} bytes against {} uncompressed",
+			compressed.len(),
+			plain.len()
+		);
+	}
+	server.shutdown().await;
+}
