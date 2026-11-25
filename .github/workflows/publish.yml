@@ -305,13 +305,15 @@ jobs:
           monochange: true
           format: true
 
-      # npm trusted publishing needs npm 11.5 or newer. No `registry-url`: it
-      # writes an `.npmrc` that authenticates with `NODE_AUTH_TOKEN`, which
-      # trusted publishing must not see.
+      # npm trusted publishing needs npm 11.5.1 or newer and Node 22.14 or
+      # newer. No `registry-url`: it writes an `.npmrc` that authenticates with
+      # `NODE_AUTH_TOKEN`, which trusted publishing must not see. Disable
+      # caching per npm's trusted publishing guidance.
       - name: install node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: simulate the release commit
         if: github.event_name == 'pull_request'
@@ -353,13 +355,162 @@ jobs:
             printf '%s\n' "$already"
           fi
 
+      # Verify every client-side condition npm's OIDC flow depends on (minimum
+      # Node/npm versions, no static auth tokens or auth-bearing .npmrc,
+      # GitHub OIDC endpoint variables, and exact package.json repository URLs)
+      # and warn when a ready package has never completed a trusted publish and
+      # is older than npm's 48-hour unvalidated trusted-publisher expiry window.
+      - name: verify npm trusted publishing setup
+        env:
+          REQUIRE_OIDC: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          READINESS_REPORT: ${{ runner.temp }}/publish-readiness.json
+        run: |
+          set -euo pipefail
+          version_ge() {
+            local a="${1#v}" b="${2#v}"
+            a="${a%%-*}"
+            b="${b%%-*}"
+            local IFS=.
+            local -a av bv
+            read -r -a av <<<"$a"
+            read -r -a bv <<<"$b"
+            for i in 0 1 2; do
+              local ai="${av[i]:-0}" bi="${bv[i]:-0}"
+              if ((10#$ai > 10#$bi)); then return 0; fi
+              if ((10#$ai < 10#$bi)); then return 1; fi
+            done
+            return 0
+          }
+
+          node_version="$(node --version)"
+          npm_version="$(npm --version)"
+          if ! version_ge "$node_version" "22.14.0"; then
+            echo "::error::npm trusted publishing requires Node >= 22.14.0 (found $node_version)." >&2
+            exit 1
+          fi
+          if ! version_ge "$npm_version" "11.5.1"; then
+            echo "::error::npm trusted publishing requires npm >= 11.5.1 (found $npm_version)." >&2
+            exit 1
+          fi
+
+          forbidden_env="$(jq -rn '
+            env | to_entries[]
+            | select((.value // "") != "")
+            | .key as $k
+            | ($k | ascii_downcase) as $l
+            | select(
+                $k == "NODE_AUTH_TOKEN"
+                or $k == "NPM_TOKEN"
+                or $k == "NPM_CONFIG__AUTH_TOKEN"
+                or $k == "npm_config__authToken"
+                or $k == "NPM_CONFIG_USERCONFIG"
+                or $k == "npm_config_userconfig"
+                or ($l | startswith("npm_config_") and contains("auth") and contains("token"))
+              )
+            | $k
+          ')"
+          if [ -n "$forbidden_env" ]; then
+            echo "::error::Static npm auth/config variables must not be set for trusted publishing:" >&2
+            printf '%s\n' "$forbidden_env" >&2
+            exit 1
+          fi
+
+          # Plain-text `npm config list` exposes protected credential keys as
+          # `(protected)` without revealing values, whereas `--json` omits them.
+          auth_config="$(npm config list | grep -E '^[[:space:]]*[^;#].*(:_authToken|:_auth|:_password|:certfile|:keyfile|^_authToken|^_auth|^_password)[[:space:]]*=' || true)"
+          if [ -n "$auth_config" ]; then
+            echo "::error::Static npm credentials are configured in .npmrc; trusted publishing must not see them:" >&2
+            printf '%s\n' "$auth_config" >&2
+            exit 1
+          fi
+
+          package_npmrc="$(find packages -path '*/node_modules' -prune -o -name '.npmrc' -print 2>/dev/null || true)"
+          if [ -n "$package_npmrc" ]; then
+            echo "::error::Unexpected package-level .npmrc file(s) found:" >&2
+            printf '%s\n' "$package_npmrc" >&2
+            exit 1
+          fi
+
+          registry="$(npm config get registry)"
+          if [ "${registry%/}" != "https://registry.npmjs.org" ]; then
+            echo "::error::Expected npm registry https://registry.npmjs.org/, found $registry." >&2
+            exit 1
+          fi
+
+          if [ "${REQUIRE_OIDC:-false}" = "true" ]; then
+            if [ "${GITHUB_ACTIONS:-}" != "true" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+              echo "::error::GitHub Actions OIDC environment variables (GITHUB_ACTIONS, ACTIONS_ID_TOKEN_REQUEST_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN) are required for npm trusted publishing; check job permissions: id-token: write." >&2
+              exit 1
+            fi
+          fi
+
+          if [ ! -f "$READINESS_REPORT" ]; then
+            echo "::error::Missing readiness report at $READINESS_REPORT." >&2
+            exit 1
+          fi
+
+          ready_packages=()
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] && ready_packages+=("$pkg")
+          done < <(jq -r '.packages[] | select(.registry == "npm" and .status == "ready") | .package' "$READINESS_REPORT")
+
+          if [ "${ready_packages+set}" = "set" ]; then
+            for pkg in "${ready_packages[@]}"; do
+              pkg_path="$(awk -v id="$pkg" '
+                $0 == "[package." id "]" || $0 == "[package.\"" id "\"]" { found = 1; next }
+                found && /^path *=/ { gsub(/^path *= *"|"$/, ""); print; exit }
+                found && /^\[/ { exit }
+              ' monochange.toml)"
+              if [ -z "$pkg_path" ] || [ ! -f "$pkg_path/package.json" ]; then
+                echo "::error::No package.json found for monochange npm package $pkg ($pkg_path)." >&2
+                exit 1
+              fi
+              repo_url="$(jq -r '.repository.url // (if (.repository | type) == "string" then .repository else "" end)' "$pkg_path/package.json")"
+              if [ "$repo_url" != "git+https://github.com/canvist/canvist.git" ]; then
+                echo "::error::$pkg ($pkg_path/package.json) repository.url is '$repo_url'; npm trusted publishing requires 'git+https://github.com/canvist/canvist.git'." >&2
+                exit 1
+              fi
+            done
+          fi
+
+          if [ "${SKIP_REGISTRY_CHECK:-false}" != "true" ] && [ "${ready_packages+set}" = "set" ]; then
+            unvalidated=()
+            for pkg in "${ready_packages[@]}"; do
+              if packument="$(curl -fsSL --retry 2 --retry-delay 1 --max-time 10 "${registry%/}/${pkg}" 2>/dev/null)"; then
+                if jq -e '
+                  ((.versions // {} | to_entries | any(.value._npmUser.trustedPublisher != null)) | not)
+                  and ((.time.created // "") != "")
+                  and ((now - (.time.created | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) > 172800)
+                ' <<<"$packument" >/dev/null 2>&1; then
+                  created="$(jq -r '.time.created' <<<"$packument")"
+                  unvalidated+=("${pkg} (created ${created})")
+                fi
+              else
+                echo "::warning::Could not inspect npm registry metadata for ${pkg}; skipping 48-hour trusted-publisher expiry check."
+              fi
+            done
+            if [ "${unvalidated+set}" = "set" ]; then
+              echo "::warning::${#unvalidated[@]} ready npm package(s) have never completed a trusted publish and were created more than 48 hours ago. npm expires unvalidated trusted publisher configurations 48 hours after creation (and \`npm trust list\` does not display expiry). Before a real publish, delete and recreate any expired configuration with \`--allow-publish\` (or on npmjs.com with direct \`npm publish\` enabled), then publish within 48 hours: ${unvalidated[*]}"
+            fi
+          fi
+
       - name: publish npm packages
         env:
           NPM_CONFIG_PROVENANCE: "true"
           NPM_CONFIG_IGNORE_SCRIPTS: "true"
+          # Surface npm's OIDC fetch and token-exchange diagnostics (which npm
+          # logs only at http/verbose levels, hiding registry rejections behind
+          # a bare ENEEDAUTH) and isolate this step's redacted debug logs.
+          NPM_CONFIG_LOGLEVEL: "verbose"
+          NPM_CONFIG_LOGS_DIR: ${{ runner.temp }}/npm-logs
         run: |
           set -euo pipefail
-          unset NODE_AUTH_TOKEN
+          unset NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG__AUTH_TOKEN npm_config__authToken
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
+            rm -f "$NPM_CONFIG_USERCONFIG"
+            unset NPM_CONFIG_USERCONFIG
+          fi
+          mkdir -p "$NPM_CONFIG_LOGS_DIR"
           args=(step publish-packages --all --ecosystem npm --output "$RUNNER_TEMP/publish-result.json" --format json)
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
@@ -370,6 +521,8 @@ jobs:
 
       - name: check the npm dry run covers every package
         if: needs.plan.outputs.dry_run == 'true'
+        env:
+          REQUIRE_OIDC: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           set -euo pipefail
           jq -s -e '
@@ -386,6 +539,54 @@ jobs:
             jq '.package_publish.summary' "$RUNNER_TEMP/publish-packages.json" >&2
             exit 1
           }
+          if [ "${REQUIRE_OIDC:-false}" = "true" ]; then
+            jq -e '
+              [.package_publish.packages[] | select(.status == "planned")] as $planned
+              | all($planned[];
+                  ((.stderr // "") | contains("audience=npm%3Aregistry.npmjs.org"))
+                  and ((.stderr // "") | contains("/-/npm/v1/oidc/token/exchange/package/"))
+                )
+            ' "$RUNNER_TEMP/publish-packages.json" >/dev/null || {
+              echo "::error::The npm dry run did not attempt the GitHub OIDC token exchange for every planned package." >&2
+              jq -r '
+                .package_publish.packages[]
+                | select(.status == "planned")
+                | select((((.stderr // "") | contains("audience=npm%3Aregistry.npmjs.org")) and ((.stderr // "") | contains("/-/npm/v1/oidc/token/exchange/package/"))) | not)
+                | .package
+              ' "$RUNNER_TEMP/publish-packages.json" >&2
+              exit 1
+            }
+          fi
+
+      - name: show npm OIDC diagnostics on failure
+        if: failure()
+        env:
+          NPM_CONFIG_LOGS_DIR: ${{ runner.temp }}/npm-logs
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          logs=("$NPM_CONFIG_LOGS_DIR"/*.log)
+          if [ "${logs+set}" != "set" ]; then
+            echo "No npm debug logs were written to $NPM_CONFIG_LOGS_DIR."
+            exit 0
+          fi
+          # npm formats every log-file line through @npmcli/redact (redacting
+          # npm_* tokens, URL credentials, and UUIDs) and never writes OIDC
+          # JWTs; strip any JWT-shaped string defensively before printing.
+          grep -h -E 'oidc|token/exchange|idtoken|ENEEDAUTH|E401|E403|E404|E422' "${logs[@]}" \
+            | sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/<redacted-jwt>/g' \
+            | tail -n 200 || true
+
+      # npm debug logs pass through @npmcli/redact (`lib/utils/format.js`) and
+      # `lib/utils/oidc.js` never logs OIDC or exchanged registry tokens.
+      - name: keep npm debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: publish-npm-debug-logs
+          path: ${{ runner.temp }}/npm-logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: keep npm publish reports
         if: always()
@@ -579,11 +780,28 @@ jobs:
       - name: publish canvist, canvist_extensions, then canvist_flutter
         run: |
           set -euo pipefail
-          flag="--force"
-          if [ "$DRY_RUN" = "true" ]; then flag="--dry-run"; fi
-          (cd platforms/dart && dart pub publish "$flag")
-          (cd platforms/dart_extensions && dart pub publish "$flag")
-          (cd platforms/flutter && flutter pub publish "$flag")
+          version="${RELEASE_TAG#v}"
+          publish_package() {
+            local dir="$1" pkg="$2" tool="$3"
+            if [ "$DRY_RUN" = "true" ]; then
+              (cd "$dir" && "$tool" pub publish --dry-run)
+              return
+            fi
+            # pub.dev rejects re-uploads of an existing version. Skip when
+            # this tag is already live so a resume after a partial publish can
+            # finish the remaining registries (including when dispatched from main).
+            local url="https://pub.dev/api/packages/${pkg}/versions/${version}"
+            local status
+            status="$(curl -sS --retry 3 --retry-delay 2 -o /dev/null -w '%{http_code}' "$url" || true)"
+            if [ "$status" = "200" ]; then
+              echo "::notice::${pkg} ${version} already exists on pub.dev; skipping upload"
+              return
+            fi
+            (cd "$dir" && "$tool" pub publish --force)
+          }
+          publish_package platforms/dart canvist dart
+          publish_package platforms/dart_extensions canvist_extensions dart
+          publish_package platforms/flutter canvist_flutter flutter
 
   # Railway deploys the app itself: staging follows `main`, and production
   # follows the `production` branch, which the `release` job moves once an
