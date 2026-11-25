@@ -1,5 +1,34 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-25)
+
+### 🚀 Feature
+
+- **Markdown reveal: edit the Markdown of the formatting at the caret.** The new `markdownReveal` extension (in the full module) shows the Markdown of the formatting at the caret, as Typora and Obsidian do: `**` around bold text, a heading's `##`, a link's `[` and `](address)`, drawn faint and gone when the caret leaves. The arrow keys stop on both sides of the syntax, typing follows the side the caret is on, and Backspace or Delete over it deletes one of its characters: `**` becomes `*` (bold turns italic), and a heading's `##` becomes `#`. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #250](https://github.com/canvist/canvist/pull/250)
+
+### 🐛 Fixed
+
+#### Fix bugs found reviewing every extension
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #252](https://github.com/canvist/canvist/pull/252)
+
+- `linkHref` returned the first link of a selection spanning two different links; it is now null, like the other style queries. Typed URLs after `(`, `[`, `<`, or a quote now autolink, as pasted ones already did.
+- Enter with text selected in a code block replaced the selection with a line break instead of splitting the block.
+- Character and word counts no longer split a word or character where its marks change.
+- `replace` treats a match selected backwards as the current match.
+- `InkHandle::insert` clamps the height to 1 to 4000, as `insertInk` does.
+- Comment thread text no longer includes a placeholder character for mentions.
+- A suggestion no longer opens for one keystroke when its trigger sits 64 bytes back without white space before it.
+- Enter in a details summary whose content starts with an image selects the image.
+- Backspace after a mention keeps the mention's marks on the trigger character it leaves.
+- `insertHashtag` with an empty tag does nothing.
+- `TableHandle::insert` with zero rows or columns does nothing, as `insertTable` does.
+- Pasted HTML: column and row spans are capped at 1000 and 65534, `>` inside a quoted attribute no longer ends the tag, and an uppercase `</SCRIPT>` no longer drops the rest of the paste.
+- Markdown: link destinations escape `(`, `)`, `<`, `>` and `\`, and read back whole; image alt text no longer gains a backslash on each round trip; code fences are longer than any fence inside the code; links with unsafe schemes are written as plain text, as in HTML; and an ordered list starting at the largest number no longer overflows.
+
+- **Bound table spans read from JSON.** A cell's `colspan` and `rowspan` from JSON, which a stored document or a collaborator supplies, sized the table's grid as given. The first structural edit in a table with `"colspan": 4294967296`, such as pressing Enter in a cell, built a grid of billions of slots and padded every other row to that width, and never finished. The table commands, the `tableCell` query, and the table repair after each edit now count spans up to the limits browsers apply, 1,000 columns and 65,534 rows, as pasted HTML already did. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #264](https://github.com/canvist/canvist/pull/264)
+- **Keep video settings through HTML.** HTML wrote only a video's source and size, so exporting and reading back a document, or copying and pasting a video, lost a YouTube video's `start` and a Twitch video's `autoplay` and `muted`. The frame now carries `start="30"` as TipTap writes it, and `autoplay` and `muted` as boolean attributes, as `<audio>` does, and the reader takes them back. A video that starts from the beginning writes no `start`. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #264](https://github.com/canvist/canvist/pull/264)
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### 🚀 Feature

@@ -1,5 +1,44 @@
 All notable changes to this project will be documented in this file. This changelog is managed by [monochange](https://github.com/monochange/monochange).
 
+## [0.2.2](https://github.com/canvist/canvist/releases/tag/v0.2.2) (2026-11-25)
+
+### 🚀 Feature
+
+#### Adornments: text an extension shows without it being part of the document
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #250](https://github.com/canvist/canvist/pull/250)
+
+`Extension::adornments` returns text to show at points in the document, and `Editor::adornments` collects it after every update. `DocumentLayout::set_adornments` lays it out: each adornment sits between the two carets at its point (upstream before it, downstream after it), is drawn faint in its block's style, and never changes document offsets, so hit testing, line edges, and vertical motion stay in document terms. The browser editor passes them to layout after every change.
+
+`Editor::select_with_affinity` sets the selection with the caret on one side of its point, and the browser editor uses it for clicks, so a click keeps the end of a wrapped line, or the side of an adornment, it landed on. A change that alters neither the document nor the selection, such as storing marks for the next character, now keeps the caret's affinity instead of resetting it.
+
+### 🐛 Fixed
+
+#### Write the table spans the grid was built with to HTML
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #267](https://github.com/canvist/canvist/pull/267)
+
+Server-rendered HTML wrote a cell's `colspan` and `rowspan` as the document held them, while the table's grid clamped them. A cell whose JSON claimed a `colspan` of `4294967295` was laid out across 1,000 columns but exported with the full number. The HTML now carries the clamped spans: at most 1,000 columns and 65,534 rows, the limits browsers apply.
+
+`canvist_model` exports those limits as `MAX_COLSPAN` and `MAX_ROWSPAN`, and the table extension and the HTML reader use them in place of their own copies.
+
+- **Lay out blocks with absurdly large heights.** Layout sums block heights in 1/64 px integers. A height from a document attribute, such as an image's `height`, can be any finite number, and one of `1e30` converted to `i64::MAX` units, so adding the next block's offset overflowed: a panic in debug builds and negative positions in release. Positions and heights now convert to at most 2^31 px, which keeps every sum in range, as browsers saturate their layout units. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+- **Number ordered lists that start near the ends of the integer range.** An ordered list's `start` attribute can hold any 64-bit integer. Layout added each item's index to it and the HTML renderer subtracted one from it, so a list starting at `9223372036854775807` panicked in debug builds, and in release numbered its second item `-9223372036854775808.`. Both now stop at the ends of the range. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+- **Clamp table colspans to 1,000 columns.** `TableMap` sized a table's grid by every cell's `colspan`, however large. A document whose cell claimed a colspan of `9223372036854775807`, as any JSON can, made layout panic with a capacity overflow, and one of a billion columns tried to allocate gigabytes. A colspan over 1,000 is now clamped to 1,000, as browsers clamp the HTML attribute, so table layout and the table commands see the same grid a browser would. _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+
+<details>
+<summary><strong>⚡ Performance</strong></summary>
+
+#### Lay out long words without rescanning them for every grapheme
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #262](https://github.com/canvist/canvist/pull/262)
+
+A word with no break opportunity, such as a long URL or a pasted token, wraps by being cut between graphemes. Each cut found every grapheme boundary from the cut to the end of the word and measured every grapheme by summing advances from the start of the word, so a 40,000-character word took most of a second to lay out. Cuts now measure only the graphemes they take, and a span inside a word counts the characters before it instead of decoding them.
+
+Relaying out a paragraph that is one 2,000-character word after a keystroke takes 0.12 ms instead of 3.1 ms, one 10,000-character word 1.1 ms instead of 57 ms, and one 40,000-character word 14 ms instead of 0.93 s. Lines break exactly where they did.
+
+</details>
+
 ## [0.2.1](https://github.com/canvist/canvist/releases/tag/v0.2.1) (2026-11-07)
 
 ### 🚀 Feature

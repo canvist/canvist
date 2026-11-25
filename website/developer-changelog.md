@@ -2,6 +2,34 @@
 
 Deployment, infrastructure, and implementation notes for the website and canvist Cloud. The user-facing changelog lives at `/changelog` on the website.
 
+## 0.1.3 (2026-11-25)
+
+Grouped release for `app`.
+
+### 🐛 Fixed
+
+- **Hocuspocus sockets let go of deleted documents.** Deleting a document left it open on Hocuspocus sockets, held by a room nothing saved. Authenticating the same name again on that socket, as a provider created again for it does, kept editing the deleted room: edits were acknowledged but never stored or shared. The socket now closes the document when it is deleted, so the next authentication joins a new room. _Packages:_ 🟢 _rust:canvist_cloud_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #261](https://github.com/canvist/canvist/pull/261)
+
+<details>
+<summary><strong>⚡ Performance</strong></summary>
+
+- **Compress Convert and document export responses.** `POST /v1/convert`, `GET /v1/documents`, and `GET /v1/documents/{name}` now answer with Brotli or gzip when the client's `Accept-Encoding` allows it, at level 4. A converted or exported document is HTML, Markdown, or JSON, so it arrives about two thirds smaller: an 18.5 KB Markdown export is 6.3 KB with Brotli, for about a millisecond of server CPU. WebSocket routes are unchanged, and clients that send no `Accept-Encoding` get the same bytes as before. _Packages:_ ⚪ _rust:canvist_cloud_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #271](https://github.com/canvist/canvist/pull/271)
+- **Ship only the font weights the website uses.** The subset fonts keep only the weight range the site sets: 400 to 800 for Bricolage Grotesque and 400 to 700 for Geist Mono, which drops the variation data for the lighter and heavier weights nobody sees. Every page downloads 6.6 KiB less font (67.2 KiB to 60.6 KiB), about 8% of a docs page. Text renders the same; screenshots at every weight the site uses differ only in antialiasing. _Packages:_ ⚪ _website_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #271](https://github.com/canvist/canvist/pull/271)
+
+#### Serve the website precompressed with Brotli
+
+_Packages:_ ⚪ _website_
+
+_Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #271](https://github.com/canvist/canvist/pull/271)
+
+The website build writes a Brotli (quality 11) and a gzip copy beside every compressible file, and Caddy serves those copies instead of compressing each response with zstd on the fly. Every script, stylesheet, page, and WebAssembly module is about 20% smaller on the wire: the homepage goes from 490 KiB to 394 KiB, and the playground's editor module from 351 KiB to 277 KiB.
+
+`deno task perf:serve` and `deno task perf:pages` measure the bytes, paint timings, blocking time, and editor latency of each page; `docs/internal/web-performance.md` explains them and logs the results.
+
+- **Load the homepage's Rive animation only where it is cheap.** The hero's Wet Caret animation loads Rive (about 300 KB with Brotli) only on a 4G-or-faster connection, without Save-Data, on a device with at least 4 GB of memory. Everywhere else the CSS stroke paints the wordmark at once, and the homepage costs 92 KB instead of 387 KB. Browsers that report nothing about the connection (Safari, Firefox) still get Rive. _Packages:_ ⚪ _website_ _Owner:_ [@ifiokjr](https://github.com/ifiokjr) · _Review:_ [PR #271](https://github.com/canvist/canvist/pull/271)
+
+</details>
+
 ## 0.1.2 (2026-11-07)
 
 Grouped release for `app`.
