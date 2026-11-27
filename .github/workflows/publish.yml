@@ -324,7 +324,7 @@ jobs:
           mc run release --commit --no-verify=true --format text
 
       - name: install wasm-pack
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@073e1fd0bc889c9aee68dbaaa927cde1b5653a83 # v2.90.11
         with:
           tool: wasm-pack@0.15.0
 
@@ -693,7 +693,7 @@ jobs:
           persist-credentials: false
 
       - name: setup java
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -710,7 +710,7 @@ jobs:
       # API calls were rate-limited (403) from this job; install-action
       # downloads the release with the workflow token.
       - name: install cargo-ndk
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@073e1fd0bc889c9aee68dbaaa927cde1b5653a83 # v2.90.11
         with:
           tool: cargo-ndk@4.1.2
 
