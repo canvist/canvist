@@ -1,0 +1,762 @@
+---
+import Base from "../layouts/Base.astro";
+import { PRESETS } from "../lib/admin.ts";
+
+/**
+ * The admin dashboard. Static like every page here; everything on it comes
+ * from canvist Cloud's `/v1/admin` routes after sign-in
+ * (`src/scripts/admin/main.ts`). Nothing is indexed and nothing is tracked.
+ */
+---
+
+<Base title="Admin" description="The canvist admin dashboard: analytics, coupons and projects.">
+	<meta slot="head" name="robots" content="noindex, nofollow" />
+	<div class="admin" data-admin>
+		<header class="admin-head chip" data-chip="1">
+			<div class="admin-head__inner">
+				<h1 class="admin-head__title">Admin</h1>
+				<div class="admin-head__who" data-signed-in hidden>
+					<p>Signed in as <strong data-admin-who></strong></p>
+					<button type="button" class="btn btn--ghost" data-sign-out>Sign out</button>
+				</div>
+			</div>
+		</header>
+
+		<p class="admin-status" role="status" data-admin-status>Checking your session…</p>
+
+		<section class="gate" data-view="sign-in" aria-labelledby="gate-title" hidden>
+			<h2 id="gate-title" class="gate__title">Sign in</h2>
+			<p class="gate__lede">Enter your admin email address. canvist sends a sign-in link that works for 15 minutes.</p>
+			<form class="gate__form" data-sign-in>
+				<label for="admin-email">Email</label>
+				<div class="gate__row">
+					<input id="admin-email" name="email" type="email" autocomplete="email" required />
+					<button type="submit" class="btn">Email me a link</button>
+				</div>
+			</form>
+			<p class="message" role="status" data-sign-in-result></p>
+		</section>
+
+		<section class="dashboard" data-view="dashboard" aria-label="Dashboard" hidden>
+			<div class="tabs" role="tablist" aria-label="Admin sections">
+				<button type="button" role="tab" id="tab-analytics" aria-controls="panel-analytics" aria-selected="true" data-tab="analytics">Analytics</button>
+				<button type="button" role="tab" id="tab-coupons" aria-controls="panel-coupons" aria-selected="false" tabindex="-1" data-tab="coupons">Coupons</button>
+				<button type="button" role="tab" id="tab-projects" aria-controls="panel-projects" aria-selected="false" tabindex="-1" data-tab="projects">Projects</button>
+			</div>
+
+			<section id="panel-analytics" role="tabpanel" aria-labelledby="tab-analytics" class="tab-panel">
+				<div class="tab-panel__head">
+					<h2 class="tab-panel__title">canvist.dev and Cloud</h2>
+					<div class="range" role="group" aria-label="Period">
+						<button type="button" aria-pressed="false" data-days="7">7 days</button>
+						<button type="button" aria-pressed="true" data-days="30">30 days</button>
+						<button type="button" aria-pressed="false" data-days="90">90 days</button>
+					</div>
+				</div>
+				<p class="tab-panel__lede">Counted on canvist's own server: no stored IP addresses, no query strings, no bots, and nothing from browsers that ask not to be tracked. A visitor is a random id in their browser's storage.</p>
+				<div class="report" data-report>Loading analytics…</div>
+			</section>
+
+			<section id="panel-coupons" role="tabpanel" aria-labelledby="tab-coupons" class="tab-panel" hidden>
+				<div class="tab-panel__head">
+					<h2 class="tab-panel__title">Coupons</h2>
+				</div>
+				<p class="tab-panel__lede">Coupons live in Stripe. Anyone can use a public code at checkout. A private code only works for one project, and a project that already pays gets the discount straight away.</p>
+				<div class="coupons-layout">
+					<form class="panel coupon-form" data-coupon-form novalidate>
+						<h3 class="panel-title">New coupon</h3>
+						<div class="presets" role="group" aria-label="Start from">
+							{PRESETS.map((preset, index) => <button type="button" class="preset" data-preset={index}>{preset.label}</button>)}
+						</div>
+
+						<label class="field">
+							<span>Name, shown on invoices</span>
+							<input id="coupon-name" name="name" maxlength="40" required />
+						</label>
+
+						<fieldset class="field">
+							<legend>Discount</legend>
+							<div class="segmented">
+								<label><input type="radio" name="kind" value="percent" checked /> Percent</label>
+								<label><input type="radio" name="kind" value="amount" /> Amount</label>
+							</div>
+							<div class="field__row">
+								<input id="coupon-amount" name="amount" type="number" min="0" step="any" inputmode="decimal" aria-label="How much off" required />
+								<span data-when="kind=percent" class="field__unit">% off</span>
+								<input id="coupon-currency" name="currency" value="usd" maxlength="3" aria-label="Currency" data-when="kind=amount" hidden />
+							</div>
+						</fieldset>
+
+						<fieldset class="field">
+							<legend>How long</legend>
+							<div class="segmented">
+								<label><input type="radio" name="duration" value="once" checked /> First invoice</label>
+								<label><input type="radio" name="duration" value="repeating" /> Some months</label>
+								<label><input type="radio" name="duration" value="forever" /> Forever</label>
+							</div>
+							<label class="field__row" data-when="duration=repeating" hidden>
+								<input id="coupon-months" name="months" type="number" min="1" max="36" value="3" />
+								<span class="field__unit">months</span>
+							</label>
+						</fieldset>
+
+						<fieldset class="field">
+							<legend>Who can use it</legend>
+							<div class="segmented">
+								<label><input type="radio" name="visibility" value="public" checked /> Public code</label>
+								<label><input type="radio" name="visibility" value="private" /> One project</label>
+							</div>
+							<label class="field" data-when="visibility=public">
+								<span>Code (Stripe makes one up if blank)</span>
+								<input id="coupon-code" name="code" pattern="[A-Za-z0-9-]{3,40}" autocapitalize="characters" placeholder="LAUNCH20" />
+							</label>
+							<label class="field" data-when="visibility=private" hidden>
+								<span>Project</span>
+								<select id="coupon-project" name="project"><option value="">Pick a project</option></select>
+							</label>
+						</fieldset>
+
+						<details class="limits">
+							<summary>Limits</summary>
+							<label class="field">
+								<span>Redemptions allowed</span>
+								<input id="coupon-max" name="max" type="number" min="1" />
+							</label>
+							<label class="field">
+								<span>Last day it works (UTC)</span>
+								<input id="coupon-expires" name="expires" type="date" />
+							</label>
+						</details>
+
+						<button type="submit" class="btn">Create coupon</button>
+						<p class="message" role="status" data-coupon-status></p>
+					</form>
+
+					<section class="panel" aria-labelledby="coupon-list-title">
+						<h3 id="coupon-list-title" class="panel-title">In Stripe</h3>
+						<ul class="coupon-list" data-coupon-list>
+							<li class="empty">Loading coupons…</li>
+						</ul>
+					</section>
+				</div>
+			</section>
+
+			<section id="panel-projects" role="tabpanel" aria-labelledby="tab-projects" class="tab-panel" hidden>
+				<div class="tab-panel__head">
+					<h2 class="tab-panel__title">Projects</h2>
+				</div>
+				<p class="tab-panel__lede">The newest 500, with this month's active documents.</p>
+				<div class="panel table-scroll" data-projects>Loading projects…</div>
+			</section>
+		</section>
+	</div>
+</Base>
+
+<script>
+	import "../scripts/admin/main.ts";
+</script>
+
+<!-- Global, but only this page loads it: much of the dashboard is drawn by script, which scoped styles never reach. Every rule starts at .admin. -->
+<style is:global>
+	/* Views and fields switch with `hidden`, which a `display` rule would override. */
+	.admin [hidden] {
+		display: none !important;
+	}
+
+	.admin {
+		display: grid;
+		gap: var(--section-gap);
+		padding: 0 var(--gutter) var(--s-8);
+	}
+
+	.admin-head {
+		padding-block: var(--s-7) var(--s-6);
+	}
+
+	.admin-head__inner {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		justify-content: space-between;
+		gap: var(--s-4);
+		max-width: var(--content);
+		margin-inline: auto;
+	}
+
+	.admin-head__title {
+		font-size: var(--t-1);
+		line-height: var(--lh-tight);
+		font-weight: 800;
+		letter-spacing: -0.05em;
+	}
+
+	.admin-head__who {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--s-4);
+		color: var(--chip-muted);
+	}
+
+	.admin-head__who strong {
+		color: var(--chip-fg);
+		overflow-wrap: anywhere;
+	}
+
+	.admin-status,
+	.admin .gate,
+	.admin .dashboard {
+		width: 100%;
+		max-width: var(--content);
+		margin-inline: auto;
+	}
+
+	.admin-status {
+		color: var(--text-muted);
+		padding: var(--s-5) 0;
+	}
+
+	/* ---------- Sign in ---------- */
+
+	.admin .gate {
+		display: grid;
+		gap: var(--s-4);
+		padding: var(--s-6) 0;
+	}
+
+	.admin .gate > * {
+		max-width: 36rem;
+	}
+
+	.admin .gate__title {
+		font-size: var(--t-2);
+	}
+
+	.admin .gate__lede {
+		color: var(--text-muted);
+	}
+
+	.admin .gate__form {
+		display: grid;
+		gap: var(--s-2);
+	}
+
+	.admin .gate__form label {
+		font-weight: 620;
+	}
+
+	.admin .gate__row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--s-3);
+	}
+
+	.admin .gate__row input {
+		flex: 1 1 16rem;
+	}
+
+	/* ---------- Shared controls ---------- */
+
+	.admin input:not([type="radio"]),
+	.admin select {
+		min-height: 3rem;
+		padding: 0 var(--s-4);
+		border: 1px solid var(--line);
+		border-radius: var(--r-2);
+		background: var(--raised);
+		min-width: 0;
+	}
+
+	.admin input:focus-visible,
+	.admin select:focus-visible,
+	.admin button:focus-visible,
+	.admin summary:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+
+	.admin .message:empty {
+		display: none;
+	}
+
+	.admin .message,
+	.admin .report[data-tone] {
+		padding: var(--s-3) var(--s-4);
+		border-radius: var(--r-2);
+		background: color-mix(in oklab, var(--accent) 10%, transparent);
+	}
+
+	.admin .message[data-tone="error"],
+	.admin [data-tone="error"] {
+		background: color-mix(in oklab, var(--error) 12%, transparent);
+		color: var(--text);
+	}
+
+	.admin .link-button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent);
+		font-weight: 620;
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+		cursor: pointer;
+	}
+
+	.admin .link-button--danger {
+		color: var(--error);
+	}
+
+	.admin .empty {
+		color: var(--text-muted);
+	}
+
+	/* ---------- Tabs and panels ---------- */
+
+	.admin .dashboard {
+		display: grid;
+		gap: var(--s-5);
+		padding-top: var(--s-4);
+	}
+
+	.admin .tabs,
+	.admin .range {
+		display: inline-flex;
+		flex-wrap: wrap;
+		width: fit-content;
+		padding: var(--s-1);
+		border-radius: 999px;
+		background: color-mix(in oklab, var(--text) 8%, transparent);
+	}
+
+	.admin .tabs button,
+	.admin .range button {
+		min-height: 2.5rem;
+		padding: 0 clamp(var(--s-3), 3.5vw, var(--s-5));
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		font-weight: 620;
+		cursor: pointer;
+	}
+
+	.admin .tabs button[aria-selected="true"],
+	.admin .range button[aria-pressed="true"] {
+		background: var(--text);
+		color: var(--page);
+	}
+
+	.admin .tab-panel {
+		display: grid;
+		gap: var(--s-4);
+	}
+
+	.admin .tab-panel[aria-busy="true"] .report {
+		opacity: 0.6;
+	}
+
+	.admin .tab-panel__head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--s-3);
+	}
+
+	.admin .tab-panel__title {
+		font-size: var(--t-2);
+	}
+
+	.admin .tab-panel__lede {
+		color: var(--text-muted);
+		max-width: var(--measure);
+	}
+
+	.admin .panel,
+	.admin .report .panel {
+		display: grid;
+		align-content: start;
+		gap: var(--s-4);
+		padding: var(--s-5);
+		border-radius: var(--r-2);
+		background: var(--surface);
+		min-width: 0;
+	}
+
+	.admin .panel-title,
+	.admin .report .panel-title {
+		font-size: var(--t-small);
+		font-weight: 700;
+		letter-spacing: 0.01em;
+	}
+
+	.admin .report {
+		display: grid;
+		gap: var(--s-4);
+	}
+
+	/* ---------- Analytics ---------- */
+
+	.admin .report .tiles {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		gap: var(--s-3);
+	}
+
+	.admin .report .tile {
+		display: grid;
+		gap: var(--s-1);
+		padding: var(--s-4) var(--s-5);
+		border-radius: var(--r-2);
+		background: var(--surface);
+	}
+
+	.admin .report .tile__label {
+		font-size: var(--t-small);
+		color: var(--text-muted);
+	}
+
+	.admin .report .tile__value {
+		font-size: var(--t-2);
+		font-weight: 750;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+	}
+
+	.admin .report .tile__change {
+		font-size: var(--t-micro);
+		color: var(--text-muted);
+	}
+
+	.admin .report .chart {
+		display: grid;
+		gap: var(--s-3);
+		padding: var(--s-5);
+		border-radius: var(--r-2);
+		background: var(--surface);
+	}
+
+	.admin .report .chart__plot {
+		position: relative;
+	}
+
+	.admin .report .chart__plot svg {
+		width: 100%;
+		height: auto;
+		overflow: visible;
+	}
+
+	.admin .report .chart__axis line {
+		stroke: var(--line);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.admin .report .chart__axis text,
+	.admin .report .chart__days text {
+		fill: var(--text-muted);
+		font-family: var(--font-mono);
+		font-size: 11px;
+	}
+
+	.admin .report .chart__column {
+		fill: var(--accent);
+	}
+
+	.admin .report .chart__hit {
+		fill: transparent;
+	}
+
+	.admin .report .chart__hit:hover {
+		fill: color-mix(in oklab, var(--accent) 8%, transparent);
+	}
+
+	.admin .report .chart__tooltip {
+		position: absolute;
+		top: 0;
+		translate: -50% 0;
+		display: grid;
+		gap: 2px;
+		padding: var(--s-2) var(--s-3);
+		border-radius: var(--r-1);
+		background: var(--text);
+		color: var(--page);
+		font-size: var(--t-micro);
+		white-space: nowrap;
+		pointer-events: none;
+	}
+
+	.admin .report .chart__table summary {
+		cursor: pointer;
+		font-size: var(--t-small);
+		color: var(--text-muted);
+	}
+
+	.admin .report .lists {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+		gap: var(--s-3);
+	}
+
+	.admin .report .note {
+		color: var(--text-muted);
+		font-size: var(--t-small);
+	}
+
+	/* Top lists and tables */
+
+	.admin table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--t-small);
+	}
+
+	.admin th,
+	.admin td {
+		padding: var(--s-2) var(--s-2);
+		text-align: left;
+		vertical-align: top;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.admin thead th {
+		color: var(--text-muted);
+		font-weight: 600;
+		font-size: var(--t-micro);
+	}
+
+	.admin td {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.admin tbody th {
+		font-weight: 500;
+	}
+
+	.admin .report .top td {
+		text-align: right;
+		width: 5rem;
+	}
+
+	.admin .report .top thead th:not(:first-child) {
+		text-align: right;
+	}
+
+	/* Each row's share of the leader, as a thin bar under its name. */
+	.admin .report .top__key {
+		display: block;
+		padding-bottom: var(--s-1);
+		overflow-wrap: anywhere;
+		background: linear-gradient(var(--accent), var(--accent)) no-repeat left bottom / var(--share, 0%) 3px;
+	}
+
+	.admin .report .top tbody tr {
+		--share: 0%;
+	}
+
+	/* ---------- Coupons ---------- */
+
+	.admin .coupons-layout {
+		display: grid;
+		grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		gap: var(--s-3);
+		align-items: start;
+	}
+
+	@media (max-width: 64rem) {
+		.admin .coupons-layout {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.admin .presets {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--s-2);
+	}
+
+	.admin .preset {
+		min-height: 2.25rem;
+		padding: 0 var(--s-4);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: var(--raised);
+		font-size: var(--t-small);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.admin .preset:hover {
+		border-color: var(--accent);
+	}
+
+	.admin .field {
+		display: grid;
+		gap: var(--s-2);
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.admin .field > span,
+	.admin .field legend {
+		font-size: var(--t-small);
+		font-weight: 620;
+	}
+
+	.admin .field legend {
+		margin-bottom: var(--s-2);
+	}
+
+	.admin .field__row {
+		display: flex;
+		align-items: center;
+		gap: var(--s-3);
+	}
+
+	.admin .field__row input {
+		width: 8rem;
+	}
+
+	.admin .field__unit {
+		color: var(--text-muted);
+	}
+
+	.admin .segmented {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--s-2);
+	}
+
+	.admin .segmented label {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--s-2);
+		min-height: 2.5rem;
+		padding: 0 var(--s-4);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: var(--raised);
+		font-size: var(--t-small);
+		cursor: pointer;
+	}
+
+	.admin .segmented label:has(input:checked) {
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+	}
+
+	.admin .segmented input {
+		accent-color: var(--accent);
+	}
+
+	.admin .limits {
+		display: grid;
+		gap: var(--s-3);
+	}
+
+	.admin .limits[open] {
+		gap: var(--s-3);
+	}
+
+	.admin .limits summary {
+		cursor: pointer;
+		font-size: var(--t-small);
+		font-weight: 620;
+	}
+
+	.admin .limits[open] > .field {
+		margin-top: var(--s-3);
+	}
+
+	.admin .coupon-form .btn {
+		justify-self: start;
+	}
+
+	.admin .coupon-form .btn:disabled {
+		opacity: 0.6;
+		cursor: progress;
+	}
+
+	.admin .coupon-list {
+		display: grid;
+		gap: var(--s-2);
+		padding: 0;
+		list-style: none;
+	}
+
+	.admin .coupon-list .coupon {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: var(--s-3);
+		padding: var(--s-4);
+		border-radius: var(--r-2);
+		background: var(--raised);
+		border-left: 4px solid var(--line);
+	}
+
+	.admin .coupon-list .coupon[data-visibility="private"] {
+		border-left-color: var(--accent);
+	}
+
+	.admin .coupon-list .coupon__main {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.admin .coupon-list .coupon__name {
+		font-weight: 700;
+	}
+
+	.admin .coupon-list .coupon__audience,
+	.admin .coupon-list .coupon__redeemed,
+	.admin .coupon-list .coupon__expired {
+		color: var(--text-muted);
+		font-size: var(--t-small);
+		overflow-wrap: anywhere;
+	}
+
+	.admin .coupon-list .coupon__side {
+		display: grid;
+		justify-items: end;
+		align-content: start;
+		gap: var(--s-1);
+		font-size: var(--t-small);
+	}
+
+	/* ---------- Projects ---------- */
+
+	.admin .table-scroll {
+		overflow-x: auto;
+	}
+
+	.admin .table-scroll .projects {
+		min-width: 40rem;
+	}
+
+	.admin .table-scroll .projects__name,
+	.admin .table-scroll .projects__standing {
+		display: block;
+	}
+
+	.admin .table-scroll .projects__name {
+		font-weight: 650;
+	}
+
+	.admin .table-scroll .projects__id,
+	.admin .table-scroll .projects__standing {
+		color: var(--text-muted);
+	}
+
+	.admin .table-scroll .projects__standing[data-standing="over"],
+	.admin .table-scroll .projects__standing[data-standing="capped"] {
+		color: var(--error);
+	}
+
+	.admin .table-scroll .projects__plan {
+		text-transform: capitalize;
+	}
+</style>

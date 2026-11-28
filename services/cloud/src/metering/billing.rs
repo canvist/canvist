@@ -152,6 +152,11 @@ pub async fn checkout(
 		Interval::Month => {
 			form.extend(self::form(&[
 				("mode", "subscription"),
+				// Public codes, and private ones bound to this customer
+				// (`admin::coupons`). Setup mode charges nothing, so annual
+				// checkouts take no code; a private coupon made later is
+				// applied to the subscription directly.
+				("allow_promotion_codes", "true"),
 				(
 					"subscription_data[metadata][canvist_project]",
 					project.as_str(),
@@ -623,18 +628,18 @@ async fn prices(stripe: &StripeClient, keys: &[String]) -> Result<Vec<Price>, Bi
 		.collect()
 }
 
-fn form(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+pub(crate) fn form(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
 	pairs
 		.iter()
 		.map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
 		.collect()
 }
 
-fn text(value: &Json, field: &str) -> Option<String> {
+pub(crate) fn text(value: &Json, field: &str) -> Option<String> {
 	value.get(field)?.as_str().map(str::to_owned)
 }
 
-fn list(value: &Json) -> &[Json] {
+pub(crate) fn list(value: &Json) -> &[Json] {
 	value
 		.get("data")
 		.and_then(Json::as_array)

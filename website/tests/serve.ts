@@ -1,6 +1,7 @@
 /**
  * Serves `dist/` the way the production Caddyfile does: `/name` serves
  * `name.html`, and unknown paths get `404.html` with a 404 status.
+ * Analytics batches are accepted and dropped; tests mock the admin API.
  *
  *   deno run --allow-net --allow-read tests/serve.ts [port]
  */
@@ -20,6 +21,10 @@ async function exists(path: string): Promise<boolean> {
 
 Deno.serve({ port, hostname: "127.0.0.1" }, async (request) => {
 	const url = new URL(request.url);
+	// Caddy hands analytics to canvist Cloud; here they go nowhere.
+	if (url.pathname === "/v1/events" && request.method === "POST") {
+		return new Response(null, { status: 202 });
+	}
 	const path = decodeURIComponent(url.pathname);
 	if (
 		!path.endsWith("/") && !(await exists(root + path)) &&

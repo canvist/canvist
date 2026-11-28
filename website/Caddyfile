@@ -1,6 +1,15 @@
 {
 	admin off
 	auto_https off
+	servers {
+		# On Railway the connection arrives from the edge proxy, which uses
+		# the RFC 6598 shared range beside the private ones. Trusting both
+		# lets Caddy find the visitor's address in the proxy's
+		# X-Forwarded-For; strict parsing walks from the right, so a
+		# visitor's own header cannot name someone else.
+		trusted_proxies static private_ranges 100.64.0.0/10
+		trusted_proxies_strict
+	}
 }
 
 :{$PORT:8080} {
@@ -19,10 +28,21 @@
 		-Server
 	}
 
+	# canvist Cloud answers the admin dashboard's API and the site's own
+	# analytics on this origin, so the admin session cookie stays first-party
+	# and no third-party script runs. On Railway, CANVIST_CLOUD_URL is the
+	# sync service's private address. Nothing here is ever cached.
+	@cloud path /v1/events /v1/admin /v1/admin/*
+	header @cloud Cache-Control "no-store"
+	reverse_proxy @cloud {$CANVIST_CLOUD_URL:localhost:8080} {
+		# Hand the visitor, not the edge proxy, to canvist Cloud's limiter.
+		header_up X-Forwarded-For {client_ip}
+	}
+
 	# Hashed build output never changes; everything else revalidates.
 	@hashed path /_astro/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
-	@rest not path /_astro/*
+	@rest not path /_astro/* /v1/*
 	header @rest Cache-Control "public, max-age=0, must-revalidate"
 
 	@wasm path *.wasm

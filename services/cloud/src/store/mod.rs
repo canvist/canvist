@@ -1,4 +1,4 @@
-//! Durable state: projects, keys, webhooks, and documents.
+//! Durable state: projects, keys, webhooks, documents, and analytics.
 //!
 //! [`Store`] is Postgres in production and an in-memory map for tests and
 //! quick local runs. Documents are stored the way y-websocket persistence
@@ -13,6 +13,8 @@ use std::sync::Arc;
 pub use memory::MemoryStore;
 pub use postgres::PgStore;
 
+use crate::analytics::Event;
+use crate::analytics::report::Period;
 use crate::auth::KeyHash;
 use crate::auth::NewApiKey;
 use crate::metering::Month;
@@ -270,6 +272,20 @@ impl Store {
 		}
 	}
 
+	/// Store `customer` as `project`'s Stripe customer unless it already has
+	/// one, and return the customer stored now. Only that column is written,
+	/// so a subscription a Stripe webhook is applying beside it survives.
+	pub async fn set_stripe_customer_if_absent(
+		&self,
+		project: &ProjectId,
+		customer: &str,
+	) -> Result<Option<String>, StoreError> {
+		match self {
+			Self::Memory(store) => store.set_stripe_customer_if_absent(project, customer),
+			Self::Postgres(store) => store.set_stripe_customer_if_absent(project, customer).await,
+		}
+	}
+
 	/// `project`'s usage in `month`, per environment.
 	pub async fn usage(
 		&self,
@@ -424,4 +440,51 @@ impl Store {
 			Self::Postgres(store) => store.delete(key).await,
 		}
 	}
+
+	/// Up to `limit` projects, newest first, with their active documents in
+	/// `month`.
+	pub async fn list_projects(
+		&self,
+		month: Month,
+		limit: usize,
+	) -> Result<Vec<ProjectSummary>, StoreError> {
+		match self {
+			Self::Memory(store) => Ok(store.list_projects(month, limit)),
+			Self::Postgres(store) => store.list_projects(month, limit).await,
+		}
+	}
+
+	/// Store analytics `events`, skipping any whose uuid is already stored.
+	/// Returns how many were new.
+	pub async fn insert_events(&self, events: &[Event]) -> Result<usize, StoreError> {
+		if events.is_empty() {
+			return Ok(0);
+		}
+
+		match self {
+			Self::Memory(store) => Ok(store.insert_events(events)),
+			Self::Postgres(store) => store.insert_events(events).await,
+		}
+	}
+
+	/// Up to `limit` analytics events in `period`, oldest first.
+	pub async fn events_in(&self, period: Period, limit: usize) -> Result<Vec<Event>, StoreError> {
+		match self {
+			Self::Memory(store) => Ok(store.events_in(period, limit)),
+			Self::Postgres(store) => store.events_in(period, limit).await,
+		}
+	}
+}
+
+/// A project as the admin dashboard lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProjectSummary {
+	/// The project.
+	pub id: ProjectId,
+	/// Its name.
+	pub name: String,
+	/// Its billing terms.
+	pub terms: Terms,
+	/// Documents active in the month asked about, across environments.
+	pub active_documents: u64,
 }

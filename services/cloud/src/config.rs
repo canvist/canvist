@@ -171,6 +171,60 @@ pub struct StripeConfig {
 	pub automatic_tax: bool,
 }
 
+/// The people who may sign in to the admin dashboard, and how their
+/// sign-in links reach them.
+#[derive(Clone, Debug, Default)]
+pub struct AdminConfig {
+	/// Addresses that may sign in, lowercased. Empty turns sign-in off.
+	pub emails: Vec<String>,
+	/// The dashboard's URL (`https://canvist.dev/admin`). Sign-in links
+	/// point at it, and cookie-authenticated writes must come from its
+	/// origin. Required when `emails` is set.
+	pub url: Option<String>,
+	/// How sign-in links are sent.
+	pub delivery: Delivery,
+}
+
+impl AdminConfig {
+	/// Whether `email` may sign in.
+	pub fn is_admin(&self, email: &str) -> bool {
+		let email = email.trim().to_lowercase();
+		self.emails.contains(&email)
+	}
+
+	/// The dashboard's origin (`https://canvist.dev`), if it is set.
+	pub fn origin(&self) -> Option<&str> {
+		let url = self.url.as_deref()?;
+		let after_scheme = url.find("://")? + 3;
+		let end = url[after_scheme..]
+			.find('/')
+			.map_or(url.len(), |slash| after_scheme + slash);
+		Some(&url[..end])
+	}
+}
+
+/// How sign-in links are sent.
+#[derive(Clone, Debug, Default)]
+pub enum Delivery {
+	/// Written to the server log. Only allowed when the dashboard is on
+	/// `localhost`, so a production link never lands in a log.
+	#[default]
+	Log,
+	/// Sent through Resend's HTTP API.
+	Resend(ResendConfig),
+}
+
+/// Resend, the email API sign-in links go through.
+#[derive(Clone, Debug)]
+pub struct ResendConfig {
+	/// The API key.
+	pub api_key: Secret,
+	/// The sender, as `Name <address>` on a domain verified with Resend.
+	pub from: String,
+	/// The API base URL, overridable for tests.
+	pub api_base: String,
+}
+
 /// Everything the server needs.
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -182,8 +236,11 @@ pub struct Config {
 	pub database_url: Option<Secret>,
 	/// The HMAC key that signs client tokens. At least 32 bytes.
 	pub token_secret: Secret,
-	/// The bearer token for `/v1/admin`; admin routes are off without it.
+	/// A bearer token for `/v1/admin`, for scripts. Admin routes are off
+	/// without it and without `admin.emails`.
 	pub admin_token: Option<Secret>,
+	/// Who may sign in to the admin dashboard.
+	pub admin: AdminConfig,
 	/// Sync relay settings.
 	pub sync: SyncConfig,
 	/// Conversion settings.
@@ -205,6 +262,7 @@ impl Config {
 			database_url: None,
 			token_secret: Secret::new(token_secret),
 			admin_token: None,
+			admin: AdminConfig::default(),
 			sync: SyncConfig::default(),
 			convert: ConvertConfig::default(),
 			stripe: None,
@@ -239,12 +297,77 @@ impl Config {
 			database_url: env.get("DATABASE_URL").map(Secret::new),
 			token_secret: Secret::new(token_secret),
 			admin_token: env.get("CANVIST_ADMIN_TOKEN").map(Secret::new),
+			admin: admin_config(&env)?,
 			sync: sync_config(&env)?,
 			convert: convert_config(&env)?,
 			stripe: stripe_config(&env)?,
 			stripe_webhook_secret: env.get("STRIPE_WEBHOOK_SECRET").map(Secret::new),
 		})
 	}
+}
+
+fn admin_config(env: &Env<'_>) -> Result<AdminConfig, ConfigError> {
+	let emails: Vec<String> = env
+		.get("CANVIST_ADMIN_EMAILS")
+		.unwrap_or_default()
+		.split(',')
+		.map(|email| email.trim().to_lowercase())
+		.filter(|email| !email.is_empty())
+		.collect();
+
+	if emails.iter().any(|email| !email.contains('@')) {
+		return Err(ConfigError::invalid(
+			"CANVIST_ADMIN_EMAILS",
+			"must be email addresses separated by commas",
+		));
+	}
+
+	let url = env.get("CANVIST_ADMIN_URL");
+
+	if emails.is_empty() {
+		return Ok(AdminConfig::default());
+	}
+
+	let Some(url) = url else {
+		return Err(ConfigError::invalid(
+			"CANVIST_ADMIN_URL",
+			"is required when CANVIST_ADMIN_EMAILS is set",
+		));
+	};
+	let delivery = match env.get("RESEND_API_KEY") {
+		Some(api_key) => {
+			Delivery::Resend(ResendConfig {
+				api_key: Secret::new(api_key),
+				from: env.require("CANVIST_MAIL_FROM")?,
+				api_base: env
+					.get("RESEND_API_BASE")
+					.unwrap_or_else(|| "https://api.resend.com".to_owned()),
+			})
+		}
+		None if is_local(&url) => Delivery::Log,
+		None => {
+			return Err(ConfigError::invalid(
+				"RESEND_API_KEY",
+				"is required to email sign-in links outside localhost",
+			));
+		}
+	};
+
+	Ok(AdminConfig {
+		emails,
+		url: Some(url),
+		delivery,
+	})
+}
+
+/// Whether `url` is on this machine.
+fn is_local(url: &str) -> bool {
+	["http://localhost", "http://127.0.0.1", "http://[::1]"]
+		.iter()
+		.any(|prefix| {
+			url.strip_prefix(prefix)
+				.is_some_and(|rest| rest.is_empty() || rest.starts_with([':', '/']))
+		})
 }
 
 fn sync_config(env: &Env<'_>) -> Result<SyncConfig, ConfigError> {
@@ -390,6 +513,55 @@ mod tests {
 			!stripe.automatic_tax,
 			"tax stays off until it is switched on"
 		);
+	}
+
+	#[test]
+	fn admin_emails_need_a_dashboard_url_and_a_mailer() {
+		let emails = (
+			"CANVIST_ADMIN_EMAILS",
+			" Owner@Example.com ,admin@example.com",
+		);
+		assert!(config(&[SECRET, emails]).is_err(), "the URL is required");
+		assert!(
+			config(&[
+				SECRET,
+				emails,
+				("CANVIST_ADMIN_URL", "https://example.com/admin")
+			])
+			.is_err(),
+			"production needs a mailer"
+		);
+
+		let local = config(&[
+			SECRET,
+			emails,
+			("CANVIST_ADMIN_URL", "http://localhost:4321/admin"),
+		])
+		.expect("valid");
+		assert!(matches!(local.admin.delivery, Delivery::Log));
+		assert!(local.admin.is_admin("owner@example.com"));
+		assert!(local.admin.is_admin(" ADMIN@example.com"));
+		assert!(!local.admin.is_admin("someone@example.com"));
+		assert_eq!(local.admin.origin(), Some("http://localhost:4321"));
+
+		let mailed = config(&[
+			SECRET,
+			emails,
+			("CANVIST_ADMIN_URL", "https://example.com/admin"),
+			("RESEND_API_KEY", "re_test"),
+			("CANVIST_MAIL_FROM", "canvist <admin@example.com>"),
+		])
+		.expect("valid");
+		assert!(matches!(mailed.admin.delivery, Delivery::Resend(_)));
+		assert_eq!(mailed.admin.origin(), Some("https://example.com"));
+	}
+
+	#[test]
+	fn lookalike_hosts_are_not_local() {
+		assert!(is_local("http://localhost"));
+		assert!(is_local("http://127.0.0.1:8080/admin"));
+		assert!(!is_local("http://localhost.example.com/admin"));
+		assert!(!is_local("https://localhost/admin"));
 	}
 
 	#[test]

@@ -18,10 +18,14 @@ use super::AppendedRows;
 use super::DocumentSummary;
 use super::PendingConversions;
 use super::PendingDocument;
+use super::ProjectSummary;
 use super::StoreError;
 use super::StoredDocument;
 use super::UsageRow;
 use super::Webhook;
+use crate::analytics::Device;
+use crate::analytics::Event;
+use crate::analytics::report::Period;
 use crate::auth::KeyHash;
 use crate::auth::NewApiKey;
 use crate::metering::Month;
@@ -38,6 +42,7 @@ const MIGRATIONS: &[(i32, &str)] = &[
 	(1, include_str!("../../migrations/0001_sync.sql")),
 	(2, include_str!("../../migrations/0002_metering.sql")),
 	(3, include_str!("../../migrations/0003_billing.sql")),
+	(4, include_str!("../../migrations/0004_analytics.sql")),
 ];
 
 /// Connections per instance. Railway's smallest Postgres allows 100, so
@@ -311,6 +316,31 @@ impl PgStore {
 		}
 
 		Ok(())
+	}
+
+	/// Fill in `project`'s Stripe customer if it has none, and return the
+	/// customer stored now. Writing one column leaves the plan and
+	/// subscription a webhook may be changing at the same time untouched.
+	pub(super) async fn set_stripe_customer_if_absent(
+		&self,
+		project: &ProjectId,
+		customer: &str,
+	) -> Result<Option<String>, StoreError> {
+		let client = self.pool.get().await?;
+		let updated = client
+			.query_opt(
+				"UPDATE projects SET stripe_customer = $2
+				WHERE id = $1 AND stripe_customer IS NULL
+				RETURNING stripe_customer",
+				&[&project.as_str(), &customer],
+			)
+			.await?;
+
+		match updated {
+			Some(row) => Ok(row.get(0)),
+			// It already had one: the first customer wins, as it did before.
+			None => Ok(read_terms(&**client, project).await?.stripe_customer),
+		}
 	}
 
 	/// The admission transaction: documents already active this month pass
@@ -777,6 +807,133 @@ impl PgStore {
 	}
 }
 
+impl PgStore {
+	pub(super) async fn list_projects(
+		&self,
+		month: Month,
+		limit: usize,
+	) -> Result<Vec<ProjectSummary>, StoreError> {
+		let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+		let rows = self
+			.pool
+			.get()
+			.await?
+			.query(
+				&format!(
+					"SELECT {TERMS_COLUMNS}, id, name,
+						COALESCE((SELECT sum(active_documents) FROM usage
+							WHERE usage.project_id = projects.id AND usage.month = $1), 0)::bigint
+					FROM projects ORDER BY created_at DESC LIMIT $2"
+				),
+				&[&month.to_string(), &limit],
+			)
+			.await?;
+
+		Ok(rows
+			.iter()
+			.map(|row| {
+				let id: String = row.get(5);
+				let active: i64 = row.get(7);
+				ProjectSummary {
+					id: ProjectId::new(id),
+					name: row.get(6),
+					terms: terms_from(row),
+					active_documents: u64::try_from(active).unwrap_or(0),
+				}
+			})
+			.collect())
+	}
+
+	pub(super) async fn insert_events(&self, events: &[Event]) -> Result<usize, StoreError> {
+		let column = |field: fn(&Event) -> Option<&str>| -> Vec<Option<&str>> {
+			events.iter().map(field).collect()
+		};
+		let times: Vec<i64> = events.iter().map(|event| event.at).collect();
+		let properties: Vec<String> = events
+			.iter()
+			.map(|event| serde_json::Value::Object(event.properties.clone()).to_string())
+			.collect();
+		let inserted = self
+			.pool
+			.get()
+			.await?
+			.execute(
+				"INSERT INTO analytics_events
+					(uuid, name, visitor, session, occurred_at, path, source, device, browser, os, properties)
+				SELECT uuid, name, visitor, session, to_timestamp(at::double precision / 1000),
+					path, source, device, browser, os, properties::jsonb
+				FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::bigint[],
+					$6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::text[])
+					AS event(uuid, name, visitor, session, at, path, source, device, browser, os, properties)
+				ON CONFLICT (uuid) DO NOTHING",
+				&[
+					&column(|event| Some(&event.uuid)),
+					&column(|event| Some(&event.name)),
+					&column(|event| Some(&event.visitor)),
+					&column(|event| event.session.as_deref()),
+					&times,
+					&column(|event| event.path.as_deref()),
+					&column(|event| event.source.as_deref()),
+					&column(|event| Some(event.device.as_str())),
+					&column(|event| event.browser.as_deref()),
+					&column(|event| event.os.as_deref()),
+					&properties,
+				],
+			)
+			.await?;
+
+		Ok(usize::try_from(inserted).unwrap_or(0))
+	}
+
+	pub(super) async fn events_in(
+		&self,
+		period: Period,
+		limit: usize,
+	) -> Result<Vec<Event>, StoreError> {
+		let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+		let rows = self
+			.pool
+			.get()
+			.await?
+			.query(
+				"SELECT uuid, name, visitor, session,
+					(extract(epoch FROM occurred_at) * 1000)::bigint,
+					path, source, device, browser, os, properties::text
+				FROM analytics_events
+				WHERE occurred_at >= to_timestamp($1::bigint / 1000.0)
+					AND occurred_at < to_timestamp($2::bigint / 1000.0)
+				ORDER BY occurred_at LIMIT $3",
+				&[&period.from, &period.to, &limit],
+			)
+			.await?;
+
+		Ok(rows
+			.iter()
+			.filter_map(|row| {
+				let device: String = row.get(7);
+				let properties: String = row.get(10);
+				Some(Event {
+					uuid: row.get(0),
+					name: row.get(1),
+					visitor: row.get(2),
+					session: row.get(3),
+					at: row.get(4),
+					path: row.get(5),
+					source: row.get(6),
+					device: Device::parse(&device)?,
+					browser: row.get(8),
+					os: row.get(9),
+					properties: serde_json::from_str(&properties).unwrap_or_default(),
+				})
+			})
+			.collect())
+	}
+}
+
+/// The columns [`terms_from`] reads, first in a query.
+const TERMS_COLUMNS: &str =
+	"plan, included_documents, stripe_customer, stripe_subscription, subscription_status";
+
 /// `project`'s terms, read through any client or transaction.
 async fn read_terms(
 	client: &impl tokio_postgres::GenericClient,
@@ -784,20 +941,24 @@ async fn read_terms(
 ) -> Result<Terms, StoreError> {
 	let row = client
 		.query_opt(
-			"SELECT plan, included_documents, stripe_customer, stripe_subscription,
-				subscription_status
-			FROM projects WHERE id = $1",
+			&format!("SELECT {TERMS_COLUMNS} FROM projects WHERE id = $1"),
 			&[&project.as_str()],
 		)
 		.await?
 		.ok_or(StoreError::UnknownProject)?;
+
+	Ok(terms_from(&row))
+}
+
+/// The terms in a row that starts with [`TERMS_COLUMNS`].
+fn terms_from(row: &tokio_postgres::Row) -> Terms {
 	let plan: String = row.get(0);
 	let included: Option<i64> = row.get(1);
 	let plan: Plan = plan.parse().unwrap_or(Plan::Hobby);
 	let subscription: Option<String> = row.get(3);
 	let status: Option<String> = row.get(4);
 
-	Ok(Terms {
+	Terms {
 		plan,
 		included_documents: included
 			.and_then(|included| u64::try_from(included).ok())
@@ -809,7 +970,7 @@ async fn read_terms(
 				status: status.parse().ok()?,
 			})
 		}),
-	})
+	}
 }
 
 /// A batch of appends as parallel arrays, for `unnest`.
