@@ -60,7 +60,7 @@ Nothing about sessions is stored. Removing an address from `CANVIST_ADMIN_EMAILS
 
 Links go out through [Resend](https://resend.com) (`RESEND_API_KEY`, `CANVIST_MAIL_FROM`). When `CANVIST_ADMIN_URL` is on `localhost`, the server writes them to its log instead. Anywhere else it refuses to start without a mailer.
 
-The website's Caddy server proxies `/v1/admin` and `/v1/events` to the cloud service at `CANVIST_CLOUD_URL`, so the dashboard and its cookie stay on one origin. It trusts `X-Forwarded-For` only from private ranges (`trusted_proxies static private_ranges`, parsed right to left with `trusted_proxies_strict`), which covers Railway's edge proxy, and forwards only the visitor's address to the rate limiter. `deno task dev` proxies to `http://localhost:8080`.
+The website's Caddy server proxies `/v1/admin` and `/v1/events` to the cloud service at `CANVIST_CLOUD_URL`, so the dashboard and its cookie stay on one origin. It trusts `X-Forwarded-For` only from private ranges and Railway's shared `100.64.0.0/10` range (`trusted_proxies static private_ranges 100.64.0.0/10`, parsed right to left with `trusted_proxies_strict`), and forwards only the visitor's address to the rate limiter. `deno task dev` proxies to `http://localhost:8080`.
 
 ### Coupons
 
@@ -92,7 +92,7 @@ Monthly Checkout accepts promotion codes. Annual Checkout saves a card and charg
 
 The website sends a page view per page, and a click on any element marked `data-capture="name"`, to `POST /v1/events`. Events land in the `analytics_events` table:
 
-- No addresses are stored, and query strings are never sent: one address is read, in memory, only to rate-limit a client's batches. It is taken from `X-Forwarded-For` only when the connection itself is a loopback or private proxy; a direct public caller cannot claim another address.
+- No addresses are stored, and query strings are never sent: one address is read, in memory, only to rate-limit a client's batches. It is taken from `X-Forwarded-For` only when the connection itself comes from a loopback, private, or provider-internal proxy; a direct public caller cannot claim another address.
 - A visitor is a random id kept in the browser's storage.
 - Bots are dropped by user agent.
 - Browsers that send Global Privacy Control or Do Not Track send nothing.

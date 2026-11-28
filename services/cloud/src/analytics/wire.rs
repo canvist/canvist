@@ -134,7 +134,7 @@ fn properties(value: &Json) -> Map<String, Json> {
 
 	object
 		.iter()
-		.filter(|(key, _)| !key.is_empty() && key.chars().count() <= MAX_KEY)
+		.filter(|(key, _)| !key.is_empty() && key.chars().count() <= MAX_KEY && !key.contains('\0'))
 		.filter_map(|(key, value)| {
 			let value = match value {
 				Json::String(text) => {
@@ -237,7 +237,9 @@ mod tests {
 			event(&json!({ "name": "check\0out" })),
 			event(&json!({ "path": "/a\0b" })),
 			event(&json!({ "source": "news\0.example" })),
-			event(&json!({ "properties": { "plan": "bu\0ilder", "seats": 3 } })),
+			event(&json!({ "properties": {
+				"a\0b": 1, "plan": "bu\0ilder", "seats": 3,
+			} })),
 		] }));
 
 		// A required field with NUL drops its event; an optional source is
@@ -247,6 +249,11 @@ mod tests {
 		assert_eq!(batch.events[0].source, None);
 		assert_eq!(batch.events[1].properties["plan"], json!("builder"));
 		assert_eq!(batch.events[1].properties["seats"], json!(3));
+		assert!(
+			!batch.events[1].properties.contains_key("a\0b"),
+			"a NUL key would fail the whole batch in Postgres"
+		);
+		assert_eq!(batch.events[1].properties.len(), 2);
 	}
 
 	#[test]

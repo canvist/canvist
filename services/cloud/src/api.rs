@@ -241,15 +241,14 @@ impl<S: Send + Sync> FromRequestParts<S> for ClientAddress {
 }
 
 /// The address the nearest proxy appended to `X-Forwarded-For`: the last
-/// entry of the last header. A proxy appends what it saw, so an earlier
-/// header, or an earlier entry, is only the caller's own claim.
+/// entry of the last header. A proxy appends its own header line, so an
+/// earlier one, or an earlier entry, is only the caller's own claim, and an
+/// unreadable last line is no reason to believe one.
 fn forwarded_for(headers: &HeaderMap) -> Option<IpAddr> {
-	headers
-		.get_all("x-forwarded-for")
-		.iter()
-		.rev()
-		.filter_map(|value| value.to_str().ok())
-		.find_map(|value| value.rsplit(',').next()?.trim().parse().ok())
+	let value = headers.get_all("x-forwarded-for").iter().next_back()?;
+	let value = value.to_str().ok()?;
+
+	value.rsplit(',').next()?.trim().parse().ok()
 }
 
 /// Whether `address` is one a local proxy has: loopback, a private network,
@@ -269,12 +268,18 @@ fn is_trusted_proxy(address: IpAddr) -> bool {
 }
 
 /// Whether `address` is a loopback, private, link-local, or unspecified
-/// IPv4 address.
+/// IPv4 address, or in the RFC 6598 shared space Railway's edge proxies use.
 fn is_local(address: Ipv4Addr) -> bool {
+	// 100.64.0.0/10: the carrier-grade NAT range, which no public client
+	// uses and Railway's edge connects from.
+	let [first, second, ..] = address.octets();
+	let shared = first == 100 && (second & 0b1100_0000) == 0b0100_0000;
+
 	address.is_loopback()
 		|| address.is_private()
 		|| address.is_link_local()
 		|| address.is_unspecified()
+		|| shared
 }
 
 /// Compress responses for clients that accept Brotli or gzip.

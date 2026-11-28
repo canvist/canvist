@@ -287,6 +287,7 @@ async fn the_last_forwarded_entry_wins_only_behind_a_local_proxy() {
 	let forwarded = [("x-forwarded-for", "10.0.0.1, 203.0.113.7")];
 	let proxy = SocketAddr::from(([10, 1, 2, 3], 8080));
 	let loopback = SocketAddr::from(([127, 0, 0, 1], 8080));
+	let edge = SocketAddr::from(([100, 64, 0, 2], 8080));
 	let public = SocketAddr::from(([203, 0, 113, 20], 8080));
 
 	assert_eq!(
@@ -298,6 +299,11 @@ async fn the_last_forwarded_entry_wins_only_behind_a_local_proxy() {
 		client_address(&forwarded, Some(loopback)).await,
 		IpAddr::from([203, 0, 113, 7]),
 		"so does a loopback one"
+	);
+	assert_eq!(
+		client_address(&forwarded, Some(edge)).await,
+		IpAddr::from([203, 0, 113, 7]),
+		"and Railway's edge on the shared 100.64.0.0/10 range"
 	);
 	assert_eq!(
 		client_address(&forwarded, Some(public)).await,
@@ -331,6 +337,19 @@ async fn the_last_forwarded_header_is_the_proxys() {
 		)
 		.await,
 		IpAddr::from([203, 0, 113, 7]),
+	);
+
+	// An unreadable last line is not a reason to believe the caller's.
+	assert_eq!(
+		client_address(
+			&[
+				("x-forwarded-for", "203.0.113.9"),
+				("x-forwarded-for", "not an address"),
+			],
+			Some(proxy),
+		)
+		.await,
+		proxy.ip(),
 	);
 
 	// A dual-stack listener reports its IPv4 proxy as an IPv4-mapped address.
