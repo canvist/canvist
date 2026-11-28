@@ -17,6 +17,7 @@ use tower::ServiceExt;
 use super::*;
 use crate::Config;
 use crate::Server;
+use crate::names::Environment;
 
 /// A running server and an API key, using only the in-memory store.
 async fn fixture() -> (Server, String) {
@@ -216,5 +217,93 @@ async fn conversions_are_compressed_for_clients_that_accept_it() {
 			plain.len()
 		);
 	}
+	server.shutdown().await;
+}
+
+#[test]
+fn event_buckets_refill_per_address() {
+	let limit = RateLimit::new(2.0, 1.0);
+	let address = IpAddr::from([203, 0, 113, 7]);
+	let other = IpAddr::from([198, 51, 100, 9]);
+	let start = Instant::now();
+
+	assert!(limit.take_at(address, start));
+	assert!(limit.take_at(address, start));
+	assert!(!limit.take_at(address, start), "a burst is all at once");
+	assert!(limit.take_at(other, start), "each address starts full");
+
+	let half = start + Duration::from_millis(500);
+	assert!(
+		!limit.take_at(address, half),
+		"half a second is half a token"
+	);
+	assert!(limit.take_at(address, start + Duration::from_secs(1)));
+}
+
+#[tokio::test]
+async fn client_addresses_come_from_the_last_forwarded_entry() {
+	async fn client_address(headers: &[(&str, &str)], peer: Option<SocketAddr>) -> IpAddr {
+		let request = headers
+			.iter()
+			.fold(Request::get("/v1/events"), |request, (name, value)| {
+				request.header(*name, *value)
+			});
+		let (mut parts, ()) = request.body(()).expect("request").into_parts();
+		if let Some(peer) = peer {
+			parts.extensions.insert(ConnectInfo(peer));
+		}
+
+		ClientAddress::from_request_parts(&mut parts, &())
+			.await
+			.expect("an address")
+			.0
+	}
+
+	let peer = SocketAddr::from(([127, 0, 0, 1], 8080));
+	assert_eq!(client_address(&[], Some(peer)).await, peer.ip());
+	assert_eq!(
+		client_address(&[], None).await,
+		IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+		"a request with neither shares one bucket"
+	);
+	assert_eq!(
+		client_address(&[("x-forwarded-for", "10.0.0.1, 203.0.113.7")], Some(peer)).await,
+		IpAddr::from([203, 0, 113, 7]),
+		"the proxy's entry is the last one, and cannot be claimed"
+	);
+}
+
+#[tokio::test]
+async fn one_address_may_send_only_its_burst_of_batches() {
+	let (server, _) = fixture().await;
+	let router = router(server.app().clone());
+	let send = |address: &str| {
+		let request = Request::post("/v1/events")
+			.header(
+				USER_AGENT,
+				"Mozilla/5.0 (Macintosh) Chrome/130.0.0.0 Safari/537.36",
+			)
+			.header("x-forwarded-for", address)
+			.body(Body::from(r#"{"events":[]}"#))
+			.expect("request");
+		router.clone().oneshot(request)
+	};
+	let mut statuses = Vec::new();
+
+	for _ in 0..=EVENTS_BURST as usize {
+		statuses.push(send("203.0.113.7").await.expect("response").status());
+	}
+
+	assert_eq!(statuses.pop(), Some(StatusCode::TOO_MANY_REQUESTS));
+	assert!(
+		statuses
+			.iter()
+			.all(|status| *status == StatusCode::ACCEPTED)
+	);
+	assert_eq!(
+		send("198.51.100.9").await.expect("response").status(),
+		StatusCode::ACCEPTED,
+		"another address is unaffected"
+	);
 	server.shutdown().await;
 }

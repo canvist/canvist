@@ -19,10 +19,18 @@
 		-Server
 	}
 
+	# canvist Cloud answers the admin dashboard's API and the site's own
+	# analytics on this origin, so the admin session cookie stays first-party
+	# and no third-party script runs. On Railway, CANVIST_CLOUD_URL is the
+	# sync service's private address. Nothing here is ever cached.
+	@cloud path /v1/events /v1/admin /v1/admin/*
+	header @cloud Cache-Control "no-store"
+	reverse_proxy @cloud {$CANVIST_CLOUD_URL:localhost:8080}
+
 	# Hashed build output never changes; everything else revalidates.
 	@hashed path /_astro/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
-	@rest not path /_astro/*
+	@rest not path /_astro/* /v1/*
 	header @rest Cache-Control "public, max-age=0, must-revalidate"
 
 	@wasm path *.wasm

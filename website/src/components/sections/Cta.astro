@@ -8,8 +8,8 @@ import { GITHUB_URL, mark } from "../../lib/brand.ts";
 		<div class="cta__copy">
 			<h2 id="start-title" class="cta__title">Pick up the brush.</h2>
 			<div class="cta__actions">
-				<a class="btn cta__primary" href="/docs/quick-start" data-astro-prefetch>Get started</a>
-				<a class="btn btn--ghost" href={GITHUB_URL}>Star on GitHub</a>
+				<a class="btn cta__primary" href="/docs/quick-start" data-astro-prefetch data-capture="cta: get started">Get started</a>
+				<a class="btn btn--ghost" href={GITHUB_URL} data-capture="cta: star on github">Star on GitHub</a>
 			</div>
 		</div>
 	</div>

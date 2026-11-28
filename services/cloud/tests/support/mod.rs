@@ -3,6 +3,7 @@
 #![allow(dead_code, reason = "each test binary uses a different subset")]
 
 pub mod deno;
+pub mod mail;
 pub mod stripe;
 
 use std::net::SocketAddr;
@@ -81,6 +82,11 @@ pub async fn store_at(database: Option<&str>) -> Store {
 		}
 		None => Store::memory(),
 	}
+}
+
+/// A store no other test shares: an isolated Postgres schema, or memory.
+pub async fn isolated_store() -> Store {
+	store_at(isolated_database().await.as_deref()).await
 }
 
 /// A server with one project.
@@ -180,6 +186,14 @@ impl Fixture {
 			iat: auth::unix_now(),
 			exp,
 		})
+	}
+
+	/// An HTTP client authenticated with the admin token.
+	pub fn admin(&self) -> Api {
+		Api {
+			key: ADMIN.to_owned(),
+			..self.api()
+		}
 	}
 
 	/// An HTTP client authenticated with the project's API key.

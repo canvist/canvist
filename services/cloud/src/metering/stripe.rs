@@ -100,6 +100,12 @@ impl StripeClient {
 		self.send(request).await
 	}
 
+	/// `DELETE path`.
+	pub async fn delete(&self, path: &str) -> Result<Json, StripeError> {
+		let request = self.http.delete(format!("{}{path}", self.config.api_base));
+		self.send(request).await
+	}
+
 	/// `POST path` with `form`. One idempotency key covers the request and
 	/// its single retry after a transport failure, so a request that reached
 	/// Stripe is not applied twice.

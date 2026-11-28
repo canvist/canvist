@@ -26,6 +26,7 @@ The server behind canvist Cloud, and the exact binary self-hosters run. It is no
 - **Durable:** documents persist to Postgres as Yjs updates and are compacted into snapshots; idle documents leave memory and reload on demand. A graceful shutdown persists everything and tells clients to reconnect.
 - **Webhooks:** a debounced, signed `document.updated` webhook per environment.
 - **REST:** server-side keys mint client tokens, list, read, write, and delete documents.
+- **Admin:** the API behind `canvist.dev/admin`. It signs people in by email, creates Stripe coupons (public codes, or private ones for one project), lists projects, and reports first-party analytics.
 
 Updates waiting for missing dependencies count toward `CANVIST_MAX_DOCUMENT_BYTES`, including updates retained internally by yrs. A room accepts at most 128 distinct submissions while dependencies remain unresolved; identical replays do not use more capacity. Charges are released when all waiting updates integrate. Admission is conservative: partially integrated submissions remain charged until then. Once either limit is reached, further new submissions are refused; disconnecting all peers and waiting for idle eviction allows a fresh sync from each client's local state.
 
@@ -35,6 +36,15 @@ See [the API reference](../../docs/src/cloud/api.md) and [self-hosting](../../do
 
 ```sh
 CANVIST_TOKEN_SECRET=$(openssl rand -hex 32) cargo run -p canvist_cloud
+```
+
+To try the admin dashboard locally, run the server with an admin address and the dev site's URL, then open `http://localhost:4321/admin` from `deno task dev` in `website/`. The sign-in link is printed in the server log:
+
+```sh
+CANVIST_TOKEN_SECRET=$(openssl rand -hex 32) \
+CANVIST_ADMIN_EMAILS=you@example.com \
+CANVIST_ADMIN_URL=http://localhost:4321/admin \
+cargo run -p canvist_cloud
 ```
 
 The integration tests drive real JavaScript clients under [Deno](https://deno.com), which the devenv shell provides. Set `CANVIST_TEST_DATABASE_URL` to run them against Postgres instead of memory.

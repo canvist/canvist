@@ -1,5 +1,6 @@
 //! The state every handler shares.
 
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use axum::http::HeaderMap;
@@ -8,6 +9,8 @@ use tokio::sync::watch;
 use tokio_util::task::TaskTracker;
 use tokio_util::task::task_tracker::TaskTrackerToken;
 
+use crate::admin::Admins;
+use crate::api::RateLimit;
 use crate::auth;
 use crate::auth::Access;
 use crate::auth::AuthError;
@@ -42,6 +45,10 @@ pub struct App {
 	pub converter: Converter,
 	/// Stripe, when billing is configured.
 	pub stripe: Option<StripeClient>,
+	/// Who may use the admin routes.
+	pub admins: Admins,
+	/// How many analytics batches one address may send.
+	events: RateLimit,
 	shutdown: watch::Receiver<bool>,
 	sockets: TaskTracker,
 }
@@ -62,6 +69,8 @@ impl App {
 			signer: TokenSigner::new(config.token_secret.expose()),
 			converter: Converter::new(config.convert.clone()),
 			stripe: config.stripe.clone().map(StripeClient::new),
+			admins: Admins::new(&config),
+			events: RateLimit::events(),
 			config,
 			store,
 			rooms,
@@ -84,6 +93,11 @@ impl App {
 	/// A token that keeps shutdown waiting while a socket task runs.
 	pub fn alive(&self) -> TaskTrackerToken {
 		self.sockets.token()
+	}
+
+	/// Whether `address` may send an analytics batch now.
+	pub fn allow_event(&self, address: IpAddr) -> bool {
+		self.events.take(address)
 	}
 
 	/// Whether `key` may sync this month, counting it as active if it is
@@ -147,24 +161,6 @@ impl App {
 		match principal.access {
 			Access::Key => Ok(principal),
 			Access::Token(_) => Err(AuthError::Forbidden.into()),
-		}
-	}
-
-	/// Check the admin bearer token.
-	pub fn authorize_admin(&self, headers: &HeaderMap) -> Result<(), ApiError> {
-		let Some(expected) = &self.config.admin_token else {
-			return Err(ApiError::not_found("admin routes are disabled"));
-		};
-		let given = headers
-			.get(AUTHORIZATION)
-			.and_then(|value| value.to_str().ok())
-			.and_then(auth::bearer)
-			.ok_or(AuthError::Missing)?;
-
-		if auth::secrets_match(given, expected.expose()) {
-			Ok(())
-		} else {
-			Err(AuthError::Invalid.into())
 		}
 	}
 }

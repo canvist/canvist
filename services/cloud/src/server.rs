@@ -151,11 +151,14 @@ async fn run(
 	let flush = tokio::spawn(flush_loop(app.clone(), stopped.clone()));
 	let router = api::router(app.clone());
 	let mut until_stopped = stopped.clone();
-	let served = axum::serve(listener, router)
-		.with_graceful_shutdown(async move {
-			let _ = until_stopped.wait_for(|stopping| *stopping).await;
-		})
-		.await;
+	let served = axum::serve(
+		listener,
+		router.into_make_service_with_connect_info::<SocketAddr>(),
+	)
+	.with_graceful_shutdown(async move {
+		let _ = until_stopped.wait_for(|stopping| *stopping).await;
+	})
+	.await;
 
 	if let Err(error) = served {
 		tracing::error!(%error, "the HTTP server failed");

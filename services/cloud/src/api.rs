@@ -3,11 +3,21 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
+use std::sync::Mutex;
+use std::time::Instant;
+
 use axum::Json;
 use axum::Router;
 use axum::body::Bytes;
+use axum::extract::ConnectInfo;
 use axum::extract::DefaultBodyLimit;
 use axum::extract::FromRequest;
+use axum::extract::FromRequestParts;
 use axum::extract::Path;
 use axum::extract::Query;
 use axum::extract::Request;
@@ -15,6 +25,8 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
+use axum::http::header::USER_AGENT;
+use axum::http::request::Parts;
 use axum::response::ErrorResponse;
 use axum::response::IntoResponse;
 use axum::response::Response;
@@ -28,6 +40,10 @@ use serde_json::json;
 use tower_http::CompressionLevel;
 use tower_http::compression::CompressionLayer;
 
+use crate::analytics;
+use crate::analytics::Agent;
+use crate::analytics::Batch;
+use crate::analytics::MAX_BATCH_BYTES;
 use crate::app::App;
 use crate::app::SharedApp;
 use crate::auth;
@@ -41,7 +57,6 @@ use crate::error::ApiError;
 use crate::metering::Month;
 use crate::metering::Plan;
 use crate::metering::Standing;
-use crate::metering::Terms;
 use crate::metering::billing;
 use crate::metering::billing::BillingError;
 use crate::metering::stripe::StripeClient;
@@ -49,7 +64,6 @@ use crate::metering::stripe_webhook;
 use crate::metering::stripe_webhook::Action;
 use crate::names::DocumentKey;
 use crate::names::DocumentName;
-use crate::names::Environment;
 use crate::names::random_token;
 use crate::store::Webhook;
 use crate::sync::hocuspocus;
@@ -58,10 +72,14 @@ use crate::sync::ywebsocket;
 
 /// The longest token subject (the customer's user id), in bytes.
 const MAX_SUBJECT_BYTES: usize = 256;
-/// The longest project name, in bytes.
-const MAX_PROJECT_NAME_BYTES: usize = 128;
 /// Random characters in a webhook secret: 160 bits.
 const WEBHOOK_SECRET_LENGTH: usize = 32;
+/// Event batches one address may send at once.
+const EVENTS_BURST: f64 = 60.0;
+/// Event batches one address regains each second.
+const EVENTS_PER_SECOND: f64 = 2.0;
+/// Addresses the analytics limiter tracks at once.
+const MAX_TRACKED_ADDRESSES: usize = 10_000;
 
 /// Every route this instance's role serves.
 pub fn router(app: SharedApp) -> Router {
@@ -70,11 +88,11 @@ pub fn router(app: SharedApp) -> Router {
 		.route("/", get(index))
 		.route("/healthz", get(health))
 		.route("/readyz", get(ready))
-		.route("/v1/admin/projects", post(create_project))
-		.route("/v1/admin/projects/{project}/keys", post(create_key))
-		.route("/v1/admin/stats", get(stats))
-		.route("/v1/admin/projects/{project}/terms", put(set_terms))
 		.route("/v1/usage", get(usage))
+		.route(
+			"/v1/events",
+			post(ingest).layer(body_limit(MAX_BATCH_BYTES)),
+		)
 		.route("/v1/stripe/webhook", post(stripe_webhook))
 		.route("/v1/billing/checkout", post(checkout))
 		.route("/v1/billing/portal", post(billing_portal))
@@ -93,6 +111,7 @@ pub fn router(app: SharedApp) -> Router {
 	}
 
 	router
+		.merge(crate::admin::routes())
 		.layer(body_limit(max_body))
 		.layer(tower_http::trace::TraceLayer::new_for_http())
 		.with_state(app)
@@ -102,6 +121,112 @@ pub fn router(app: SharedApp) -> Router {
 /// innermost limit, so Convert's larger one wins for its routes.
 fn body_limit(bytes: usize) -> DefaultBodyLimit {
 	DefaultBodyLimit::max(bytes)
+}
+
+/// A per-address token bucket for the public analytics endpoint.
+///
+/// `POST /v1/events` is unauthenticated, so no one caller may fill the
+/// table. An address starts with [`EVENTS_BURST`] batches and regains
+/// [`EVENTS_PER_SECOND`] a second; counters live in memory and restart with
+/// the process. Only the address itself is kept, and only while it sends.
+#[derive(Debug)]
+pub struct RateLimit {
+	burst: f64,
+	per_second: f64,
+	buckets: Mutex<HashMap<IpAddr, Bucket>>,
+}
+
+/// What one address has left, and when it last had some.
+#[derive(Debug)]
+struct Bucket {
+	tokens: f64,
+	refilled: Instant,
+}
+
+impl RateLimit {
+	/// The limiter for `POST /v1/events`.
+	pub fn events() -> Self {
+		Self::new(EVENTS_BURST, EVENTS_PER_SECOND)
+	}
+
+	fn new(burst: f64, per_second: f64) -> Self {
+		Self {
+			burst,
+			per_second,
+			buckets: Mutex::default(),
+		}
+	}
+
+	/// Take a token for `address`, refilling its bucket first. `false` when
+	/// it has none left.
+	pub fn take(&self, address: IpAddr) -> bool {
+		self.take_at(address, Instant::now())
+	}
+
+	fn take_at(&self, address: IpAddr, now: Instant) -> bool {
+		let mut buckets = self
+			.buckets
+			.lock()
+			.unwrap_or_else(std::sync::PoisonError::into_inner);
+
+		if buckets.len() >= MAX_TRACKED_ADDRESSES && !buckets.contains_key(&address) {
+			// A full bucket carries nothing: dropping it costs no one
+			// anything. If every bucket is in use, the limiter is full and
+			// answers as a spent one does.
+			buckets.retain(|_, bucket| bucket.tokens < self.burst);
+
+			if buckets.len() >= MAX_TRACKED_ADDRESSES {
+				tracing::warn!("the analytics rate limiter tracks too many addresses");
+				return false;
+			}
+		}
+
+		let bucket = buckets.entry(address).or_insert(Bucket {
+			tokens: self.burst,
+			refilled: now,
+		});
+		let elapsed = now.saturating_duration_since(bucket.refilled).as_secs_f64();
+		bucket.tokens = (bucket.tokens + elapsed * self.per_second).min(self.burst);
+		bucket.refilled = now;
+
+		if bucket.tokens < 1.0 {
+			return false;
+		}
+
+		bucket.tokens -= 1.0;
+		true
+	}
+}
+
+/// The address a request came from.
+///
+/// A reverse proxy appends the address it saw to `X-Forwarded-For`, so the
+/// last entry is the one a caller cannot claim for itself; without a proxy,
+/// the connection's address is used. Neither names a person: the rate
+/// limiter is all that reads it, and it keeps nothing else.
+struct ClientAddress(IpAddr);
+
+impl<S: Send + Sync> FromRequestParts<S> for ClientAddress {
+	type Rejection = Infallible;
+
+	async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+		let forwarded = parts
+			.headers
+			.get("x-forwarded-for")
+			.and_then(|value| value.to_str().ok())
+			.and_then(|value| value.rsplit(',').next())
+			.and_then(|value| value.trim().parse::<IpAddr>().ok());
+		let peer = parts
+			.extensions
+			.get::<ConnectInfo<SocketAddr>>()
+			.map(|ConnectInfo(address)| address.ip());
+		// Without either, every caller shares one bucket, as in router tests.
+		let address = forwarded
+			.or(peer)
+			.unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+
+		Ok(Self(address))
+	}
 }
 
 /// Compress responses for clients that accept Brotli or gzip.
@@ -400,68 +525,38 @@ async fn clear_webhook(
 	Ok(StatusCode::NO_CONTENT)
 }
 
-#[derive(Debug, Deserialize)]
-struct ProjectRequest {
-	name: String,
-	#[serde(default = "default_environments")]
-	environments: Vec<Environment>,
-}
-
-fn default_environments() -> Vec<Environment> {
-	["production", "staging", "development"]
-		.into_iter()
-		.filter_map(|name| Environment::parse(name).ok())
-		.collect()
-}
-
-/// `POST /v1/admin/projects`: create a project and one API key per
-/// environment.
-async fn create_project(
+/// `POST /v1/events`: a batch of page views and clicks from the website
+/// (`analytics::wire`). Public, like any analytics endpoint; bots are
+/// dropped by user agent, and one address may send only so many batches a
+/// second ([`RateLimit`]).
+async fn ingest(
 	State(app): State<SharedApp>,
+	ClientAddress(address): ClientAddress,
 	headers: HeaderMap,
-	Json(request): Json<ProjectRequest>,
+	body: Bytes,
 ) -> Result<(StatusCode, Json<JsonValue>), ApiError> {
-	app.authorize_admin(&headers)?;
-
-	if request.name.is_empty() || request.name.len() > MAX_PROJECT_NAME_BYTES {
-		return Err(ApiError::bad_request("name must be 1 to 128 bytes"));
+	if !app.allow_event(address) {
+		return Err(ApiError::new(
+			StatusCode::TOO_MANY_REQUESTS,
+			"rate_limited",
+			"too many event batches from this address; retry shortly",
+		));
 	}
 
-	let project = app.store.create_project(&request.name).await?;
-	let mut keys = serde_json::Map::new();
-
-	for environment in &request.environments {
-		let key = auth::generate_api_key();
-		app.store.add_api_key(&project, environment, &key).await?;
-		keys.insert(environment.to_string(), key.secret.into());
-	}
+	let user_agent = headers
+		.get(USER_AGENT)
+		.and_then(|value| value.to_str().ok())
+		.unwrap_or_default();
+	let Some(agent) = Agent::classify(user_agent) else {
+		return Ok((StatusCode::ACCEPTED, Json(json!({ "accepted": 0 }))));
+	};
+	let batch = Batch::parse(&body, &agent, analytics::unix_millis())
+		.ok_or_else(|| ApiError::bad_request("expected { \"events\": [...] }"))?;
+	let accepted = app.store.insert_events(&batch.events).await?;
 
 	Ok((
-		StatusCode::CREATED,
-		Json(json!({ "project": project, "name": request.name, "keys": keys })),
-	))
-}
-
-#[derive(Debug, Deserialize)]
-struct KeyRequest {
-	environment: Environment,
-}
-
-async fn create_key(
-	State(app): State<SharedApp>,
-	Path(project): Path<String>,
-	headers: HeaderMap,
-	Json(request): Json<KeyRequest>,
-) -> Result<(StatusCode, Json<JsonValue>), ApiError> {
-	app.authorize_admin(&headers)?;
-	let project = crate::names::ProjectId::new(project);
-	let key = auth::generate_api_key();
-	app.store
-		.add_api_key(&project, &request.environment, &key)
-		.await?;
-	Ok((
-		StatusCode::CREATED,
-		Json(json!({ "project": project, "environment": request.environment, "key": key.secret })),
+		StatusCode::ACCEPTED,
+		Json(json!({ "accepted": accepted, "dropped": batch.dropped })),
 	))
 }
 
@@ -569,6 +664,15 @@ async fn checkout(
 ) -> Result<Json<UrlResponse>, ApiError> {
 	let principal = app.server_principal(&headers).await?;
 	let url = billing::checkout(stripe(&app)?, &app.store, &principal.project, &request).await?;
+	let mut properties = serde_json::Map::new();
+	properties.insert("plan".to_owned(), request.plan.as_str().into());
+	analytics::capture(
+		&app.store,
+		"checkout started",
+		&format!("project:{}", principal.project),
+		properties,
+	)
+	.await;
 	Ok(Json(UrlResponse { url }))
 }
 
@@ -614,42 +718,4 @@ async fn change_plan(
 	Ok(Json(
 		json!({ "project": principal.project, "terms": terms }),
 	))
-}
-
-#[derive(Debug, Deserialize)]
-struct TermsRequest {
-	plan: Plan,
-	included_documents: Option<u64>,
-	stripe_customer: Option<String>,
-}
-
-/// `PUT /v1/admin/projects/{project}/terms`: change a project's plan.
-async fn set_terms(
-	State(app): State<SharedApp>,
-	Path(project): Path<String>,
-	headers: HeaderMap,
-	Json(request): Json<TermsRequest>,
-) -> Result<Json<JsonValue>, ApiError> {
-	app.authorize_admin(&headers)?;
-	let project = crate::names::ProjectId::new(project);
-	let current = app.store.terms(&project).await?;
-	let terms = Terms {
-		plan: request.plan,
-		included_documents: request
-			.included_documents
-			.or_else(|| request.plan.included_documents()),
-		stripe_customer: request.stripe_customer,
-		subscription: current.subscription,
-	};
-	app.store.set_terms(&project, &terms).await?;
-
-	Ok(Json(json!({ "project": project, "terms": terms })))
-}
-
-async fn stats(
-	State(app): State<SharedApp>,
-	headers: HeaderMap,
-) -> Result<Json<JsonValue>, ApiError> {
-	app.authorize_admin(&headers)?;
-	Ok(Json(json!(app.rooms.stats())))
 }

@@ -46,7 +46,67 @@ curl -X PUT http://localhost:8080/v1/admin/projects/$PROJECT/terms \
   -d '{ "plan": "enterprise" }'
 ```
 
-Other admin routes: `POST /v1/admin/projects/{project}/keys` with `{ "environment": "staging" }` adds a key, and `GET /v1/admin/stats` shows loaded documents and connected clients.
+Other admin routes: `POST /v1/admin/projects/{project}/keys` with `{ "environment": "staging" }` adds a key, `GET /v1/admin/projects` lists projects with this month's usage, and `GET /v1/admin/stats` shows loaded documents and connected clients.
+
+## The admin dashboard
+
+canvist.dev serves an admin dashboard at `/admin`: analytics, Stripe coupons, and projects. It signs people in by email rather than with the admin token:
+
+1. Set `CANVIST_ADMIN_EMAILS` to the addresses that may sign in, and `CANVIST_ADMIN_URL` to the dashboard's address.
+2. Someone enters their address at `/admin`. Only a listed address is sent a link, but the page answers the same way for any address. The link works for 15 minutes.
+3. The link's token sits in the URL fragment, so it never reaches a server log. The page trades it for a session cookie that lasts a week (`HttpOnly`, `SameSite=Strict`, scoped to `/v1/admin`).
+
+Nothing about sessions is stored. Removing an address from `CANVIST_ADMIN_EMAILS` locks it out at its next request, and rotating `CANVIST_TOKEN_SECRET` signs everyone out. A cookie-authenticated request from another origin is refused.
+
+Links go out through [Resend](https://resend.com) (`RESEND_API_KEY`, `CANVIST_MAIL_FROM`). When `CANVIST_ADMIN_URL` is on `localhost`, the server writes them to its log instead. Anywhere else it refuses to start without a mailer.
+
+The website's Caddy server proxies `/v1/admin` and `/v1/events` to the cloud service at `CANVIST_CLOUD_URL`, so the dashboard and its cookie stay on one origin. `deno task dev` proxies to `http://localhost:8080`.
+
+### Coupons
+
+`POST /v1/admin/coupons` creates a Stripe coupon and one promotion code for it:
+
+```json
+{
+	"name": "Free forever",
+	"percent_off": 100,
+	"duration": "forever",
+	"visibility": "private",
+	"project": "prj_k3f9a2m1q8x7"
+}
+```
+
+- **The discount** is either `percent_off` (above 0, at most 100), or `amount_off` in cents together with a `currency`.
+- **The duration** is `once`, `forever`, or `repeating` with `duration_in_months` (1 to 36).
+- **A public coupon** gets a code anyone can enter at Checkout. Pass `code`, or Stripe makes one up.
+- **A private coupon** gets a code bound to the project's Stripe customer; a project without a customer gets one. If the project already pays, the code is applied to its subscription straight away.
+- **Limits:** `max_redemptions` and `expires_at` (Unix seconds) limit the code.
+
+A free trial that still collects a card is 100% off for a few months.
+
+Monthly Checkout accepts promotion codes. Annual Checkout saves a card and charges nothing, so it takes no code; apply a private coupon to the subscription once it exists.
+
+`GET /v1/admin/coupons` lists the newest 100 coupons with their codes. `DELETE /v1/admin/coupons/{id}` switches off a coupon's codes and deletes it; subscriptions that already use it keep the discount until it ends.
+
+### Analytics
+
+The website sends a page view per page, and a click on any element marked `data-capture="name"`, to `POST /v1/events`. Events land in the `analytics_events` table:
+
+- No addresses are stored, and query strings are never sent: one address is read, in memory, only to rate-limit a client's batches.
+- A visitor is a random id kept in the browser's storage.
+- Bots are dropped by user agent.
+- Browsers that send Global Privacy Control or Do Not Track send nothing.
+
+The server also records `project created` and `checkout started`.
+
+`GET /v1/admin/analytics?days=30` reports the last 1 to 90 days against the period before:
+
+- visitors, sessions, page views, bounce rate, and time per session
+- visitors per day
+- the top pages, sources, devices, and browsers
+- the site's clicks, and the server's events
+
+It reads at most 200,000 events and says `truncated` when it stops there.
 
 Then follow [Sync](./sync.md) and [Convert](./convert.md) with `localhost:8080` as the host.
 
@@ -56,7 +116,11 @@ Then follow [Sync](./sync.md) and [Convert](./convert.md) with `localhost:8080` 
 | ------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------- |
 | `CANVIST_TOKEN_SECRET`          | required                  | HMAC key for client tokens, at least 32 bytes. Rotating it signs everyone out.                    |
 | `DATABASE_URL`                  | memory                    | Postgres connection string. Connections are unencrypted: use a private network or a TLS proxy.    |
-| `CANVIST_ADMIN_TOKEN`           | off                       | Bearer token for `/v1/admin`.                                                                     |
+| `CANVIST_ADMIN_TOKEN`           | off                       | Bearer token for `/v1/admin`, for scripts.                                                        |
+| `CANVIST_ADMIN_EMAILS`          | off                       | Comma-separated addresses that may sign in to the admin dashboard.                                |
+| `CANVIST_ADMIN_URL`             | required with emails      | The dashboard's address, such as `https://canvist.dev/admin`. Sign-in links point at it.          |
+| `RESEND_API_KEY`                | off                       | Sends sign-in links through Resend. Required with emails unless the dashboard is on `localhost`.  |
+| `CANVIST_MAIL_FROM`             | required with Resend      | The sender, such as `canvist <admin@canvist.dev>`, on a domain verified with Resend.              |
 | `HOST`, `PORT`                  | `::`, `8080`              | Where to listen. `::` accepts IPv4 and IPv6.                                                      |
 | `CANVIST_ROLE`                  | `all`                     | `all`, `sync`, or `convert`: which route groups this instance serves.                             |
 | `CANVIST_IDLE_EVICTION_SECONDS` | `60`                      | How long a document with no connections stays in memory.                                          |
