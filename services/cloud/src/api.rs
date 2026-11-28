@@ -133,6 +133,7 @@ fn body_limit(bytes: usize) -> DefaultBodyLimit {
 pub struct RateLimit {
 	burst: f64,
 	per_second: f64,
+	tracked: usize,
 	buckets: Mutex<HashMap<IpAddr, Bucket>>,
 }
 
@@ -146,13 +147,14 @@ struct Bucket {
 impl RateLimit {
 	/// The limiter for `POST /v1/events`.
 	pub fn events() -> Self {
-		Self::new(EVENTS_BURST, EVENTS_PER_SECOND)
+		Self::new(EVENTS_BURST, EVENTS_PER_SECOND, MAX_TRACKED_ADDRESSES)
 	}
 
-	fn new(burst: f64, per_second: f64) -> Self {
+	fn new(burst: f64, per_second: f64, tracked: usize) -> Self {
 		Self {
 			burst,
 			per_second,
+			tracked,
 			buckets: Mutex::default(),
 		}
 	}
@@ -169,13 +171,15 @@ impl RateLimit {
 			.lock()
 			.unwrap_or_else(std::sync::PoisonError::into_inner);
 
-		if buckets.len() >= MAX_TRACKED_ADDRESSES && !buckets.contains_key(&address) {
-			// A full bucket carries nothing: dropping it costs no one
-			// anything. If every bucket is in use, the limiter is full and
-			// answers as a spent one does.
-			buckets.retain(|_, bucket| bucket.tokens < self.burst);
+		if buckets.len() >= self.tracked && !buckets.contains_key(&address) {
+			// A bucket that has refilled to its burst carries nothing:
+			// dropping it costs no one anything. A bucket still short of it
+			// is in use and stays. If every bucket is in use, the limiter is
+			// full and answers as a spent one does, rather than growing
+			// without bound.
+			buckets.retain(|_, bucket| self.tokens_at(bucket, now) < self.burst);
 
-			if buckets.len() >= MAX_TRACKED_ADDRESSES {
+			if buckets.len() >= self.tracked {
 				tracing::warn!("the analytics rate limiter tracks too many addresses");
 				return false;
 			}
@@ -185,8 +189,7 @@ impl RateLimit {
 			tokens: self.burst,
 			refilled: now,
 		});
-		let elapsed = now.saturating_duration_since(bucket.refilled).as_secs_f64();
-		bucket.tokens = (bucket.tokens + elapsed * self.per_second).min(self.burst);
+		bucket.tokens = self.tokens_at(bucket, now);
 		bucket.refilled = now;
 
 		if bucket.tokens < 1.0 {
@@ -196,37 +199,82 @@ impl RateLimit {
 		bucket.tokens -= 1.0;
 		true
 	}
+
+	/// `bucket`'s tokens at `now`, capped at the burst it started with.
+	fn tokens_at(&self, bucket: &Bucket, now: Instant) -> f64 {
+		let elapsed = now.saturating_duration_since(bucket.refilled).as_secs_f64();
+		(bucket.tokens + elapsed * self.per_second).min(self.burst)
+	}
 }
 
 /// The address a request came from.
 ///
 /// A reverse proxy appends the address it saw to `X-Forwarded-For`, so the
-/// last entry is the one a caller cannot claim for itself; without a proxy,
-/// the connection's address is used. Neither names a person: the rate
-/// limiter is all that reads it, and it keeps nothing else.
+/// last entry of its last header is the one a caller cannot claim for
+/// itself. Only a proxy the server can see directly is believed: a
+/// loopback, private, or link-local peer. A public caller that reaches the
+/// server itself cannot spoof the header to escape the rate limit. Neither
+/// address names a person: the limiter is all that reads it.
 struct ClientAddress(IpAddr);
 
 impl<S: Send + Sync> FromRequestParts<S> for ClientAddress {
 	type Rejection = Infallible;
 
 	async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-		let forwarded = parts
-			.headers
-			.get("x-forwarded-for")
-			.and_then(|value| value.to_str().ok())
-			.and_then(|value| value.rsplit(',').next())
-			.and_then(|value| value.trim().parse::<IpAddr>().ok());
 		let peer = parts
 			.extensions
 			.get::<ConnectInfo<SocketAddr>>()
 			.map(|ConnectInfo(address)| address.ip());
-		// Without either, every caller shares one bucket, as in router tests.
+		// Without a peer address, as in router tests, there is no way to tell
+		// a proxy from a caller, so the forwarded address stands in.
+		let forwarded = peer
+			.is_none_or(is_trusted_proxy)
+			.then(|| forwarded_for(&parts.headers))
+			.flatten();
+		// With neither, every caller shares one bucket.
 		let address = forwarded
 			.or(peer)
 			.unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
 
 		Ok(Self(address))
 	}
+}
+
+/// The address the nearest proxy appended to `X-Forwarded-For`: the last
+/// entry of the last header. A proxy appends what it saw, so an earlier
+/// header, or an earlier entry, is only the caller's own claim.
+fn forwarded_for(headers: &HeaderMap) -> Option<IpAddr> {
+	headers
+		.get_all("x-forwarded-for")
+		.iter()
+		.rev()
+		.filter_map(|value| value.to_str().ok())
+		.find_map(|value| value.rsplit(',').next()?.trim().parse().ok())
+}
+
+/// Whether `address` is one a local proxy has: loopback, a private network,
+/// or a link-local address. Only these may vouch for `X-Forwarded-For`.
+fn is_trusted_proxy(address: IpAddr) -> bool {
+	match address {
+		IpAddr::V4(address) => is_local(address),
+		IpAddr::V6(address) => {
+			address.is_loopback()
+				|| address.is_unique_local()
+				|| address.is_unicast_link_local()
+				|| address.is_unspecified()
+				// A dual-stack listener reports an IPv4 proxy this way.
+				|| address.to_ipv4_mapped().is_some_and(is_local)
+		}
+	}
+}
+
+/// Whether `address` is a loopback, private, link-local, or unspecified
+/// IPv4 address.
+fn is_local(address: Ipv4Addr) -> bool {
+	address.is_loopback()
+		|| address.is_private()
+		|| address.is_link_local()
+		|| address.is_unspecified()
 }
 
 /// Compress responses for clients that accept Brotli or gzip.

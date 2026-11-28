@@ -507,11 +507,12 @@ async fn customer_terms(
 	let stored = store
 		.set_stripe_customer_if_absent(project, &customer)
 		.await?;
+	// Read the terms again: a webhook may have attached a subscription while
+	// the customer was being made, and the code should reach it.
+	let mut terms = store.terms(project).await?;
+	terms.stripe_customer = stored.or(terms.stripe_customer);
 
-	Ok(Terms {
-		stripe_customer: stored,
-		..terms
-	})
+	Ok(terms)
 }
 
 fn coupon_form(request: &NewCoupon, admin: &Admin) -> Vec<(String, String)> {

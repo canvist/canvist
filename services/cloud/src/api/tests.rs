@@ -222,7 +222,7 @@ async fn conversions_are_compressed_for_clients_that_accept_it() {
 
 #[test]
 fn event_buckets_refill_per_address() {
-	let limit = RateLimit::new(2.0, 1.0);
+	let limit = RateLimit::new(2.0, 1.0, 10);
 	let address = IpAddr::from([203, 0, 113, 7]);
 	let other = IpAddr::from([198, 51, 100, 9]);
 	let start = Instant::now();
@@ -240,36 +240,104 @@ fn event_buckets_refill_per_address() {
 	assert!(limit.take_at(address, start + Duration::from_secs(1)));
 }
 
-#[tokio::test]
-async fn client_addresses_come_from_the_last_forwarded_entry() {
-	async fn client_address(headers: &[(&str, &str)], peer: Option<SocketAddr>) -> IpAddr {
-		let request = headers
-			.iter()
-			.fold(Request::get("/v1/events"), |request, (name, value)| {
-				request.header(*name, *value)
-			});
-		let (mut parts, ()) = request.body(()).expect("request").into_parts();
-		if let Some(peer) = peer {
-			parts.extensions.insert(ConnectInfo(peer));
-		}
+#[test]
+fn refilled_buckets_are_evicted_when_the_limiter_is_full() {
+	let limit = RateLimit::new(1.0, 1.0, 2);
+	let start = Instant::now();
+	let first = IpAddr::from([203, 0, 113, 1]);
+	let second = IpAddr::from([203, 0, 113, 2]);
+	let third = IpAddr::from([203, 0, 113, 3]);
 
-		ClientAddress::from_request_parts(&mut parts, &())
-			.await
-			.expect("an address")
-			.0
+	assert!(limit.take_at(first, start));
+	assert!(limit.take_at(second, start));
+	assert!(!limit.take_at(third, start), "both buckets are spent");
+
+	// Neither bucket has refilled: both are in use, so neither is evicted.
+	assert!(!limit.take_at(third, start + Duration::from_millis(500)));
+	assert_eq!(limit.buckets.lock().expect("buckets").len(), 2);
+
+	// Both have refilled to full, so they carry nothing: they make room.
+	let later = start + Duration::from_secs(1);
+	assert!(limit.take_at(third, later));
+	assert_eq!(limit.buckets.lock().expect("buckets").len(), 1);
+	// An evicted address starts over with a full bucket instead of a 429.
+	assert!(limit.take_at(first, later));
+	assert_eq!(limit.buckets.lock().expect("buckets").len(), 2);
+}
+
+async fn client_address(headers: &[(&str, &str)], peer: Option<SocketAddr>) -> IpAddr {
+	let request = headers
+		.iter()
+		.fold(Request::get("/v1/events"), |request, (name, value)| {
+			request.header(*name, *value)
+		});
+	let (mut parts, ()) = request.body(()).expect("request").into_parts();
+	if let Some(peer) = peer {
+		parts.extensions.insert(ConnectInfo(peer));
 	}
 
-	let peer = SocketAddr::from(([127, 0, 0, 1], 8080));
-	assert_eq!(client_address(&[], Some(peer)).await, peer.ip());
+	ClientAddress::from_request_parts(&mut parts, &())
+		.await
+		.expect("an address")
+		.0
+}
+
+#[tokio::test]
+async fn the_last_forwarded_entry_wins_only_behind_a_local_proxy() {
+	let forwarded = [("x-forwarded-for", "10.0.0.1, 203.0.113.7")];
+	let proxy = SocketAddr::from(([10, 1, 2, 3], 8080));
+	let loopback = SocketAddr::from(([127, 0, 0, 1], 8080));
+	let public = SocketAddr::from(([203, 0, 113, 20], 8080));
+
+	assert_eq!(
+		client_address(&forwarded, Some(proxy)).await,
+		IpAddr::from([203, 0, 113, 7]),
+		"a private proxy names the client"
+	);
+	assert_eq!(
+		client_address(&forwarded, Some(loopback)).await,
+		IpAddr::from([203, 0, 113, 7]),
+		"so does a loopback one"
+	);
+	assert_eq!(
+		client_address(&forwarded, Some(public)).await,
+		public.ip(),
+		"a public peer cannot spoof the header"
+	);
+	assert_eq!(
+		client_address(&[], Some(public)).await,
+		public.ip(),
+		"without a header the peer stands for the client"
+	);
 	assert_eq!(
 		client_address(&[], None).await,
 		IpAddr::V4(Ipv4Addr::UNSPECIFIED),
 		"a request with neither shares one bucket"
 	);
+}
+
+#[tokio::test]
+async fn the_last_forwarded_header_is_the_proxys() {
+	let proxy = SocketAddr::from(([127, 0, 0, 1], 8080));
+
+	// A caller's own header line, then the one the proxy appended.
 	assert_eq!(
-		client_address(&[("x-forwarded-for", "10.0.0.1, 203.0.113.7")], Some(peer)).await,
+		client_address(
+			&[
+				("x-forwarded-for", "1.1.1.1"),
+				("x-forwarded-for", "10.0.0.1, 203.0.113.7"),
+			],
+			Some(proxy),
+		)
+		.await,
 		IpAddr::from([203, 0, 113, 7]),
-		"the proxy's entry is the last one, and cannot be claimed"
+	);
+
+	// A dual-stack listener reports its IPv4 proxy as an IPv4-mapped address.
+	let mapped = SocketAddr::new("::ffff:127.0.0.1".parse().expect("address"), 8080);
+	assert_eq!(
+		client_address(&[("x-forwarded-for", "203.0.113.8")], Some(mapped)).await,
+		IpAddr::from([203, 0, 113, 8])
 	);
 }
 

@@ -40,7 +40,16 @@ async function call(
 	}
 	const response = await fetch(path, init);
 	const text = await response.text();
-	const parsed: unknown = text ? JSON.parse(text) : null;
+	let parsed: unknown = null;
+	if (text) {
+		try {
+			parsed = JSON.parse(text);
+		} catch {
+			// A gateway's 502 or 504 has an HTML body: the status is the news,
+			// and the caller turns it into an `ApiError`.
+			parsed = null;
+		}
+	}
 
 	if (!response.ok) {
 		const error = isRecord(parsed) && isRecord(parsed["error"])

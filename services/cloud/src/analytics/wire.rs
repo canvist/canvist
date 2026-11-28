@@ -90,10 +90,12 @@ fn parse_event(raw: &Json, agent: &Agent, skew: i64, received_at: i64) -> Option
 	})
 }
 
-/// Trimmed text of 1 to `max` characters.
+/// Trimmed text of 1 to `max` characters. NUL is refused: Postgres cannot
+/// store it in `text`, and one such event would fail a whole batch.
 fn text(value: Option<&Json>, max: usize) -> Option<String> {
 	let text = value?.as_str()?.trim();
-	(!text.is_empty() && text.chars().count() <= max).then(|| text.to_owned())
+	(!text.is_empty() && text.chars().count() <= max && !text.contains('\0'))
+		.then(|| text.to_owned())
 }
 
 /// An id the sender made: letters, digits, `-` and `_`.
@@ -122,8 +124,9 @@ fn source(value: &Json) -> Option<String> {
 		.then(|| source.to_owned())
 }
 
-/// Flat properties: strings (cut to [`MAX_VALUE`] characters), finite
-/// numbers, and booleans, at most [`MAX_PROPERTIES`] of them.
+/// Flat properties: strings (cut to [`MAX_VALUE`] characters, without NUL,
+/// which Postgres cannot store in `jsonb`), finite numbers, and booleans, at
+/// most [`MAX_PROPERTIES`] of them.
 fn properties(value: &Json) -> Map<String, Json> {
 	let Some(object) = value.as_object() else {
 		return Map::new();
@@ -134,7 +137,14 @@ fn properties(value: &Json) -> Map<String, Json> {
 		.filter(|(key, _)| !key.is_empty() && key.chars().count() <= MAX_KEY)
 		.filter_map(|(key, value)| {
 			let value = match value {
-				Json::String(text) => Json::String(text.chars().take(MAX_VALUE).collect()),
+				Json::String(text) => {
+					Json::String(
+						text.chars()
+							.filter(|character| *character != '\0')
+							.take(MAX_VALUE)
+							.collect(),
+					)
+				}
 				Json::Number(number) if number.as_f64().is_some_and(f64::is_finite) => {
 					value.clone()
 				}
@@ -218,6 +228,25 @@ mod tests {
 
 		assert_eq!(batch.events.len(), 1);
 		assert_eq!(batch.dropped, 6);
+	}
+
+	#[test]
+	fn nul_bytes_cannot_reach_the_database() {
+		let batch = parse(&json!({ "events": [
+			event(&json!({ "uuid": "e\0vil" })),
+			event(&json!({ "name": "check\0out" })),
+			event(&json!({ "path": "/a\0b" })),
+			event(&json!({ "source": "news\0.example" })),
+			event(&json!({ "properties": { "plan": "bu\0ilder", "seats": 3 } })),
+		] }));
+
+		// A required field with NUL drops its event; an optional source is
+		// dropped alone, and a property is stored without the NUL.
+		assert_eq!(batch.events.len(), 2);
+		assert_eq!(batch.dropped, 3);
+		assert_eq!(batch.events[0].source, None);
+		assert_eq!(batch.events[1].properties["plan"], json!("builder"));
+		assert_eq!(batch.events[1].properties["seats"], json!(3));
 	}
 
 	#[test]

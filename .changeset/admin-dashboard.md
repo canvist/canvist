@@ -1,5 +1,5 @@
 ---
-canvist_cloud: feat
+"rust:canvist_cloud": feat
 website: feat
 ---
 

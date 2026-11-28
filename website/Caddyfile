@@ -1,6 +1,14 @@
 {
 	admin off
 	auto_https off
+	servers {
+		# On Railway the connection arrives from the edge proxy on a private
+		# network. Trusting private ranges lets Caddy find the visitor's
+		# address in the proxy's X-Forwarded-For; strict parsing walks from
+		# the right, so a visitor's own header cannot name someone else.
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+	}
 }
 
 :{$PORT:8080} {
@@ -25,7 +33,10 @@
 	# sync service's private address. Nothing here is ever cached.
 	@cloud path /v1/events /v1/admin /v1/admin/*
 	header @cloud Cache-Control "no-store"
-	reverse_proxy @cloud {$CANVIST_CLOUD_URL:localhost:8080}
+	reverse_proxy @cloud {$CANVIST_CLOUD_URL:localhost:8080} {
+		# Hand the visitor, not the edge proxy, to canvist Cloud's limiter.
+		header_up X-Forwarded-For {client_ip}
+	}
 
 	# Hashed build output never changes; everything else revalidates.
 	@hashed path /_astro/*
